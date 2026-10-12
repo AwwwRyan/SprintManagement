@@ -1,0 +1,119 @@
+import type { Priority, Role, Severity, SprintStatus, TaskStatus, TaskType } from "@/types";
+
+export const ROLE_LABELS: Record<Role, string> = {
+  admin: "Admin",
+  qa: "QA",
+  developer: "Developer",
+};
+
+export const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  requirement: "Requirement",
+  bug: "Bug",
+  enhancement: "Enhancement",
+  task: "Task",
+};
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  ready_for_qa: "Ready for QA",
+  qa_testing: "QA Testing",
+  done: "Done",
+  reopened: "Reopened",
+  blocked: "Blocked",
+};
+
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  critical: "Critical",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+export const SEVERITY_LABELS: Record<Severity, string> = {
+  blocker: "Blocker",
+  major: "Major",
+  minor: "Minor",
+  trivial: "Trivial",
+};
+
+export const SPRINT_STATUS_LABELS: Record<SprintStatus, string> = {
+  planned: "Planned",
+  active: "Active",
+  closed: "Closed",
+};
+
+/** Tailwind classes for colored badges. Kept in one place so light/dark stay consistent. */
+export const TASK_TYPE_COLORS: Record<TaskType, string> = {
+  requirement: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
+  bug: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  enhancement: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
+  task: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+};
+
+export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
+  todo: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
+  ready_for_qa: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  qa_testing: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
+  done: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  reopened: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
+  blocked: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+};
+
+export const PRIORITY_COLORS: Record<Priority, string> = {
+  critical: "bg-red-600 text-white dark:bg-red-700",
+  high: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
+  medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
+  low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+};
+
+export const SEVERITY_COLORS: Record<Severity, string> = {
+  blocker: "bg-red-600 text-white dark:bg-red-700",
+  major: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
+  minor: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
+  trivial: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+};
+
+export const SPRINT_STATUS_COLORS: Record<SprintStatus, string> = {
+  planned: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  active: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  closed: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+};
+
+/**
+ * Chart colors (validated with the dataviz palette validator against light + dark surfaces).
+ * Task type uses the categorical slots in fixed order; single-series bar charts use one hue.
+ * Hex, not CSS variables: SVG presentation attributes don't resolve var().
+ */
+export const TYPE_CHART_COLORS: Record<"light" | "dark", Record<TaskType, string>> = {
+  light: { requirement: "#2a78d6", bug: "#eb6834", enhancement: "#1baf7a", task: "#eda100" },
+  dark: { requirement: "#3987e5", bug: "#d95926", enhancement: "#199e70", task: "#c98500" },
+};
+export const BAR_CHART_COLOR: Record<"light" | "dark", string> = { light: "#2a78d6", dark: "#3987e5" };
+
+/* Attachments (stored in Firestore, see lib/attachment-codec.ts) */
+/** Max size of a picked file, before compression. */
+export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const ATTACHMENT_MAX_PER_TASK = 10;
+export const ATTACHMENT_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
+/** Compression target (MB) and max dimension for stored images. */
+export const ATTACHMENT_TARGET_MB = 0.4;
+export const ATTACHMENT_MAX_DIMENSION = 1920;
+/** base64 characters per chunk doc (stays well under Firestore's 1 MiB doc limit). */
+export const ATTACHMENT_CHUNK_CHARS = 900_000;
+export const ATTACHMENT_MAX_CHUNKS = 4;
+/** Max stored (post-compression) bytes per attachment; mainly limits GIFs, which aren't recompressed. */
+export const ATTACHMENT_MAX_STORED_BYTES = 2.5 * 1024 * 1024;
+/** Thumbnail kept on the metadata doc so grids don't load full images. */
+export const ATTACHMENT_THUMB_PX = 320;
+
+/* Presence */
+export const PRESENCE_HEARTBEAT_MS = 30_000;
+export const PRESENCE_STALE_MS = 60_000;
+
+/* Writes */
+export const BATCH_CHUNK_SIZE = 450;
+export const DESCRIPTION_AUTOSAVE_MS = 800;
+
+export const TASK_KEY_PREFIX = "TSK-";
