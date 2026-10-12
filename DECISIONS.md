@@ -34,6 +34,22 @@ The owner asked that **all users can edit any task** and add their own remarks. 
 ## Invites instead of admin-chosen passwords
 Admin → Users → Add user defaults to **"Email them a link to set their own password"**. The account gets a random password, and Firebase sends its *Password reset* email (`identitytoolkit accounts:sendOobCode`). Admins can resend it from the row menu. Bulk version: `scripts/invite-users.ts team.json [--apply]`. Choosing a password manually is still possible.
 
+## Excel import (2026-10-12)
+`scripts/import-xlsx.ts` imported the team's "Medicpassport Bug list Aug 2026.xlsx" (8 sheets, 256 rows with a description, including filter-hidden rows; 49 ID-only rows skipped) into one active sprint, **"Sprint 1 (imported from Excel)"**, as TSK-1 to TSK-256. The owner chose one sprint; unfinished tasks carry forward when it closes.
+- App: from the sheet (Dr App → DOCTOR, Patient App → USER, …), from the per-row App column, or from a per-row override for Back log and plain "Backend" rows (listed in the script's `MAPPING.rowApp`).
+- Status: open/pending/blank → To Do · testing → QA Testing · hold → Blocked · completed → Done · cancelled → **Done** with a comment (the app has no Cancelled status). Priority 1/2/3 → High/Medium/Low. **"Production issues" → Bug + Critical.** Type: Bug; Enhancement/UI/Change → Enhancement; New/Request/Requirement → Requirement.
+- Owner: the first matching team member is the assignee. Multiple owners, unknown people and "QA" are kept in a comment. Remarks, hold/cancelled notes and the original owner text go into one "From the Excel sheet" comment. Backend/Android/iOS release status → Environment. Each description ends with its source sheet, ID and row.
+- Reporter and comment author: the importing admin (Aryan). Admin-SDK writes were verified against the same constraints as `validTask` in the rules.
+- The script refuses to import into an existing sprint of the same name, so it can't run twice by accident.
+
+## Dashboard progress + date-range export
+- The progress card (`sprintProgress` in lib/metrics.ts) groups statuses into Done / In QA / In progress / To do (incl. reopened) / Blocked. Pace = completion % minus sprint-time %: ±10 counts as "on track". No extra reads: it uses the dashboard's live task list.
+- Export (Admin only): presets This week (Mon–today) / Last week / This month / Last month / Custom, plus an App Type filter. It covers **all sprints**. "Completed in range" = a status change to Done in the activity log during the range (collection-group query on `activity`: index `field + createdAt`, read rule `/{path=**}/activity`). Imported tasks were created as Done, have no such change, and never count as completed. The file is built client-side with exceljs, which is dynamically imported, so it doesn't weigh down page loads. Cost: one read per task plus one per status change in the range.
+- Scheduled automatic emails would need Cloud Functions (Blaze), so exports are on demand.
+
+## App Type codes
+Codes may be up to 20 characters with single hyphens (e.g. SERVICE-PROVIDER), enforced by zod and the rules. Badges use the App Type color as a solid fill, with black or white text picked by WCAG contrast (`readableTextColor`).
+
 ## Auth & users
 - Route protection is client-side (Firebase Auth state only exists in the browser). `(app)/layout.tsx` redirects to `/login?next=…`, and the server-side guard is the security rules plus Admin-API token checks.
 - A user may always read **their own** `users/{uid}` doc, even when deactivated, so an open session can see the deactivation and sign itself out. All other reads require `active == true`.

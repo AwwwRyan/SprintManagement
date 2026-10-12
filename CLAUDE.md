@@ -58,7 +58,7 @@ Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Ty
 - Unit: 59 tests in 7 files, all passing.
 - Rules: 60 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 15 Playwright flows, all passing (see the README for the list).
+- E2E: 18 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas
@@ -67,6 +67,8 @@ Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Ty
 - Geist font variables must sit on `<html>`, since `html { font-family: var(--font-geist-sans) }` is resolved there.
 - Recharts `<Cell>` ignores `style`; pass real colors via `fill`.
 - Next 15: client pages using `useSearchParams` are wrapped in `<Suspense>`.
+- Task ID column is **hidden by default** (`DEFAULT_HIDDEN` in task-grid.tsx; users can show it via Columns). Rows carry `data-task-key`, so tests locate rows by it, not by visible text.
+- E2E `tests/e2e/global-setup.ts` warms every Admin API route first: in `next dev` each route boots its own Admin SDK on first call (up to ~60s on a busy machine).
 - Never run `npm run build` while `npm run dev` is running: both use `.next`, and the dev server breaks (ENOENT `_document.js`). Fix: stop dev, `rm -rf .next`, restart.
 - Firestore rules `get()` limit: don't add per-entry task lookups to the activity rule (carry-forward batches have 225 entries).
 - Don't reintroduce Firebase Storage (needs Blaze). Mind the Spark quotas: 1 GiB stored, 50k reads/day, 20k writes/day.
@@ -80,9 +82,14 @@ All 12 build phases from the spec are implemented and verified locally against t
 - [x] Indexes deployed by the owner (`firebase deploy --only firestore:indexes --project prod`) and READY. The Admin SDK key gets 403 creating indexes, so that step needs the owner's own login.
 - [x] Owner's Admin account created (Aryan).
 - [x] Smoke test on the real project passed (`npm run test:smoke`, 4/4), with cleanup verified: only the owner's admin remains, and the counter is reset (2026-10-12).
-- [x] Real project data: App Types SADM Super Admin, DOC Doctor App, USER User App, SP Service Provider App (2026-10-12). Modules not added yet.
+- [x] Real project data: App Types DOCTOR, USER, SERVICE-PROVIDER, SUPER-ADMIN, QR-PORTAL (codes renamed 2026-10-12; badges are solid). Modules added: DOCTOR Profile/Appointment/Availability/Center/Assistant · USER Profile/Appointment/Pharmacy/Lab/Wellness/Center · SERVICE-PROVIDER Center/Carespot/Lab/Pharmacy/Profile · SUPER-ADMIN Center/Carespot/User/Doctor/Partner · QR-PORTAL Profile/Lab/Pharmacy. Imported tasks have no module yet.
+- [x] Dashboard: detailed progress card + Admin "Export report" (date range → .xlsx). Collection-group index `activity(field, createdAt)` deployed and READY (2026-10-12).
+- [x] Excel bug list imported: 256 tasks TSK-1…256 in the active sprint "Sprint 1 (imported from Excel)" (see DECISIONS.md "Excel import"). Source file in git-ignored `import/`. Don't re-run the import.
+- [x] Extra accounts (no invites): Mishal (developer), Nikita (QA, QA Engineer), Ashis (developer, no designation).
 - [x] Team accounts created WITHOUT emails (2026-10-12): Sudharsan (CTO) and Sreevani (Senior QA) are **admins** with Aryan; Prithika and Hariharan are QA; Sameeh and Nagma are developers (emails in git-ignored `team.json`). Nobody but Aryan can sign in yet.
 - [ ] **Send invites only when the owner says the app is ready**: `npx tsx scripts/invite-users.ts team.json --send-invites`, or per user via Admin → Users → Send set-password email. Don't send them without being asked. 
 - Rules hardened: a stale `meta/activeSprint` pointer to a deleted sprint no longer blocks starting sprints (rules test added, 58 total).
+- [ ] Later, when Firestore storage nears ~700 MB (Spark cap is 1 GB TOTAL): build an Admin-only "Remove screenshots from finished tasks" action for closed sprints. Closed sprints are read-only, so it needs an Admin API route. Estimate: ~0.5 GB/year.
+- [ ] Watch Firestore reads (50k/day on Spark): each sprint/dashboard/my-tasks load reads every task in the active sprint (~256 now). Fixes: close Sprint 1 (moves done tasks out), or share one live task listener across pages.
 - [ ] Owner: commit/push, deploy to Vercel, and add the Vercel domain to Firebase Auth authorized domains. Optionally run `SMOKE_BASE_URL=https://… npm run test:smoke` afterwards.
 - [ ] After the Vercel deploy: add the domain to Firebase Auth authorized domains.
