@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "demo-sprint-manager",
+    "prod": "sprint-task-manager-87a7e"
+  }
+}
