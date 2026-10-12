@@ -1,0 +1,81 @@
+import { describe, expect, it } from "vitest";
+import {
+  appTypeSchema,
+  changePasswordSchema,
+  createUserSchema,
+  sprintSchema,
+  taskFormSchema,
+  updateUserSchema,
+} from "@/lib/validation";
+
+describe("API body schemas", () => {
+  it("createUser: normalizes email; invites by default so no password is needed", () => {
+    const ok = createUserSchema.parse({ name: " Asha ", email: " ASHA@Example.com ", role: "qa" });
+    expect(ok).toMatchObject({ name: "Asha", email: "asha@example.com", designation: "", invite: true });
+    expect(createUserSchema.safeParse({ name: "A", email: "a@b.co", role: "owner" }).success).toBe(false);
+  });
+
+  it("createUser: without an invite, a password of 8+ characters is required", () => {
+    const base = { name: "A", email: "a@b.co", role: "qa" as const, invite: false };
+    expect(createUserSchema.safeParse(base).success).toBe(false);
+    expect(createUserSchema.safeParse({ ...base, password: "short" }).success).toBe(false);
+    expect(createUserSchema.safeParse({ ...base, password: "secret123" }).success).toBe(true);
+  });
+
+  it("updateUser: rejects empty bodies", () => {
+    expect(updateUserSchema.safeParse({}).success).toBe(false);
+    expect(updateUserSchema.safeParse({ active: false }).success).toBe(true);
+  });
+});
+
+describe("form schemas", () => {
+  it("app type: uppercases the code and validates the color", () => {
+    expect(appTypeSchema.parse({ name: "Portal", code: "pt", color: "#aabbcc", active: true }).code).toBe("PT");
+    expect(appTypeSchema.safeParse({ name: "Portal", code: "P T", color: "#aabbcc", active: true }).success).toBe(false);
+    expect(appTypeSchema.safeParse({ name: "Portal", code: "PT", color: "red", active: true }).success).toBe(false);
+  });
+
+  it("sprint: end date must not precede start date", () => {
+    expect(sprintSchema.safeParse({ name: "S", goal: "", startDate: "2026-01-10", endDate: "2026-01-01" }).success).toBe(false);
+    expect(sprintSchema.safeParse({ name: "S", goal: "", startDate: "2026-01-01", endDate: "2026-01-01" }).success).toBe(true);
+  });
+
+  const validTask = {
+    title: "Fix login",
+    appTypeId: "app1",
+    type: "task" as const,
+    moduleId: null,
+    assigneeId: null,
+    priority: "medium" as const,
+    severity: "major" as const,
+    status: "todo" as const,
+    estimatedHours: 1.5,
+    actualHours: null,
+    dueDate: null,
+    environment: "",
+    stepsToReproduce: "",
+    expectedResult: "",
+    actualResult: "",
+  };
+
+  it("task: drops severity for non-bugs and keeps it for bugs", () => {
+    expect(taskFormSchema.parse(validTask).severity).toBeNull();
+    expect(taskFormSchema.parse({ ...validTask, type: "bug" }).severity).toBe("major");
+  });
+
+  it("task: hours use 0.5 steps and can't be negative", () => {
+    expect(taskFormSchema.safeParse({ ...validTask, estimatedHours: 1.25 }).success).toBe(false);
+    expect(taskFormSchema.safeParse({ ...validTask, estimatedHours: -1 }).success).toBe(false);
+    expect(taskFormSchema.safeParse({ ...validTask, estimatedHours: 0.5 }).success).toBe(true);
+  });
+
+  it("task: title and app type are required", () => {
+    expect(taskFormSchema.safeParse({ ...validTask, title: "  " }).success).toBe(false);
+    expect(taskFormSchema.safeParse({ ...validTask, appTypeId: "" }).success).toBe(false);
+  });
+
+  it("change password: confirmation must match", () => {
+    const r = changePasswordSchema.safeParse({ currentPassword: "x", newPassword: "longenough", confirmPassword: "nope" });
+    expect(r.success).toBe(false);
+  });
+});
