@@ -58,3 +58,6 @@ playwright-report/
 .smoke-creds.json
 .next-e2e/
 team.json
+
+# local data imports (never commit)
+import/
