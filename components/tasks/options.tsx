@@ -55,7 +55,7 @@ export function appTypeOptions(appTypes: AppType[], currentId?: string | null): 
       value: a.id,
       label: a.name,
       node: (
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-2.5 whitespace-nowrap">
           <AppTypeBadge appType={a} />
           <span>{a.name}</span>
         </span>

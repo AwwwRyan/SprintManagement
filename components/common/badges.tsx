@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn, readableTextColor } from "@/lib/utils";
 import {
   PRIORITY_COLORS,
   PRIORITY_LABELS,
@@ -35,13 +35,13 @@ export function SprintStatusBadge({ status }: { status: SprintStatus }) {
   return <span className={cn(base, SPRINT_STATUS_COLORS[status])}>{SPRINT_STATUS_LABELS[status]}</span>;
 }
 
-/** App Type badge colored with the admin-chosen color (tinted background, colored text/border). */
+/** App Type badge: solid admin-chosen color, with black or white text, whichever reads better. */
 export function AppTypeBadge({ appType, className }: { appType: AppType | undefined; className?: string }) {
   if (!appType) return <span className={cn(base, "bg-muted text-muted-foreground", className)}>Unknown</span>;
   return (
     <span
-      className={cn(base, "border", className)}
-      style={{ color: appType.color, borderColor: `${appType.color}55`, backgroundColor: `${appType.color}1a` }}
+      className={cn(base, "font-semibold", className)}
+      style={{ backgroundColor: appType.color, color: readableTextColor(appType.color) }}
       title={appType.name}
     >
       {appType.code}

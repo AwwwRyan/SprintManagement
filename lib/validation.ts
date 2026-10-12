@@ -65,8 +65,8 @@ export const appTypeSchema = z.object({
     .string()
     .trim()
     .min(1, "Code is required")
-    .max(8)
-    .regex(/^[A-Za-z0-9]+$/, "Letters and digits only")
+    .max(20, "At most 20 characters")
+    .regex(/^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/, "Letters, digits and single hyphens, e.g. SERVICE-PROVIDER")
     .transform((s) => s.toUpperCase()),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a hex color like #3b82f6"),
   active: z.boolean(),

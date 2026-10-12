@@ -71,7 +71,7 @@ function MultiFilter({
           <ChevronDown className="opacity-50" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-80 min-w-48 overflow-y-auto">
+      <DropdownMenuContent align="start" className="max-h-80 w-max min-w-48 max-w-[calc(100vw-2rem)] overflow-y-auto">
         {options.length === 0 && <div className="px-2 py-1.5 text-sm text-muted-foreground">No options</div>}
         {options.map((o) => (
           <DropdownMenuCheckboxItem

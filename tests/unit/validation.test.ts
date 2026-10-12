@@ -32,6 +32,9 @@ describe("form schemas", () => {
   it("app type: uppercases the code and validates the color", () => {
     expect(appTypeSchema.parse({ name: "Portal", code: "pt", color: "#aabbcc", active: true }).code).toBe("PT");
     expect(appTypeSchema.safeParse({ name: "Portal", code: "P T", color: "#aabbcc", active: true }).success).toBe(false);
+    expect(appTypeSchema.parse({ name: "SP", code: "service-provider", color: "#aabbcc", active: true }).code).toBe("SERVICE-PROVIDER");
+    expect(appTypeSchema.safeParse({ name: "X", code: "-BAD", color: "#aabbcc", active: true }).success).toBe(false);
+    expect(appTypeSchema.safeParse({ name: "X", code: "A".repeat(21), color: "#aabbcc", active: true }).success).toBe(false);
     expect(appTypeSchema.safeParse({ name: "Portal", code: "PT", color: "red", active: true }).success).toBe(false);
   });
 

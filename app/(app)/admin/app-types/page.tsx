@@ -57,8 +57,8 @@ function AppTypeDialog({ open, onOpenChange, appType }: { open: boolean; onOpenC
             <Input id="at-name" autoFocus {...form.register("name")} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Short code" htmlFor="at-code" error={errors.code?.message} hint="Shown on badges, e.g. WEB">
-              <Input id="at-code" className="uppercase" maxLength={8} {...form.register("code")} />
+            <Field label="Short code" htmlFor="at-code" error={errors.code?.message} hint="Shown on badges, e.g. SERVICE-PROVIDER">
+              <Input id="at-code" className="uppercase" maxLength={20} {...form.register("code")} />
             </Field>
             <Field label="Color" htmlFor="at-color" error={errors.color?.message}>
               <div className="flex gap-2">

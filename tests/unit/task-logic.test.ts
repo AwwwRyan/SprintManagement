@@ -153,3 +153,14 @@ describe("utils", () => {
     expect(roundHalf(1.24)).toBe(1);
   });
 });
+
+describe("readableTextColor (solid App Type badges)", () => {
+  it("picks white on dark/saturated colors and dark text on light ones", async () => {
+    const { readableTextColor } = await import("@/lib/utils");
+    expect(readableTextColor("#2a78d6")).toBe("#ffffff"); // SADM blue
+    expect(readableTextColor("#eda100")).toBe("#111111"); // SP yellow
+    expect(readableTextColor("#ffffff")).toBe("#111111");
+    expect(readableTextColor("#000000")).toBe("#ffffff");
+    expect(readableTextColor("not-a-color")).toBe("#ffffff");
+  });
+});
