@@ -164,3 +164,18 @@ describe("readableTextColor (solid App Type badges)", () => {
     expect(readableTextColor("not-a-color")).toBe("#ffffff");
   });
 });
+
+describe("remarks", () => {
+  it("search matches text in remarks", () => {
+    const tasks = [
+      task({ id: "r1", title: "A", remarks: "waiting on backend deploy" }),
+      task({ id: "r2", title: "B", remarks: "" }),
+    ];
+    expect(applyFilters(tasks, { ...EMPTY_FILTERS, q: "backend deploy" }).map((t) => t.id)).toEqual(["r1"]);
+  });
+  it("remarks edits are logged with old and new values", () => {
+    const { changed, changes } = diffPatch(task({ remarks: "old note" }), { remarks: "new note" });
+    expect(changed).toEqual({ remarks: "new note" });
+    expect(changes).toEqual([{ field: "remarks", oldValue: "old note", newValue: "new note" }]);
+  });
+});

@@ -78,6 +78,7 @@ export async function createTask(input: NewTaskInput, actorId: string): Promise<
       reporterId: actorId,
       dueDate: input.dueDate ?? null,
       environment: input.environment ?? "",
+      remarks: input.remarks ?? "",
       stepsToReproduce: input.stepsToReproduce ?? "",
       expectedResult: input.expectedResult ?? "",
       actualResult: input.actualResult ?? "",

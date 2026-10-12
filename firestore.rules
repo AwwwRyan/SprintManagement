@@ -174,6 +174,7 @@ service cloud.firestore {
         && d.reporterId is string
         && (d.dueDate == null || isDateString(d.dueDate))
         && d.environment is string && d.environment.size() <= 120
+        && (!('remarks' in d) || (d.remarks is string && d.remarks.size() <= 2000))
         && d.stepsToReproduce is string && d.expectedResult is string && d.actualResult is string
         && d.attachmentCount is int && d.attachmentCount >= 0 && d.attachmentCount <= 10
         && d.carryOverCount is int && d.carryOverCount >= 0

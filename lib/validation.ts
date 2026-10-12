@@ -121,6 +121,7 @@ export const taskFormSchema = z
     stepsToReproduce: z.string().max(5000),
     expectedResult: z.string().max(5000),
     actualResult: z.string().max(5000),
+    remarks: z.string().max(2000).default(""),
   })
   .transform((v) => (v.type === "bug" ? v : { ...v, severity: null }));
 export type TaskFormInput = z.input<typeof taskFormSchema>;

@@ -74,6 +74,7 @@ export function NewTaskDialog({
       stepsToReproduce: "",
       expectedResult: "",
       actualResult: "",
+      remarks: "",
     };
   };
 
@@ -233,6 +234,9 @@ export function NewTaskDialog({
               </div>
             </div>
           )}
+          <Field label="Remarks" htmlFor="nt-remarks">
+            <Textarea id="nt-remarks" rows={2} maxLength={2000} {...register("remarks")} />
+          </Field>
           <p className="text-xs text-muted-foreground">
             Add the description and screenshots from the side panel after creating the task.
           </p>

@@ -91,7 +91,7 @@ export function hasActiveFilters(f: TaskFilters): boolean {
 type FilterableTask = Pick<
   Task,
   "appTypeId" | "type" | "moduleId" | "assigneeId" | "status" | "priority" | "title" | "descriptionText" | "taskKey"
->;
+> & { remarks?: string };
 
 export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilters): T[] {
   const q = f.q.trim().toLowerCase();
@@ -103,7 +103,7 @@ export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilter
     if (f.status.length && !f.status.includes(t.status)) return false;
     if (f.priority.length && !f.priority.includes(t.priority)) return false;
     if (q) {
-      const hay = `${t.taskKey} ${t.title} ${t.descriptionText}`.toLowerCase();
+      const hay = `${t.taskKey} ${t.title} ${t.descriptionText} ${t.remarks ?? ""}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;

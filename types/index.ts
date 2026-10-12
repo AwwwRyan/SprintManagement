@@ -120,6 +120,8 @@ export interface Task {
   reporterId: string;
   dueDate: DateString | null;
   environment: string;
+  /** Free-text remarks, editable by everyone (separate from the comment thread). */
+  remarks: string;
   stepsToReproduce: string;
   expectedResult: string;
   actualResult: string;
@@ -146,6 +148,7 @@ export type EditableTaskField =
   | "status"
   | "dueDate"
   | "environment"
+  | "remarks"
   | "stepsToReproduce"
   | "expectedResult"
   | "actualResult";

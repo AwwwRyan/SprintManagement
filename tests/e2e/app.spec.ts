@@ -23,7 +23,7 @@ async function newSession(browser: Browser, email: string) {
 // Rows carry data-task-key (the Task ID column is hidden by default).
 const row = (page: Page, key: string) => page.locator(`tr[data-task-key="${key}"]`);
 /** Column index in the default layout (Sr No, App Type, Type, Module, Title, Description, Assigned to, Priority, …). */
-const COL = { srNo: 0, priority: 7, status: 11 } as const;
+const COL = { srNo: 0, priority: 7, status: 11, remarks: 12 } as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -87,6 +87,22 @@ test("inline edit syncs to another user's tab in real time", async ({ browser })
   await qa.page.getByRole("tab", { name: "Activity" }).click();
   await expect(qa.page.getByText(/changed priority from .* to Critical/)).toBeVisible();
 
+  await qa.ctx.close();
+  await dev.ctx.close();
+});
+
+test("anyone can edit Remarks inline, and others see it live", async ({ browser }) => {
+  const dev = await newSession(browser, "dev2@example.com"); // TSK-9 is assigned to dev1, not dev2
+  const qa = await newSession(browser, "qa2@example.com");
+  const cell = (page: Page) => row(page, "TSK-9").locator("td").nth(COL.remarks);
+  await cell(dev.page).click();
+  const box = cell(dev.page).locator("textarea"); // the editor opens inside the cell
+  await box.fill("Reproduced on staging");
+  await box.press("Shift+Enter");
+  await box.pressSequentially("needs backend fix");
+  await box.press("Enter");
+  await expect(cell(dev.page)).toContainText("needs backend fix");
+  await expect(cell(qa.page)).toContainText("Reproduced on staging");
   await qa.ctx.close();
   await dev.ctx.close();
 });

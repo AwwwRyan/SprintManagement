@@ -32,7 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DateCellEditor, NumberCellEditor, SelectCellEditor, TextCellEditor } from "./cell-editors";
+import { DateCellEditor, NumberCellEditor, SelectCellEditor, TextareaCellEditor, TextCellEditor } from "./cell-editors";
 import {
   appTypeOptions,
   moduleOptions,
@@ -46,7 +46,7 @@ import {
 
 /* ------------------------------------------------------------------ column config */
 
-type EditorKind = "text" | "number" | "date" | "select";
+type EditorKind = "text" | "textarea" | "number" | "date" | "select";
 
 interface ColConfig {
   id: string;
@@ -271,6 +271,21 @@ export function TaskGrid({
         options: () => ({ options: statusOptions }),
         render: (t) => <StatusBadge status={t.status} />,
         sortValue: (t) => TASK_STATUSES.indexOf(t.status),
+      },
+      {
+        id: "remarks",
+        label: "Remarks",
+        width: 220,
+        field: "remarks",
+        editor: "textarea",
+        wrap: true,
+        render: (t) =>
+          t.remarks ? (
+            <span className="line-clamp-3 break-words whitespace-pre-line">{t.remarks}</span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          ),
+        sortValue: (t) => (t.remarks || "\uffff").toLowerCase(),
       },
       {
         id: "attachments",
@@ -504,6 +519,8 @@ export function TaskGrid({
     switch (cfg.editor) {
       case "text":
         return <TextCellEditor initial={String(current ?? "")} onCommit={commit} onCancel={cancel} required={cfg.required} />;
+      case "textarea":
+        return <TextareaCellEditor initial={String(current ?? "")} onCommit={commit} onCancel={cancel} />;
       case "number":
         return <NumberCellEditor initial={(current as number | null) ?? null} onCommit={commit} onCancel={cancel} />;
       case "date":

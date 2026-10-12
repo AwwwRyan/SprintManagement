@@ -46,6 +46,40 @@ export function TextCellEditor({ initial, onCommit, onCancel, required }: Editor
   );
 }
 
+/** Multi-line text: Enter saves, Shift+Enter adds a line, Escape cancels, blur saves. */
+export function TextareaCellEditor({ initial, onCommit, onCancel }: EditorProps<string>) {
+  const [value, setValue] = useState(initial);
+  const done = useRef(false);
+  const commit = () => {
+    if (done.current) return;
+    done.current = true;
+    onCommit(value);
+  };
+  return (
+    <textarea
+      autoFocus
+      rows={3}
+      maxLength={2000}
+      className={`${inputClass} resize-y`}
+      value={value}
+      onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === "Escape") {
+          done.current = true;
+          onCancel();
+        }
+      }}
+    />
+  );
+}
+
 export function NumberCellEditor({ initial, onCommit, onCancel }: EditorProps<number | null>) {
   const [value, setValue] = useState(initial === null ? "" : String(initial));
   const done = useRef(false);

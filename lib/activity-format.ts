@@ -21,6 +21,7 @@ export const FIELD_LABELS: Record<string, string> = {
   status: "status",
   dueDate: "due date",
   environment: "environment",
+  remarks: "remarks",
   stepsToReproduce: "steps to reproduce",
   expectedResult: "expected result",
   actualResult: "actual result",

@@ -243,6 +243,9 @@ export function TaskPanel({
               <Row label="Environment / Build">
                 <PropText label="Environment" value={task.environment} onSave={field("environment")} placeholder="e.g. Staging v2.3.1" disabled={!editable} />
               </Row>
+              <Row label="Remarks">
+                <PropTextarea label="Remarks" value={task.remarks} onSave={field("remarks")} placeholder="Add remarks…" disabled={!editable} />
+              </Row>
               <Row label="Reported by">
                 <div className="px-2.5 text-sm">
                   <UserChip user={userById.get(task.reporterId)} />

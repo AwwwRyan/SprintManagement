@@ -43,7 +43,7 @@ export function rangeBounds(from: string, to: string): { fromMs: number; toMs: n
 export type ReportTask = Pick<
   Task,
   "id" | "taskKey" | "title" | "appTypeId" | "type" | "priority" | "status" | "assigneeId" | "reporterId" | "sprintId" | "dueDate" | "estimatedHours" | "actualHours" | "descriptionText"
-> & { createdAtMs: number | null };
+> & { createdAtMs: number | null; remarks?: string };
 
 export interface StatusChange {
   taskId: string;
@@ -111,6 +111,7 @@ export function buildRangeReport(args: {
     Priority: PRIORITY_LABELS[t.priority as Priority],
     Assignee: lookups.userName(t.assigneeId),
     Sprint: lookups.sprintName(t.sprintId),
+    Remarks: t.remarks ?? "",
   });
 
   const people = new Set<string | null>([...tasks.map((t) => t.assigneeId)]);

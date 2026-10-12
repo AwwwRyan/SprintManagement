@@ -298,6 +298,11 @@ describe("task updates", () => {
   it("developers cannot carry tasks forward", async () => {
     await assertFails(edit("dev", "t-closed", { sprintId: "s-planned", carryOverCount: 1 }));
   });
+  it("anyone can write remarks (text up to 2000 chars); other types are rejected", async () => {
+    await assertSucceeds(edit("dev2", "t-dev", { remarks: "Checked on staging\nlooks fine" }));
+    await assertFails(edit("dev", "t-dev", { remarks: "x".repeat(2001) }));
+    await assertFails(edit("qa", "t-dev", { remarks: 42 }));
+  });
   it("attachmentCount can never exceed 10", async () => {
     await assertFails(edit("qa", "t-dev", { attachmentCount: 11 }));
   });
