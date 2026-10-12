@@ -69,6 +69,7 @@ Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Ty
 - Next 15: client pages using `useSearchParams` are wrapped in `<Suspense>`.
 - Task ID column is **hidden by default** (`DEFAULT_HIDDEN` in task-grid.tsx; users can show it via Columns). Rows carry `data-task-key`, so tests locate rows by it, not by visible text.
 - E2E `tests/e2e/global-setup.ts` warms every Admin API route first: in `next dev` each route boots its own Admin SDK on first call (up to ~60s on a busy machine).
+- **Vercel can't `require()` ES modules** (works locally on Node 22+). firebase-admin → jwks-rsa → jose v6 (ESM-only) crashed every Admin API route with ERR_REQUIRE_ESM. Fixed with `overrides.jwks-rsa.jose = ^5.10.0` in package.json. Reproduce locally with `NODE_OPTIONS=--no-experimental-require-module npm start`. Re-check this whenever firebase-admin is upgraded.
 - Never run `npm run build` while `npm run dev` is running: both use `.next`, and the dev server breaks (ENOENT `_document.js`). Fix: stop dev, `rm -rf .next`, restart.
 - Firestore rules `get()` limit: don't add per-entry task lookups to the activity rule (carry-forward batches have 225 entries).
 - Don't reintroduce Firebase Storage (needs Blaze). Mind the Spark quotas: 1 GiB stored, 50k reads/day, 20k writes/day.
