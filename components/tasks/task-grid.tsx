@@ -61,6 +61,8 @@ interface ColConfig {
   required?: boolean;
   /** clicking opens the side panel instead of editing */
   opensPanel?: boolean;
+  /** text wraps onto multiple lines (row grows) instead of being cut off */
+  wrap?: boolean;
   applicable?: (t: Task) => boolean;
   options?: (t: Task) => { options: Option[]; allowNone?: boolean; noneLabel?: string };
   render: (t: Task) => React.ReactNode;
@@ -190,7 +192,8 @@ export function TaskGrid({
         editor: "text",
         required: true,
         opensPanel: true,
-        render: (t) => <span className="block truncate font-medium">{t.title}</span>,
+        wrap: true,
+        render: (t) => <span className="block font-medium break-words whitespace-normal">{t.title}</span>,
         sortValue: (t) => t.title.toLowerCase(),
       },
       {
@@ -198,7 +201,11 @@ export function TaskGrid({
         label: "Description",
         width: 220,
         opensPanel: true,
-        render: (t) => <span className="block truncate text-muted-foreground">{t.descriptionText || "-"}</span>,
+        wrap: true,
+        // wraps, but long descriptions stop at 3 lines (full text is in the side panel)
+        render: (t) => (
+          <span className="line-clamp-3 break-words whitespace-normal text-muted-foreground">{t.descriptionText || "-"}</span>
+        ),
         sortValue: (t) => t.descriptionText.toLowerCase(),
       },
       {
@@ -645,7 +652,8 @@ export function TaskGrid({
                           onClick={() => !isEditing && activate(task, cfg.id, "click")}
                           onDoubleClick={() => cfg.id === "title" && cellEditable && setEditing({ rowId: task.id, colId: "title" })}
                           className={cn(
-                            "h-9 border-b bg-background px-2 py-1 whitespace-nowrap outline-none group-hover:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] focus:ring-2 focus:ring-ring focus:ring-inset",
+                            "h-9 border-b bg-background px-2 py-1.5 align-top outline-none group-hover:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] focus:ring-2 focus:ring-ring focus:ring-inset",
+                            cfg.wrap ? "whitespace-normal" : "whitespace-nowrap",
                             left !== undefined && "sticky z-10",
                             cfg.id === lastStickyId && "border-r",
                             cellEditable || cfg.opensPanel ? "cursor-pointer" : "cursor-default",
