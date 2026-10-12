@@ -69,6 +69,9 @@ interface ColConfig {
 
 const LAST_APP_TYPE_KEY = "stm.lastAppTypeId";
 
+/** Columns hidden until the user turns them on (Columns menu). Saved choices override this. */
+const DEFAULT_HIDDEN: VisibilityState = { taskKey: false };
+
 function readStorage(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -139,7 +142,6 @@ export function TaskGrid({
         label: "Task ID",
         width: 92,
         sticky: true,
-        locked: true,
         opensPanel: true,
         render: (t) => <span className="font-mono text-xs font-medium">{t.taskKey}</span>,
         sortValue: (t) => Number(t.taskKey.split("-")[1] ?? 0),
@@ -147,7 +149,7 @@ export function TaskGrid({
       {
         id: "appTypeId",
         label: "App Type",
-        width: 100,
+        width: 150,
         field: "appTypeId",
         editor: "select",
         options: (t) => ({ options: appTypeOptions(appTypes, t.appTypeId) }),
@@ -316,12 +318,12 @@ export function TaskGrid({
   /* ---------------------------------------------------------------- table state */
 
   const visibilityKey = `stm.columns.${storageKey}`;
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_HIDDEN);
   useEffect(() => {
     const saved = readStorage(visibilityKey);
     if (saved) {
       try {
-        setColumnVisibility(JSON.parse(saved) as VisibilityState);
+        setColumnVisibility({ ...DEFAULT_HIDDEN, ...(JSON.parse(saved) as VisibilityState) });
       } catch {
         /* ignore corrupt value */
       }
@@ -374,6 +376,8 @@ export function TaskGrid({
     }
     return m;
   }, [visibleCols, colById]);
+  /** The right-most visible sticky column gets the divider border. */
+  const lastStickyId = useMemo(() => Array.from(stickyLeft.keys()).pop(), [stickyLeft]);
 
   /* ---------------------------------------------------------------- editing & focus */
 
@@ -622,6 +626,7 @@ export function TaskGrid({
                   <tr
                     key={row.id}
                     aria-rowindex={r + 1}
+                    data-task-key={task.taskKey}
                     className={cn("group", flashing.has(task.id) && "row-flash")}
                   >
                     {row.getVisibleCells().map((cell, c) => {
@@ -642,7 +647,7 @@ export function TaskGrid({
                           className={cn(
                             "h-9 border-b bg-background px-2 py-1 whitespace-nowrap outline-none group-hover:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] focus:ring-2 focus:ring-ring focus:ring-inset",
                             left !== undefined && "sticky z-10",
-                            cfg.id === "taskKey" && "border-r",
+                            cfg.id === lastStickyId && "border-r",
                             cellEditable || cfg.opensPanel ? "cursor-pointer" : "cursor-default",
                             isEditing && "p-0.5",
                           )}
