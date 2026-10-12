@@ -47,6 +47,9 @@ Admin → Users → Add user defaults to **"Email them a link to set their own p
 - Export (Admin only): presets This week (Mon–today) / Last week / This month / Last month / Custom, plus an App Type filter. It covers **all sprints**. "Completed in range" = a status change to Done in the activity log during the range (collection-group query on `activity`: index `field + createdAt`, read rule `/{path=**}/activity`). Imported tasks were created as Done, have no such change, and never count as completed. The file is built client-side with exceljs, which is dynamically imported, so it doesn't weigh down page loads. Cost: one read per task plus one per status change in the range.
 - Scheduled automatic emails would need Cloud Functions (Blaze), so exports are on demand.
 
+## Remarks field (2026-10-13)
+`tasks.remarks` is one free-text note per task (up to 2,000 characters), separate from the comment thread. It has its own table column right after Status (multi-line editor: Enter saves, Shift+Enter adds a line), plus a box in the side panel and the New Task form. Anyone can edit it in open sprints (the same rule as other fields; closed sprints are read-only). It's included in search, the activity log and the Excel export. The rules accept the field as optional, since older docs lack it. The 97 Excel "Remark:" lines saved in the import comments were copied into `remarks`, each with an activity entry.
+
 ## App Type codes
 Codes may be up to 20 characters with single hyphens (e.g. SERVICE-PROVIDER), enforced by zod and the rules. Badges use the App Type color as a solid fill, with black or white text picked by WCAG contrast (`readableTextColor`).
 
