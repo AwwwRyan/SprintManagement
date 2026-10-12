@@ -17,6 +17,9 @@ import {
   Timestamp,
   updateDoc,
   writeBatch,
+  collectionGroup,
+  query,
+  where,
   type Firestore,
 } from "firebase/firestore";
 import { as, baseTask, seed, setupEnv, UIDS } from "./helpers";
@@ -90,6 +93,9 @@ describe("master data", () => {
   it("validates App Type color and module parent", async () => {
     const db = fsOf(as(env, "admin"));
     await assertFails(setDoc(doc(db, "appTypes", "bad"), { ...appType, color: "blue" }));
+    await assertSucceeds(setDoc(doc(db, "appTypes", "long"), { ...appType, code: "SERVICE-PROVIDER" }));
+    await assertFails(setDoc(doc(db, "appTypes", "bad2"), { ...appType, code: "HAS SPACE" }));
+    await assertFails(setDoc(doc(db, "appTypes", "bad3"), { ...appType, code: "X".repeat(21) }));
     await assertFails(setDoc(doc(db, "modules", "m1"), { name: "M", appTypeId: "missing", active: true }));
     await assertSucceeds(setDoc(doc(db, "modules", "m1"), { name: "M", appTypeId: "app1", active: true }));
   });
@@ -451,6 +457,19 @@ describe("activity log", () => {
     const db = fsOf(as(env, "dev"));
     await assertFails(setDoc(doc(db, "tasks/t-dev/activity/x3"), { ...entry(UIDS.dev), action: "hacked" }));
     await assertFails(setDoc(doc(db, "tasks/t-dev/activity/x4"), { ...entry(UIDS.dev), createdAt: Timestamp.now() }));
+  });
+});
+
+describe("activity across tasks (report export)", () => {
+  const q = (db: Firestore) =>
+    getDocs(query(collectionGroup(db, "activity"), where("field", "==", "status"), where("createdAt", ">=", Timestamp.fromMillis(0))));
+  it("active users can query status changes across all tasks", async () => {
+    await assertSucceeds(q(fsOf(as(env, "dev"))));
+    await assertSucceeds(q(fsOf(as(env, "admin"))));
+  });
+  it("deactivated and anonymous users cannot", async () => {
+    await assertFails(q(fsOf(as(env, "inactive"))));
+    await assertFails(q(fsOf(as(env, null))));
   });
 });
 

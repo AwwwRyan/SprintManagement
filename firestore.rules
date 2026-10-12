@@ -46,7 +46,8 @@ service cloud.firestore {
       allow create, update: if isAdmin()
         && request.resource.data.keys().hasOnly(['name', 'code', 'color', 'active', 'createdAt'])
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
-        && request.resource.data.code is string && request.resource.data.code.size() > 0 && request.resource.data.code.size() <= 8
+        && request.resource.data.code is string && request.resource.data.code.size() > 0 && request.resource.data.code.size() <= 20
+        && request.resource.data.code.matches('^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$')
         && request.resource.data.color is string && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$')
         && request.resource.data.active is bool;
       allow delete: if false; // deactivate instead, so historical tasks still render
@@ -303,6 +304,13 @@ service cloud.firestore {
           && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
+    }
+
+    // ---------------------------------------------------------------- activity across tasks
+    // Read-only collection-group access for the date-range report export (lib/services/reports.ts).
+    // Writes stay governed by the per-task rule above.
+    match /{path=**}/activity/{activityId} {
+      allow read: if isActive();
     }
 
     // ---------------------------------------------------------------- presence
