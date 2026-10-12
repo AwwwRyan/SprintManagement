@@ -92,5 +92,6 @@ All 12 build phases from the spec are implemented and verified locally against t
 - Rules hardened: a stale `meta/activeSprint` pointer to a deleted sprint no longer blocks starting sprints (rules test added, 58 total).
 - [ ] Later, when Firestore storage nears ~700 MB (Spark cap is 1 GB TOTAL): build an Admin-only "Remove screenshots from finished tasks" action for closed sprints. Closed sprints are read-only, so it needs an Admin API route. Estimate: ~0.5 GB/year.
 - [ ] Watch Firestore reads (50k/day on Spark): each sprint/dashboard/my-tasks load reads every task in the active sprint (~256 now). Fixes: close Sprint 1 (moves done tasks out), or share one live task listener across pages.
+- [x] Live on Vercel: https://sprint-management-kappa.vercel.app (domain authorized in Firebase Auth). Smoke test passed against the live site on 2026-10-12, after the jose/ERR_REQUIRE_ESM fix.
 - [ ] Owner: commit/push, deploy to Vercel, and add the Vercel domain to Firebase Auth authorized domains. Optionally run `SMOKE_BASE_URL=https://… npm run test:smoke` afterwards.
 - [ ] After the Vercel deploy: add the domain to Firebase Auth authorized domains.
