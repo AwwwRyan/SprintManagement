@@ -20,7 +20,10 @@ async function newSession(browser: Browser, email: string) {
   return { ctx, page };
 }
 
-const row = (page: Page, key: string) => page.locator("tr", { has: page.getByText(key, { exact: true }) });
+// Rows carry data-task-key (the Task ID column is hidden by default).
+const row = (page: Page, key: string) => page.locator(`tr[data-task-key="${key}"]`);
+/** Column index in the default layout (Sr No, App Type, Type, Module, Title, Description, Assigned to, Priority, …). */
+const COL = { srNo: 0, priority: 7, status: 11 } as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -36,6 +39,16 @@ test("wrong password shows an error", async ({ page }) => {
   await page.getByLabel("Password").fill("nope-wrong");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Invalid email or password.")).toBeVisible();
+});
+
+test("Task ID column is hidden by default and can be shown", async ({ page }) => {
+  await login(page, "dev3@example.com");
+  await expect(page.getByRole("columnheader", { name: /Task ID/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Columns" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Task ID" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("columnheader", { name: /Task ID/ })).toBeVisible();
+  await expect(row(page, "TSK-9")).toContainText("TSK-9");
 });
 
 test("login lands on the active sprint with its tasks", async ({ page }) => {
@@ -61,15 +74,15 @@ test("inline edit syncs to another user's tab in real time", async ({ browser })
 
   const qaRow = row(qa.page, "TSK-10");
   // Priority cell → pick "Critical"
-  await qaRow.locator("td").nth(8).click();
+  await qaRow.locator("td").nth(COL.priority).click();
   await qa.page.getByRole("option", { name: "Critical" }).click();
-  await expect(qaRow.locator("td").nth(8)).toContainText("Critical");
+  await expect(qaRow.locator("td").nth(COL.priority)).toContainText("Critical");
 
   // The other session updates without reload
-  await expect(row(dev.page, "TSK-10").locator("td").nth(8)).toContainText("Critical");
+  await expect(row(dev.page, "TSK-10").locator("td").nth(COL.priority)).toContainText("Critical");
 
   // Activity is recorded with a human-readable label
-  await qaRow.getByText("TSK-10", { exact: true }).click();
+  await qaRow.locator("td").nth(COL.srNo).click();
   await expect(qa.page).toHaveURL(/task=TSK-10/);
   await qa.page.getByRole("tab", { name: "Activity" }).click();
   await expect(qa.page.getByText(/changed priority from .* to Critical/)).toBeVisible();
@@ -97,7 +110,7 @@ test("quick add creates a task with the next global key", async ({ page }) => {
 
 test("side panel: comment + bug fields", async ({ page }) => {
   await login(page, "qa1@example.com");
-  await row(page, "TSK-9").getByText("TSK-9", { exact: true }).click();
+  await row(page, "TSK-9").locator("td").nth(COL.srNo).click();
   const panel = page.getByRole("dialog", { name: /TSK-9/ });
   await expect(panel).toBeVisible();
   await expect(panel.getByText("Steps to reproduce")).toBeVisible(); // TSK-9 is a bug
@@ -114,7 +127,7 @@ test("side panel: comment + bug fields", async ({ page }) => {
 
 test("attachments: upload via picker shows a thumbnail and bumps the count", async ({ page }) => {
   await login(page, "qa1@example.com");
-  await row(page, "TSK-9").getByText("TSK-9", { exact: true }).click();
+  await row(page, "TSK-9").locator("td").nth(COL.srNo).click();
   const panel = page.getByRole("dialog", { name: /TSK-9/ });
   // 1x1 PNG
   const png = Buffer.from(
@@ -151,14 +164,53 @@ test("dashboard renders live metrics", async ({ page }) => {
   await expect(page.getByText("Tasks by status")).toBeVisible();
 });
 
+test("dashboard: detailed progress card, and admin exports a date-range Excel report", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "admin@example.com");
+  await page.goto("/dashboard");
+  await expect(page.getByText("Sprint progress")).toBeVisible();
+  await expect(page.getByLabel("Progress legend")).toContainText("In QA");
+  await expect(page.getByText(/Sprint time: day \d+ of 14/)).toBeVisible();
+  await expect(page.getByText("Critical open")).toBeVisible();
+
+  await page.getByRole("button", { name: "Export report" }).click();
+  const dialog = page.getByRole("dialog", { name: "Export report" });
+  await dialog.getByRole("radio", { name: "Custom dates" }).click();
+  const today = new Date();
+  const monthAgo = new Date(today.getTime() - 30 * 86_400_000);
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  await dialog.getByLabel("From").fill(iso(monthAgo));
+  await dialog.getByLabel("To").fill(iso(today));
+  const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download Excel" }).click()]);
+  expect(download.suggestedFilename()).toMatch(/^Sprint-report_\d{4}-\d{2}-\d{2}_to_\d{4}-\d{2}-\d{2}\.xlsx$/);
+
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(await download.path());
+  expect(wb.worksheets.map((w) => w.name)).toEqual(["Summary", "Completed", "Created", "Open now", "By person", "By app"]);
+  const completed = wb.getWorksheet("Completed")!;
+  expect(completed.getRow(1).getCell(1).value).toBe("Task ID");
+  expect(completed.rowCount).toBeGreaterThan(1); // seed has status changes to Done in the last month
+  expect(String(completed.getRow(2).getCell(1).value)).toMatch(/^TSK-\d+$/);
+});
+
+test("developers don't get the export button", async ({ page }) => {
+  await login(page, "dev2@example.com");
+  await page.goto("/dashboard");
+  await expect(page.getByText("Sprint progress")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export report" })).toHaveCount(0);
+});
+
 test("admin creates a user through the Admin API", async ({ page }) => {
+  test.setTimeout(150_000); // dev server: the first Admin API call compiles the route and boots the Admin SDK
   await login(page, "admin@example.com");
   await page.goto("/admin/users");
   await page.getByRole("button", { name: "Add user" }).click();
   await page.getByLabel("Name").fill("Nina New");
   await page.getByLabel("Email", { exact: true }).fill(`nina.${Date.now()}@example.com`);
   await page.getByRole("button", { name: "Add & send invite" }).click();
-  await expect(page.getByText(/^Invite sent to nina\./)).toBeVisible();
+  // the first API call compiles the route in dev, so allow longer
+  await expect(page.getByText(/^Invite sent to nina\./)).toBeVisible({ timeout: 120_000 });
   await expect(page.getByRole("row", { name: /Nina New/ })).toHaveCount(1);
 });
 
@@ -170,6 +222,11 @@ test("deactivating a user kicks out their open session", async ({ browser }) => 
   await admin.page.getByRole("menuitem", { name: "Deactivate" }).click();
   await admin.page.getByRole("button", { name: "Deactivate" }).click();
 
+  // 1) the Admin API call finishes (can be slow on a busy dev machine), then
+  // 2) the open session must be kicked out promptly by its live profile listener.
+  test.setTimeout(150_000);
+  await expect(admin.page.getByRole("alertdialog")).toBeHidden({ timeout: 60_000 });
+  await expect(admin.page.getByRole("row", { name: /Sara Kim/ }).getByText("Deactivated")).toBeVisible();
   await expect(dev.page).toHaveURL(/\/login/, { timeout: 20_000 });
 
   // and they can't sign back in
@@ -210,7 +267,7 @@ test("close sprint carries tasks forward and produces a report", async ({ page }
   await expect(page.getByLabel("Quick add task")).toHaveCount(0);
   await page.getByRole("link", { name: "View report" }).click();
   await page.waitForURL(/\/report/);
-  await expect(page.getByText("Sprint 14: Sprint report")).toBeVisible({ timeout: 45_000 }); // first visit compiles the route in dev
+  await expect(page.getByText("Sprint 14: Sprint report")).toBeVisible({ timeout: 120_000 }); // first visit compiles the route in dev
   await expect(page.getByText(/Left incomplete \(1\)/)).toBeVisible();
 
   // carried tasks keep their key in the next sprint

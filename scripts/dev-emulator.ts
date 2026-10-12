@@ -10,7 +10,14 @@ import { spawn } from "node:child_process";
 
 // Values already in process.env win over files in Next.js, so these override .env.local.
 const { parsed = {} } = config({ path: ".env.emulator", quiet: true });
-const env = { ...process.env, ...parsed, NEXT_PUBLIC_USE_EMULATORS: "true", NEXT_DIST_DIR: ".next-e2e" };
+const env = {
+  ...process.env,
+  ...parsed,
+  NEXT_PUBLIC_USE_EMULATORS: "true",
+  NEXT_DIST_DIR: ".next-e2e",
+  // no real Google credentials locally: skip the slow GCP metadata-server probe
+  METADATA_SERVER_DETECTION: "none",
+};
 
 const child = spawn("npx", ["next", "dev", "-p", "3001"], { stdio: "inherit", shell: true, env });
 child.on("exit", (code) => (process.exitCode = code ?? 0));

@@ -106,15 +106,15 @@ test("real-time sync + developer permissions (rules + indexes)", async ({ browse
   await admin.goto(sprintUrl);
   await dev.goto(sprintUrl);
 
-  const devRow = dev.locator("tr", { has: dev.getByText(taskKey, { exact: true }) });
+  const devRow = dev.locator(`tr[data-task-key="${taskKey}"]`);
   await expect(devRow).toBeVisible();
   // Everyone can edit every task in an open sprint (team decision)
   await expect(devRow.locator("td[aria-readonly='false']").first()).toBeVisible();
   await expect(dev.getByRole("link", { name: "Users" })).toHaveCount(0);
 
   // Admin changes status; the developer sees it without reloading
-  const adminRow = admin.locator("tr", { has: admin.getByText(taskKey, { exact: true }) });
-  await adminRow.locator("td").nth(12).click();
+  const adminRow = admin.locator(`tr[data-task-key="${taskKey}"]`);
+  await adminRow.locator("td").nth(11).click(); // Status (Task ID column hidden by default)
   await admin.getByRole("option", { name: "In Progress" }).click();
   await expect(devRow).toContainText("In Progress", { timeout: 20_000 });
 
