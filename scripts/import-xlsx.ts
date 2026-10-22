@@ -27,7 +27,7 @@ import type { Priority, TaskStatus, TaskType } from "../types";
 
 /* ------------------------------------------------------------------ mapping */
 
-const MAPPING = {
+export const MAPPING = {
   sprintName: "Release 1 (imported from Excel)",
   sprintGoal: "Everything from the Aug 2026 Excel bug list. Close it to carry unfinished tasks forward.",
   /** sheet name → App Type code (null: per-row "App"/"Application" column, or rowApp overrides) */
@@ -113,14 +113,14 @@ function mapStatus(raw: string): { status: TaskStatus; note?: string } {
   return { status: "pending", note: `Unrecognised Excel status "${raw}", imported as Pending.` };
 }
 
-function mapType(raw: string): TaskType {
+export function mapType(raw: string): TaskType {
   const s = raw.trim().toLowerCase();
   if (s === "bug") return "bug";
   if (s === "enhancement" || s === "ui" || s === "change") return "improvement";
   return "task";
 }
 
-function mapPriority(raw: string): Priority | null {
+export function mapPriority(raw: string): Priority | null {
   const s = raw.trim().toLowerCase();
   if (s === "1" || s === "high") return "high";
   if (s === "2" || s === "medium") return "medium";
@@ -420,7 +420,9 @@ async function main() {
   console.log(`\n✔ Imported ${written} tasks (TSK-${first} … TSK-${first + written - 1}) into "${MAPPING.sprintName}" (${status}).`);
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exitCode = 1;
-});
+if (process.argv[1]?.replace(/\\/g, "/").endsWith("scripts/import-xlsx.ts")) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exitCode = 1;
+  });
+}
