@@ -206,7 +206,8 @@ export function TaskGrid({
         width: 200,
         field: "assigneeIds",
         editor: "assignees",
-        render: (t) => <AssigneeStack ids={t.assigneeIds} />,
+        wrap: true,
+        render: (t) => <AssigneeStack ids={t.assigneeIds} wrap />,
         sortValue: (t) => (t.assigneeIds.length ? t.assigneeIds.map(userName).sort().join(", ") : "￿"),
       },
       {

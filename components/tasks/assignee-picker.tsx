@@ -12,14 +12,14 @@ import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@
 import { UserAvatar } from "@/components/common/user-avatar";
 import { cn } from "@/lib/utils";
 
-/** Read-only display of a task's assignees. */
-export function AssigneeStack({ ids, max = 3 }: { ids: string[]; max?: number }) {
+/** Read-only display of a task's assignees. `wrap`: names run onto more lines instead of being cut off. */
+export function AssigneeStack({ ids, max = 3, wrap = false }: { ids: string[]; max?: number; wrap?: boolean }) {
   const { userById } = useData();
   if (ids.length === 0) return <span className="text-muted-foreground">Unassigned</span>;
   const users = ids.map((id) => userById.get(id));
   const names = users.map((u) => u?.name ?? "Unknown user").join(", ");
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5" title={names}>
+    <span className={cn("min-w-0 gap-1.5", wrap ? "flex items-start" : "inline-flex items-center")} title={names}>
       <span className="flex shrink-0 -space-x-1.5">
         {ids.slice(0, max).map((id, i) => (
           <UserAvatar key={id} id={id} initials={users[i]?.initials ?? "?"} name={users[i]?.name} size="xs" className="ring-2 ring-background" />
@@ -30,7 +30,7 @@ export function AssigneeStack({ ids, max = 3 }: { ids: string[]; max?: number })
           </span>
         )}
       </span>
-      <span className="truncate">{names}</span>
+      <span className={wrap ? "min-w-0 break-words whitespace-normal" : "truncate"}>{names}</span>
     </span>
   );
 }
