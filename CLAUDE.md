@@ -47,6 +47,7 @@ npm run seed             # emulator demo data; all users' password: password123
 npm run test:e2e         # Playwright on an emulator-only server at :3001 (dev:emulator); needs emulators + fresh seed
 npm run dev:emulator     # dev server on :3001 forced to the emulators (.env.emulator), build dir .next-e2e
 npx tsx scripts/invite-users.ts team.json [--apply]   # bulk add team; emails set-password links
+npx tsx scripts/sync-xlsx.ts "import/<baseline>.xlsx" "<new>.xlsx" [--apply]   # apply a newer Excel bug list (3-way, preview first)
 npx tsx scripts/create-admin.ts --email … --password … --name "…"
 npm run check-env        # validate .env.local (never prints secrets) + Admin SDK connectivity
 npm run deploy:firestore # publish firestore.rules with the Admin key (indexes need `firebase deploy`)
@@ -95,6 +96,7 @@ All 12 build phases from the spec are implemented and verified locally against t
 - [x] Extra accounts (no invites): Mishal (developer), Nikita (QA, QA Engineer), Ashis (developer, no designation).
 - [x] Team accounts created WITHOUT emails (2026-10-12): Sudharsan (CTO) and Sreevani (Senior QA) are **admins** with Aryan; Prithika and Hariharan are QA; Sameeh and Nagma are developers (emails in git-ignored `team.json`). Nobody but Aryan can sign in yet.
 - [x] Workflow refactor (Category, statuses, single Priority, multiple assignees) + drag-and-drop order: pushed, rules + `assigneeIds` index deployed, live data migrated with `scripts/migrate-workflow.ts` (re-running it previews 0 changes) (2026-10-22). The old `tasks(sprintId, assigneeId, order)` index can be removed with `firebase deploy --only firestore:indexes --force`.
+- [x] Excel sync (2026-10-22): the newer "Medicpassport Bug list Aug 2026.xlsx" applied with `scripts/sync-xlsx.ts`: 65 tasks updated, 38 new (TSK-260…297), QA owners → Hariharan. `import/Medicpassport Bug list Aug 2026.xlsx` is now the baseline for the next sync (the first one is kept as "… (imported 2026-10-12).xlsx").
 - [x] Site metadata: Open Graph/Twitter preview image, RT favicon, noindex (2026-10-22).
 - [ ] **Send invites only when the owner says the app is ready**: `npx tsx scripts/invite-users.ts team.json --send-invites`, or per user via Admin → Users → Send set-password email. Don't send them without being asked. 
 - Rules hardened: a stale `meta/activeSprint` pointer to a deleted sprint no longer blocks starting sprints (rules test added, 58 total).

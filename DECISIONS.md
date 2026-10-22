@@ -59,6 +59,13 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Excel sync (2026-10-22)
+- A newer copy of the Excel list is applied with `scripts/sync-xlsx.ts <baseline> <new>` (preview by default, `--apply` writes); `scripts/diff-xlsx.ts` is the read-only diff. The baseline is the last applied file in git-ignored `import/`.
+- **3-way:** only what changed in Excel since the baseline is applied. If the app value no longer matches the baseline (someone edited it in the app), the field is reported as a conflict and left alone.
+- Rows are matched by sheet + description, else sheet + unique ID. Live tasks are found by their import footer (`sheet "X", ID n (row r)`), which the sync rewrites to the new row number.
+- Owner's choices: Excel "Completed" → **Done** (carries forward until released), "QA Test" → **Testing in Progress**, cancel → Closed, hold → On Hold. Owner cells naming people replace the assignees. **"QA…" means Hariharan**. Other text ("NA") leaves the assignees alone. Remarks mirror Excel; a blank one clears.
+- New rows go into the release holding the imported tasks, with the next TSK keys. First run on 2026-10-22: 65 tasks updated, 38 created (TSK-260…297), 0 conflicts.
+
 ## Site metadata / link previews (2026-10-22)
 - Name, description and URL live in `lib/site.ts`. The base URL is `NEXT_PUBLIC_SITE_URL`, else Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so previews use absolute URLs without extra setup.
 - The favicon, Apple icon and 1200×630 share image are generated with `next/og` (`app/icon.tsx`, `apple-icon.tsx`, `opengraph-image.tsx`, `twitter-image.tsx`). No binary assets; the "RT" mark matches the sidebar.
