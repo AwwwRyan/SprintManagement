@@ -303,6 +303,12 @@ describe("task updates", () => {
     await assertFails(edit("dev", "t-dev", { remarks: "x".repeat(2001) }));
     await assertFails(edit("qa", "t-dev", { remarks: 42 }));
   });
+  it("releaseDate accepts a YYYY-MM-DD date or null, nothing else", async () => {
+    await assertSucceeds(edit("dev", "t-dev", { releaseDate: "2026-11-15" }));
+    await assertSucceeds(edit("dev", "t-dev", { releaseDate: null }));
+    await assertFails(edit("dev", "t-dev", { releaseDate: "15/11/2026" }));
+    await assertFails(edit("qa", "t-dev", { releaseDate: 20261115 }));
+  });
   it("attachmentCount can never exceed 10", async () => {
     await assertFails(edit("qa", "t-dev", { attachmentCount: 11 }));
   });

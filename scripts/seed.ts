@@ -147,9 +147,9 @@ async function main() {
   });
   const closedStart = subDays(today, 21);
   const activeStart = subDays(today, 6);
-  await db.doc("sprints/s13").set(sprintDoc("Sprint 13", "Stabilize billing and login", closedStart, "closed"));
-  await db.doc("sprints/s14").set(sprintDoc("Sprint 14", "Ship 2FA and mobile offline sync", activeStart, "active"));
-  await db.doc("sprints/s15").set(sprintDoc("Sprint 15", "Reporting improvements", addDays(activeStart, 14), "planned"));
+  await db.doc("sprints/s13").set(sprintDoc("Release 13", "Stabilize billing and login", closedStart, "closed"));
+  await db.doc("sprints/s14").set(sprintDoc("Release 14", "Ship 2FA and mobile offline sync", activeStart, "active"));
+  await db.doc("sprints/s15").set(sprintDoc("Release 15", "Reporting improvements", addDays(activeStart, 14), "planned"));
   await db.doc("meta/activeSprint").set({ sprintId: "s14" });
 
   // Tasks
@@ -177,7 +177,7 @@ async function main() {
       status,
       reporterId: qas[i % 2],
       dueDate: i % 4 === 0 ? day(addDays(activeStart, 10)) : null,
-      environment: i % 3 === 0 ? "Staging v2.3.1" : "",
+      environment: i % 3 === 0 ? "Staging" : "",
       stepsToReproduce: type === "bug" ? "1. Open the page\n2. Perform the action\n3. Observe the error" : "",
       expectedResult: type === "bug" ? "The action completes successfully." : "",
       actualResult: type === "bug" ? "An error is shown." : "",
@@ -197,10 +197,10 @@ async function main() {
   }));
   const carriedIds = ["c6", "c7"];
   const report = buildSprintReport({
-    sprint: { id: "s13", name: "Sprint 13", goal: "Stabilize billing and login", startDate: day(closedStart), endDate: day(addDays(closedStart, 13)) },
+    sprint: { id: "s13", name: "Release 13", goal: "Stabilize billing and login", startDate: day(closedStart), endDate: day(addDays(closedStart, 13)) },
     tasks: closedTasks.map((t) => ({ ...t, createdAtMs: t.createdAt.toMillis() })),
     carriedTaskIds: carriedIds,
-    target: { id: "s14", name: "Sprint 14" },
+    target: { id: "s14", name: "Release 14" },
     users: USERS.map((u) => ({ id: uid[u.key], name: u.name })),
     appTypes: APP_TYPES,
     closedAtMs: addDays(closedStart, 13).getTime(),
@@ -214,10 +214,10 @@ async function main() {
         ...t,
         sprintId: "s14",
         carryOverCount: 1,
-        sprintHistory: [{ sprintId: "s13", sprintName: "Sprint 13", finalStatusInSprint: t.status, movedAt: Timestamp.fromDate(addDays(closedStart, 13)) }],
+        sprintHistory: [{ sprintId: "s13", sprintName: "Release 13", finalStatusInSprint: t.status, movedAt: Timestamp.fromDate(addDays(closedStart, 13)) }],
       });
       batch.set(db.collection(`tasks/${id}/activity`).doc(), {
-        actorId: uid.qa1, action: "carried_over", field: "sprintId", oldValue: "Sprint 13", newValue: "Sprint 14",
+        actorId: uid.qa1, action: "carried_over", field: "sprintId", oldValue: "Release 13", newValue: "Release 14",
         createdAt: Timestamp.fromDate(addDays(closedStart, 13)),
       });
     } else {

@@ -3,8 +3,8 @@ import { sortSprints, suggestSprintName } from "@/lib/sprint-utils";
 
 describe("sprint utils", () => {
   it("suggests the next sprint number", () => {
-    expect(suggestSprintName([{ name: "Sprint 9" }, { name: "Sprint 14" }, { name: "Hotfix" }])).toBe("Sprint 15");
-    expect(suggestSprintName([])).toBe("Sprint 1");
+    expect(suggestSprintName([{ name: "Sprint 9" }, { name: "Release 14" }, { name: "Hotfix" }])).toBe("Release 15");
+    expect(suggestSprintName([])).toBe("Release 1");
   });
 
   it("orders active, then planned (soonest), then closed (latest)", () => {

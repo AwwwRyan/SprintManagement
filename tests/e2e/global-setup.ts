@@ -27,7 +27,7 @@ export default async function globalSetup() {
     await fetch(`${BASE}${path}`, { method, headers, body: "{}" }).catch(() => undefined);
   }
   // Pages hit by full-page navigations in the suite
-  for (const path of ["/login", "/sprints", "/dashboard", "/my-tasks", "/admin/users"]) {
+  for (const path of ["/login", "/releases", "/dashboard", "/my-tasks", "/admin/users"]) {
     await fetch(`${BASE}${path}`).catch(() => undefined);
   }
 }

@@ -16,7 +16,7 @@ const creds = JSON.parse(fs.readFileSync(".smoke-creds.json", "utf8")) as Record
 const T = "[SMOKE]";
 const stamp = Date.now().toString(36);
 const APP = `${T} App ${stamp}`;
-const SPRINT = `${T} Sprint ${stamp}`;
+const SPRINT = `${T} Release ${stamp}`;
 const TASK = `${T} task ${stamp}`;
 
 async function login(browser: Browser, who: "admin" | "dev"): Promise<Page> {
@@ -34,7 +34,7 @@ test.describe.configure({ mode: "serial" });
 let sprintUrl = "";
 let taskKey = "";
 
-test("admin sets up master data and a sprint", async ({ browser }) => {
+test("admin sets up master data and a release", async ({ browser }) => {
   const page = await login(browser, "admin");
 
   await page.goto("/admin/app-types");
@@ -50,11 +50,11 @@ test("admin sets up master data and a sprint", async ({ browser }) => {
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Module created")).toBeVisible();
 
-  await page.goto("/sprints");
-  await page.getByRole("button", { name: "New Sprint" }).first().click();
+  await page.goto("/releases");
+  await page.getByRole("button", { name: "New Release" }).first().click();
   await page.getByLabel("Name").fill(SPRINT);
-  await page.getByRole("button", { name: "Create sprint" }).click();
-  await page.waitForURL(/\/sprints\/[^/]+$/);
+  await page.getByRole("button", { name: "Create release" }).click();
+  await page.waitForURL(/\/releases\/[^/]+$/);
   sprintUrl = new URL(page.url()).pathname;
   await expect(page.getByRole("heading", { name: SPRINT })).toBeVisible();
   await page.context().close();

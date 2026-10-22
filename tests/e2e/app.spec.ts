@@ -10,7 +10,7 @@ async function login(page: Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(/\/sprints\/s14/);
+  await page.waitForURL(/\/releases\/s14/);
 }
 
 async function newSession(browser: Browser, email: string) {
@@ -51,19 +51,19 @@ test("Task ID column is hidden by default and can be shown", async ({ page }) =>
   await expect(row(page, "TSK-9")).toContainText("TSK-9");
 });
 
-test("login lands on the active sprint with its tasks", async ({ page }) => {
+test("login lands on the active release with its tasks", async ({ page }) => {
   await login(page, "dev1@example.com");
-  await expect(page.getByRole("heading", { name: "Sprint 14" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Release 14" })).toBeVisible();
   await expect(page.getByRole("grid", { name: "Tasks" })).toBeVisible();
   await expect(page.getByText("25 tasks")).toBeVisible();
   // carried-over tasks show the badge
   await expect(page.getByTitle("Carried over 1 time").first()).toBeVisible();
 });
 
-test("developers don't see admin nav or sprint controls", async ({ page }) => {
+test("developers don't see admin nav or release controls", async ({ page }) => {
   await login(page, "dev1@example.com");
   await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Close sprint" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Close release" })).toHaveCount(0);
   await page.goto("/admin/users");
   await expect(page.getByText("Admins only")).toBeVisible();
 });
@@ -107,7 +107,23 @@ test("anyone can edit Remarks inline, and others see it live", async ({ browser 
   await dev.ctx.close();
 });
 
-test("presence shows other viewers of the sprint", async ({ browser }) => {
+test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
+  await login(page, "dev3@example.com");
+  // old bookmark-style link still opens the task
+  await page.goto("/sprints/s14?task=TSK-9");
+  await expect(page).toHaveURL(/\/releases\/s14\?task=TSK-9/);
+  const panel = page.getByRole("dialog", { name: /TSK-9/ });
+  await panel.getByLabel("Release date").fill("2026-11-15");
+  await panel.getByLabel("Release date").blur();
+  await panel.getByRole("combobox", { name: "Environment" }).click();
+  await expect(page.getByRole("option", { name: "Staging", exact: true })).toBeVisible();
+  await page.getByRole("option", { name: "Production", exact: true }).click();
+  await panel.getByRole("button", { name: "Close panel" }).click();
+  await expect(row(page, "TSK-9")).toContainText("2026-11-15");
+  await expect(row(page, "TSK-9")).toContainText("Production");
+});
+
+test("presence shows other viewers of the release", async ({ browser }) => {
   const qa = await newSession(browser, "qa2@example.com");
   const dev = await newSession(browser, "dev2@example.com");
   await expect(qa.page.getByLabel(/other people viewing/)).toBeVisible();
@@ -184,9 +200,9 @@ test("dashboard: detailed progress card, and admin exports a date-range Excel re
   test.setTimeout(120_000);
   await login(page, "admin@example.com");
   await page.goto("/dashboard");
-  await expect(page.getByText("Sprint progress")).toBeVisible();
+  await expect(page.getByText("Release progress")).toBeVisible();
   await expect(page.getByLabel("Progress legend")).toContainText("In QA");
-  await expect(page.getByText(/Sprint time: day \d+ of 14/)).toBeVisible();
+  await expect(page.getByText(/Release time: day \d+ of 14/)).toBeVisible();
   await expect(page.getByText("Critical open")).toBeVisible();
 
   await page.getByRole("button", { name: "Export report" }).click();
@@ -198,7 +214,7 @@ test("dashboard: detailed progress card, and admin exports a date-range Excel re
   await dialog.getByLabel("From").fill(iso(monthAgo));
   await dialog.getByLabel("To").fill(iso(today));
   const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download Excel" }).click()]);
-  expect(download.suggestedFilename()).toMatch(/^Sprint-report_\d{4}-\d{2}-\d{2}_to_\d{4}-\d{2}-\d{2}\.xlsx$/);
+  expect(download.suggestedFilename()).toMatch(/^Release-report_\d{4}-\d{2}-\d{2}_to_\d{4}-\d{2}-\d{2}\.xlsx$/);
 
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
@@ -213,7 +229,7 @@ test("dashboard: detailed progress card, and admin exports a date-range Excel re
 test("developers don't get the export button", async ({ page }) => {
   await login(page, "dev2@example.com");
   await page.goto("/dashboard");
-  await expect(page.getByText("Sprint progress")).toBeVisible();
+  await expect(page.getByText("Release progress")).toBeVisible();
   await expect(page.getByRole("button", { name: "Export report" })).toHaveCount(0);
 });
 
@@ -260,34 +276,34 @@ test("deactivating a user kicks out their open session", async ({ browser }) => 
   await admin.ctx.close();
 });
 
-test("starting a second sprint while one is active is blocked", async ({ page }) => {
+test("starting a second release while one is active is blocked", async ({ page }) => {
   await login(page, "qa1@example.com");
-  await page.goto("/sprints/s15");
-  await page.getByRole("button", { name: "Start sprint" }).click();
-  await page.getByRole("button", { name: "Start sprint" }).last().click();
+  await page.goto("/releases/s15");
+  await page.getByRole("button", { name: "Start release" }).click();
+  await page.getByRole("button", { name: "Start release" }).last().click();
   await expect(page.getByText(/already active/)).toBeVisible();
 });
 
-test("close sprint carries tasks forward and produces a report", async ({ page }) => {
+test("close release carries tasks forward and produces a report", async ({ page }) => {
   await login(page, "qa1@example.com");
-  await page.getByRole("button", { name: "Close sprint" }).click();
-  const dialog = page.getByRole("dialog", { name: "Close Sprint 14" });
+  await page.getByRole("button", { name: "Close release" }).click();
+  const dialog = page.getByRole("dialog", { name: "Close Release 14" });
   await expect(dialog).toBeVisible();
   // leave TSK-10 behind
   await dialog.getByRole("checkbox", { name: "Carry TSK-10" }).click();
-  await dialog.getByRole("button", { name: "Close sprint" }).click();
-  await expect(page.getByText(/completed, \d+ carried to Sprint 15, 1 left incomplete/)).toBeVisible({ timeout: 30_000 });
+  await dialog.getByRole("button", { name: "Close release" }).click();
+  await expect(page.getByText(/completed, \d+ carried to Release 15, 1 left incomplete/)).toBeVisible({ timeout: 30_000 });
 
   // closed sprint is read-only and has a report
   await expect(page.getByRole("link", { name: "View report" })).toBeVisible();
   await expect(page.getByLabel("Quick add task")).toHaveCount(0);
   await page.getByRole("link", { name: "View report" }).click();
   await page.waitForURL(/\/report/);
-  await expect(page.getByText("Sprint 14: Sprint report")).toBeVisible({ timeout: 120_000 }); // first visit compiles the route in dev
+  await expect(page.getByText("Release 14: Release report")).toBeVisible({ timeout: 120_000 }); // first visit compiles the route in dev
   await expect(page.getByText(/Left incomplete \(1\)/)).toBeVisible();
 
   // carried tasks keep their key in the next sprint
-  await page.goto("/sprints/s15");
+  await page.goto("/releases/s15");
   await expect(row(page, "TSK-9")).toBeVisible();
   await expect(row(page, "TSK-10")).toHaveCount(0);
 });
