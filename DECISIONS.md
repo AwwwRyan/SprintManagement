@@ -59,6 +59,11 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Site metadata / link previews (2026-10-22)
+- Name, description and URL live in `lib/site.ts`. The base URL is `NEXT_PUBLIC_SITE_URL`, else Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, so previews use absolute URLs without extra setup.
+- The favicon, Apple icon and 1200×630 share image are generated with `next/og` (`app/icon.tsx`, `apple-icon.tsx`, `opengraph-image.tsx`, `twitter-image.tsx`). No binary assets; the "RT" mark matches the sidebar.
+- `robots: noindex, nofollow`: it's an internal tool, so link previews work but search engines shouldn't list it.
+
 ## Drag-and-drop task order (2026-10-22)
 - **Everyone can reorder** tasks in an open release (matches "everyone can edit every task"). Order is shared, so a move changes it for everybody, live.
 - **Reorders aren't logged** in Activity (owner's call; they'd be noise).

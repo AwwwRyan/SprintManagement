@@ -115,7 +115,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className={cn("flex h-12 items-center gap-2 border-b px-3", collapsed && "md:justify-center md:px-0")}>
           <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-            ST
+            RT
           </div>
           <span className={cn("truncate text-sm font-semibold", collapsed && "md:hidden")}>Release Tasks</span>
         </div>
