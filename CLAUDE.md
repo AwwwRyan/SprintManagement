@@ -7,6 +7,8 @@ Living context for anyone (human or AI) working on this repo. **Keep it current.
 - Firebase setup guide: `docs/FIREBASE_SETUP.md` · general docs: `README.md`
 
 ## What it is
+> **Naming:** the UI calls sprints **Releases** (routes `/releases/…`; old `/sprints/…` links redirect). Code, types and Firestore still say `sprint`. Keep it that way: user-facing text says "release", identifiers say "sprint".
+
 Internal real-time sprint task manager for a company with 3 products. QA creates sprints and tasks. Devs and QA edit tasks in a live spreadsheet-like grid. Closing a sprint carries unfinished tasks forward and snapshots a report. Roles: admin / qa / developer.
 
 ## Deployment model (owner's constraints)
@@ -52,11 +54,11 @@ npm run test:smoke       # real project smoke test; creates + deletes [SMOKE] da
 Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulator` = emulator preset, which `seed`, `dev:emulator` and E2E always use, so tests can't touch prod. `.env.example` = template.
 
 ## Seed data (emulators)
-Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Sprint 13 (closed, report, ids s13), Sprint 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Sprint 15 (planned, s15). TSK-1…6 live in closed Sprint 13. The next key after seeding is TSK-32.
+Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15). TSK-1…6 live in closed Sprint 13. The next key after seeding is TSK-32.
 
 ## Testing status (last full run: 2026-10-12)
 - Unit: 74 tests in 8 files, all passing.
-- Rules: 63 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
+- Rules: 64 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
 - E2E: 19 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
@@ -85,8 +87,9 @@ All 12 build phases from the spec are implemented and verified locally against t
 - [x] Smoke test on the real project passed (`npm run test:smoke`, 4/4), with cleanup verified: only the owner's admin remains, and the counter is reset (2026-10-12).
 - [x] Real project data: App Types DOCTOR, USER, SERVICE-PROVIDER, SUPER-ADMIN, QR-PORTAL (codes renamed 2026-10-12; badges are solid). Modules added: DOCTOR Profile/Appointment/Availability/Center/Assistant · USER Profile/Appointment/Pharmacy/Lab/Wellness/Center · SERVICE-PROVIDER Center/Carespot/Lab/Pharmacy/Profile · SUPER-ADMIN Center/Carespot/User/Doctor/Partner · QR-PORTAL Profile/Lab/Pharmacy. Imported tasks have no module yet.
 - [x] Dashboard: detailed progress card + Admin "Export report" (date range → .xlsx). Collection-group index `activity(field, createdAt)` deployed and READY (2026-10-12).
+- [x] Sprints → Releases rename (UI + routes, with redirects), Release date column, Environment dropdown (Staging/Production); live data normalized (2026-10-22).
 - [x] Remarks column (`tasks.remarks`), editable by everyone; 97 Excel remarks backfilled from the import comments (2026-10-13).
-- [x] Excel bug list imported: 256 tasks TSK-1…256 in the active sprint "Sprint 1 (imported from Excel)" (see DECISIONS.md "Excel import"). Source file in git-ignored `import/`. Don't re-run the import.
+- [x] Excel bug list imported: 256 tasks TSK-1…256 in the active sprint "Release 1 (imported from Excel)" (renamed from "Sprint 1 …") (see DECISIONS.md "Excel import"). Source file in git-ignored `import/`. Don't re-run the import.
 - [x] Extra accounts (no invites): Mishal (developer), Nikita (QA, QA Engineer), Ashis (developer, no designation).
 - [x] Team accounts created WITHOUT emails (2026-10-12): Sudharsan (CTO) and Sreevani (Senior QA) are **admins** with Aryan; Prithika and Hariharan are QA; Sameeh and Nagma are developers (emails in git-ignored `team.json`). Nobody but Aryan can sign in yet.
 - [ ] **Send invites only when the owner says the app is ready**: `npx tsx scripts/invite-users.ts team.json --send-invites`, or per user via Admin → Users → Send set-password email. Don't send them without being asked. 
