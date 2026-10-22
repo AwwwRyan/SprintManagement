@@ -142,6 +142,33 @@ test("statuses include On Hold, Released and Duplicate; the old Description colu
   await expect(status).toContainText("On Hold");
 });
 
+test("anyone can drag tasks into a new order (or use Alt+arrows), and others see it live", async ({ browser }) => {
+  const dev = await newSession(browser, "dev4@example.com");
+  const qa = await newSession(browser, "qa2@example.com");
+  const keys = (page: Page) => page.locator("tbody tr[data-task-key]").evaluateAll((rs) => rs.map((r) => r.getAttribute("data-task-key")));
+  const before = await keys(dev.page);
+  const [first, second, third] = before as string[];
+
+  // drag the 3rd task onto the top half of the 1st → it becomes first
+  const target = row(dev.page, first).locator("td").nth(COL.task);
+  await row(dev.page, third).locator("[data-drag-handle]").dragTo(target, { targetPosition: { x: 20, y: 2 } });
+  await expect.poll(() => keys(dev.page)).toEqual([third, first, second, ...before.slice(3)]);
+  await expect.poll(() => keys(qa.page)).toEqual([third, first, second, ...before.slice(3)]);
+  await expect(row(dev.page, third).locator("td").nth(COL.srNo)).toContainText("1");
+
+  // keyboard: Alt+↓ on the first row moves it back down one place
+  await row(dev.page, third).locator("td").nth(COL.priority).focus();
+  await dev.page.keyboard.press("Alt+ArrowDown");
+  await expect.poll(() => keys(dev.page)).toEqual([first, third, second, ...before.slice(3)]);
+
+  // sorted by another column → no drag handles
+  await dev.page.getByRole("columnheader", { name: "Priority" }).getByRole("button").click();
+  await expect(dev.page.locator("[data-drag-handle]")).toHaveCount(0);
+  await expect(dev.page.getByText("Sort by Sr No to reorder")).toBeVisible();
+  await qa.ctx.close();
+  await dev.ctx.close();
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task

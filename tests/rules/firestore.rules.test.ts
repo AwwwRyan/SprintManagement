@@ -269,6 +269,10 @@ describe("task updates", () => {
   it("developers can edit tasks they neither reported nor are assigned to", async () => {
     await assertSucceeds(edit("dev", "t-other", { title: "team edit", status: "in_progress" }));
   });
+  it("anyone can reorder any task (order only, no activity entry)", async () => {
+    await assertSucceeds(edit("dev2", "t-dev", { order: 1500.5 }));
+    await assertFails(edit("dev2", "t-dev", { order: "first" }));
+  });
   it("developers still can't move tasks between sprints, even other people's", async () => {
     await assertFails(edit("dev", "t-other", { sprintId: "s-planned" }));
   });
