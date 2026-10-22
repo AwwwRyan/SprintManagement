@@ -31,6 +31,7 @@ Next.js 15.5 App Router · React 19 · TS strict (no `any`) · Tailwind v4 · sh
 - Pure logic lives in `lib/*.ts` with no Firebase imports, so it's unit-testable: metrics, filters, diff, carry-forward, activity-format, sprint-utils, validation.
 - Types: `types/index.ts`. Firestore converters and typed refs: `lib/firebase/refs.ts`.
 - Admin-only server operations: `app/api/admin/users/**` with `requireAdmin()` (`lib/server/require-admin.ts`), which verifies the ID token **and** the Firestore doc role/active. Admin SDK init: `lib/firebase/admin-core.ts` (also used by scripts), `lib/firebase/admin.ts` (`server-only`).
+- Workflow model (`lib/task-model.ts`): Done = tested, still carries forward; Released/Closed/Duplicate are finished; completion % excludes Closed/Duplicate. `assigneeIds: string[]` (no `assigneeId`, no `severity`). See DECISIONS.md "Workflow statuses".
 - Dates: date-only fields are `"YYYY-MM-DD"` strings. `description` = Tiptap JSON **string**. `order` = ms timestamp.
 - `meta/activeSprint {sprintId}` enforces the single-active-sprint rule (transaction + rules).
 - Charts: colors in `lib/constants.ts` as **hex per theme** (SVG attributes can't read CSS vars), validated with the dataviz palette validator.
@@ -56,11 +57,11 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 ## Seed data (emulators)
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15). TSK-1…6 live in closed Sprint 13. The next key after seeding is TSK-32.
 
-## Testing status (last full run: 2026-10-12)
-- Unit: 74 tests in 8 files, all passing.
-- Rules: 64 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
+## Testing status (last full run: 2026-10-22)
+- Unit: 79 tests in 8 files, all passing.
+- Rules: 65 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 19 Playwright flows, all passing (see the README for the list).
+- E2E: 22 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas
@@ -92,6 +93,7 @@ All 12 build phases from the spec are implemented and verified locally against t
 - [x] Excel bug list imported: 256 tasks TSK-1…256 in the active sprint "Release 1 (imported from Excel)" (renamed from "Sprint 1 …") (see DECISIONS.md "Excel import"). Source file in git-ignored `import/`. Don't re-run the import.
 - [x] Extra accounts (no invites): Mishal (developer), Nikita (QA, QA Engineer), Ashis (developer, no designation).
 - [x] Team accounts created WITHOUT emails (2026-10-12): Sudharsan (CTO) and Sreevani (Senior QA) are **admins** with Aryan; Prithika and Hariharan are QA; Sameeh and Nagma are developers (emails in git-ignored `team.json`). Nobody but Aryan can sign in yet.
+- [ ] **Workflow refactor (2026-10-22)**: code and tests done; rules + the `assigneeIds` index **deployed to prod** (2026-10-22). Still to do, in order: the owner runs `npx tsx scripts/migrate-workflow.ts --apply` (preview showed 256 tasks / ~715 writes), then push. The old `tasks(sprintId, assigneeId, order)` index can be removed later with `firebase deploy --only firestore:indexes --force`. Until the push, the live (old) app can't save edits to migrated tasks.
 - [ ] **Send invites only when the owner says the app is ready**: `npx tsx scripts/invite-users.ts team.json --send-invites`, or per user via Admin → Users → Send set-password email. Don't send them without being asked. 
 - Rules hardened: a stale `meta/activeSprint` pointer to a deleted sprint no longer blocks starting sprints (rules test added, 58 total).
 - [ ] Later, when Firestore storage nears ~700 MB (Spark cap is 1 GB TOTAL): build an Admin-only "Remove screenshots from finished tasks" action for closed sprints. Closed sprints are read-only, so it needs an Admin API route. Estimate: ~0.5 GB/year.

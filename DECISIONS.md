@@ -47,6 +47,18 @@ Admin → Users → Add user defaults to **"Email them a link to set their own p
 - Export (Admin only): presets This week (Mon–today) / Last week / This month / Last month / Custom, plus an App Type filter. It covers **all sprints**. "Completed in range" = a status change to Done in the activity log during the range (collection-group query on `activity`: index `field + createdAt`, read rule `/{path=**}/activity`). Imported tasks were created as Done, have no such change, and never count as completed. The file is built client-side with exceljs, which is dynamically imported, so it doesn't weigh down page loads. Cost: one read per task plus one per status change in the range.
 - Scheduled automatic emails would need Cloud Functions (Blaze), so exports are on demand.
 
+## Workflow statuses, Category, Priority, multiple assignees (2026-10-22)
+Decided with the owner:
+- **Category** (was "Type"): Bug, Improvement, Task. Old values map requirement → Task, enhancement → Improvement.
+- **Statuses**: Pending, In Progress, On Hold, Dev Done, Testing in Progress, Done, Released, Closed, Duplicate. Blocked and Reopened are gone (blocked → On Hold, reopened → In Progress; todo → Pending, ready_for_qa → Dev Done, qa_testing → Testing in Progress).
+- **Done = testing finished but not live yet.** Done tasks still carry into the next release. Only Released, Closed and Duplicate are "finished" (`lib/task-model.ts`).
+- **Completion % = (Done + Released) ÷ (all − Closed − Duplicate).** Closed and Duplicate drop out of the total.
+- **One Priority** (Critical / High / Medium / Low). Severity was removed; the dashboard shows open bugs by priority.
+- **Multiple assignees** (`assigneeIds`, max 20). In person breakdowns each assignee gets the task's full hours (not split). My Tasks uses `array-contains`. The cell editor saves once when the picker closes, so one write and one activity entry.
+- The grid has no Description column; Title is shown as **Task**. Description stays in the side panel.
+- The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
+- Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
+
 ## Sprints renamed "Releases" (2026-10-22)
 - **UI only:** every visible "Sprint" is now "Release", including the app name (Release Task Manager), the nav, pages, dialogs, the dashboard, reports and the export file name (`Release-report_…`). Routes moved from `/sprints/…` to `/releases/…`, and `next.config.ts` permanently redirects old `/sprints` links, including `?task=` deep links.
 - **Code and data keep "sprint"**: the `sprints` collection, `sprintId`, `meta/activeSprint`, types and services. Nothing was migrated. The live release was renamed "Release 1 (imported from Excel)", and the seed uses "Release 13/14/15".
@@ -80,7 +92,7 @@ Codes may be up to 20 characters with single hyphens (e.g. SERVICE-PROVIDER), en
 
 ## Sprints & carry-forward
 - Close-sprint order: (1) create the target sprint if new, (2) write the report snapshot, (3) move tasks in chunks of 225 tasks × 2 writes = **450 ops per batch**, (4) close the sprint and clear `meta/activeSprint`. The sprint stays active until the last step, so a failed close can be retried. A report that already exists is reused.
-- "Bugs opened during the sprint" = bug tasks in the sprint whose `createdAt` falls between the start date and the close time. "Bugs fixed" = bug tasks with status `done` at close.
+- "Bugs opened during the sprint" = bug tasks in the sprint whose `createdAt` falls between the start date and the close time. "Bugs fixed" = bug tasks that are Done or Released at close.
 - Unselected unfinished tasks stay in the closed sprint and appear as "left incomplete" in the report.
 - Sprint list counts are **live** for planned and active sprints (one `in` query, up to 30 sprints). Closed sprints use their immutable report snapshot.
 
@@ -91,7 +103,7 @@ Codes may be up to 20 characters with single hyphens (e.g. SERVICE-PROVIDER), en
 - Deleting a task deletes its attachments (chunks + metadata) and comments. Activity docs are append-only by rule, so they remain orphaned.
 
 ## Charts
-- Colors were validated with the dataviz palette validator. Task type uses 4 categorical slots in a fixed order, with separate light and dark steps. Status and severity charts are single-series, using one hue with labeled axes, so color never carries meaning on its own. Every chart has a table or legend with values next to it.
+- Colors were validated with the dataviz palette validator. Category uses 3 categorical slots in a fixed order, with separate light and dark steps. Status and open-bugs-by-priority charts are single-series, using one hue with labeled axes, so color never carries meaning on its own. Every chart has a table or legend with values next to it.
 - Chart colors are hex (picked by the resolved theme), because SVG presentation attributes don't resolve CSS `var()`.
 
 ## Out of scope (kept extensible)
