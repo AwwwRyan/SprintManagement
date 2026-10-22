@@ -59,6 +59,13 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Drag-and-drop task order (2026-10-22)
+- **Everyone can reorder** tasks in an open release (matches "everyone can edit every task"). Order is shared, so a move changes it for everybody, live.
+- **Reorders aren't logged** in Activity (owner's call; they'd be noise).
+- A moved task gets `order` halfway between its new neighbours: one write per move (`lib/reorder.ts`). When the gap runs out (orders are ms timestamps, so after ~20 drops into the same spot), the release is renumbered once in 1000-steps, anchored at the current last order so new tasks still land at the bottom.
+- Native HTML5 drag with a grip in the Sr No cell (no library; nothing gets `position`/transforms, so sticky columns stay intact). Keyboard: Alt+↑/↓ on a focused row.
+- Only in the release view, and only when sorted by Sr No (or unsorted); sorting by another column hides the grips. Not in My Tasks, where a personal list would silently rearrange the shared order.
+
 ## Sprints renamed "Releases" (2026-10-22)
 - **UI only:** every visible "Sprint" is now "Release", including the app name (Release Task Manager), the nav, pages, dialogs, the dashboard, reports and the export file name (`Release-report_…`). Routes moved from `/sprints/…` to `/releases/…`, and `next.config.ts` permanently redirects old `/sprints` links, including `?task=` deep links.
 - **Code and data keep "sprint"**: the `sprints` collection, `sprintId`, `meta/activeSprint`, types and services. Nothing was migrated. The live release was renamed "Release 1 (imported from Excel)", and the seed uses "Release 13/14/15".
