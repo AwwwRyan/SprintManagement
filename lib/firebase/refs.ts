@@ -53,6 +53,7 @@ const taskDefaults: Partial<Omit<Task, "id">> = {
   estimatedHours: null,
   actualHours: null,
   dueDate: null,
+  releaseDate: null,
   environment: "",
   remarks: "",
   stepsToReproduce: "",

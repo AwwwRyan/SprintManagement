@@ -10,7 +10,7 @@ import {
   type AppUser,
   type Module,
 } from "@/types";
-import { PRIORITY_LABELS, SEVERITY_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
+import { ENVIRONMENTS, PRIORITY_LABELS, SEVERITY_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
 import { AppTypeBadge, PriorityBadge, SeverityBadge, StatusBadge, TypeBadge } from "@/components/common/badges";
 import { UserChip } from "@/components/common/user-avatar";
 
@@ -46,6 +46,13 @@ export const severityOptions: Option[] = SEVERITIES.map((s) => ({
   label: SEVERITY_LABELS[s],
   node: <SeverityBadge severity={s} />,
 }));
+
+/** Staging / Production, plus the task's current value if it's something else (older data). */
+export function environmentOptions(current?: string | null): Option[] {
+  const base: string[] = [...ENVIRONMENTS];
+  if (current && !base.includes(current)) base.push(current);
+  return base.map((e) => ({ value: e, label: e }));
+}
 
 /** Active App Types, plus the current one even if it has been deactivated. */
 export function appTypeOptions(appTypes: AppType[], currentId?: string | null): Option[] {

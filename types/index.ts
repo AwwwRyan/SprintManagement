@@ -119,6 +119,8 @@ export interface Task {
   status: TaskStatus;
   reporterId: string;
   dueDate: DateString | null;
+  /** Planned release date of the change (optional). */
+  releaseDate: DateString | null;
   environment: string;
   /** Free-text remarks, editable by everyone (separate from the comment thread). */
   remarks: string;
@@ -147,6 +149,7 @@ export type EditableTaskField =
   | "actualHours"
   | "status"
   | "dueDate"
+  | "releaseDate"
   | "environment"
   | "remarks"
   | "stepsToReproduce"

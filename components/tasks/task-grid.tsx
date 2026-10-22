@@ -41,6 +41,7 @@ import {
   statusOptions,
   typeOptions,
   userOptions,
+  environmentOptions,
   type Option,
 } from "./options";
 
@@ -317,11 +318,21 @@ export function TaskGrid({
         sortValue: (t) => t.dueDate ?? "9999",
       },
       {
+        id: "releaseDate",
+        label: "Release date",
+        width: 124,
+        field: "releaseDate",
+        editor: "date",
+        render: (t) => <span className="tabular-nums">{t.releaseDate ?? <span className="text-muted-foreground">-</span>}</span>,
+        sortValue: (t) => t.releaseDate ?? "9999",
+      },
+      {
         id: "environment",
-        label: "Environment / Build",
-        width: 150,
+        label: "Environment",
+        width: 130,
         field: "environment",
-        editor: "text",
+        editor: "select",
+        options: (t) => ({ options: environmentOptions(t.environment), allowNone: true }),
         render: (t) => <span className="block truncate">{t.environment || <span className="text-muted-foreground">-</span>}</span>,
         sortValue: (t) => t.environment.toLowerCase(),
       },
@@ -511,7 +522,7 @@ export function TaskGrid({
   const renderEditor = (task: Task, cfg: ColConfig, r: number, c: number) => {
     const field = cfg.field!;
     const commit = (value: unknown) => {
-      save(task, field, value);
+      save(task, field, field === "environment" ? (value ?? "") : value);
       stopEditing(r, c);
     };
     const cancel = () => stopEditing(r, c);

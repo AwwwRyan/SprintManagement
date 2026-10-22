@@ -31,6 +31,7 @@ import {
   statusOptions,
   typeOptions,
   userOptions,
+  environmentOptions,
 } from "./options";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -93,7 +94,7 @@ export function TaskPanel({
   const copyLink = async () => {
     if (!task) return;
     const url = new URL(window.location.href);
-    url.pathname = `/sprints/${task.sprintId}`;
+    url.pathname = `/releases/${task.sprintId}`;
     url.search = `?task=${task.taskKey}`;
     try {
       await navigator.clipboard.writeText(url.toString());
@@ -174,7 +175,7 @@ export function TaskPanel({
               />
               {sprint?.status === "closed" && (
                 <p className="mt-1 px-1 text-xs text-muted-foreground">
-                  This task is in a closed sprint and is read-only.
+                  This task is in a closed release and is read-only.
                 </p>
               )}
             </div>
@@ -240,8 +241,18 @@ export function TaskPanel({
               <Row label="Due date">
                 <PropDate label="Due date" value={task.dueDate} onSave={field("dueDate")} disabled={!editable} />
               </Row>
-              <Row label="Environment / Build">
-                <PropText label="Environment" value={task.environment} onSave={field("environment")} placeholder="e.g. Staging v2.3.1" disabled={!editable} />
+              <Row label="Release date">
+                <PropDate label="Release date" value={task.releaseDate} onSave={field("releaseDate")} disabled={!editable} />
+              </Row>
+              <Row label="Environment">
+                <PropSelect
+                  label="Environment"
+                  value={task.environment || null}
+                  options={environmentOptions(task.environment)}
+                  onChange={(v) => save({ environment: v ?? "" })}
+                  allowNone
+                  disabled={!editable}
+                />
               </Row>
               <Row label="Remarks">
                 <PropTextarea label="Remarks" value={task.remarks} onSave={field("remarks")} placeholder="Add remarks…" disabled={!editable} />
@@ -251,7 +262,7 @@ export function TaskPanel({
                   <UserChip user={userById.get(task.reporterId)} />
                 </div>
               </Row>
-              <Row label="Sprint">
+              <Row label="Release">
                 <div className="px-2.5 text-sm">{sprint?.name ?? "Unknown"}</div>
               </Row>
               {task.sprintHistory.length > 0 && (

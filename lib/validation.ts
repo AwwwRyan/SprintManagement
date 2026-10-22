@@ -117,6 +117,7 @@ export const taskFormSchema = z
     estimatedHours: hours,
     actualHours: hours,
     dueDate: dateString.nullable(),
+    releaseDate: dateString.nullable().default(null),
     environment: z.string().trim().max(120),
     stepsToReproduce: z.string().max(5000),
     expectedResult: z.string().max(5000),

@@ -173,6 +173,7 @@ service cloud.firestore {
         && d.status in ['todo', 'in_progress', 'ready_for_qa', 'qa_testing', 'done', 'reopened', 'blocked']
         && d.reporterId is string
         && (d.dueDate == null || isDateString(d.dueDate))
+        && (!('releaseDate' in d) || d.releaseDate == null || isDateString(d.releaseDate))
         && d.environment is string && d.environment.size() <= 120
         && (!('remarks' in d) || (d.remarks is string && d.remarks.size() <= 2000))
         && d.stepsToReproduce is string && d.expectedResult is string && d.actualResult is string

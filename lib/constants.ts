@@ -116,4 +116,7 @@ export const PRESENCE_STALE_MS = 60_000;
 export const BATCH_CHUNK_SIZE = 450;
 export const DESCRIPTION_AUTOSAVE_MS = 800;
 
+/** Environment dropdown choices (other existing values are kept and shown as an extra option). */
+export const ENVIRONMENTS = ["Staging", "Production"] as const;
+
 export const TASK_KEY_PREFIX = "TSK-";

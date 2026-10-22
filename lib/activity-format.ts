@@ -20,6 +20,7 @@ export const FIELD_LABELS: Record<string, string> = {
   actualHours: "actual time",
   status: "status",
   dueDate: "due date",
+  releaseDate: "release date",
   environment: "environment",
   remarks: "remarks",
   stepsToReproduce: "steps to reproduce",
@@ -66,7 +67,7 @@ export function describeActivity(a: Pick<Activity, "action" | "field" | "oldValu
     case "created":
       return "created this task";
     case "carried_over":
-      return `carried this task over from ${a.oldValue ?? "a closed sprint"} to ${a.newValue ?? "the next sprint"}`;
+      return `carried this task over from ${a.oldValue ?? "a closed release"} to ${a.newValue ?? "the next release"}`;
     case "attachment_added":
       return `added attachment ${a.newValue ?? ""}`.trim();
     case "attachment_removed":

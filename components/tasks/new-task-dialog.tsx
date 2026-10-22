@@ -30,6 +30,7 @@ import {
   statusOptions,
   typeOptions,
   userOptions,
+  environmentOptions,
 } from "./options";
 
 const LAST_APP_TYPE_KEY = "stm.lastAppTypeId";
@@ -70,6 +71,7 @@ export function NewTaskDialog({
       estimatedHours: null,
       actualHours: null,
       dueDate: null,
+      releaseDate: null,
       environment: "",
       stepsToReproduce: "",
       expectedResult: "",
@@ -116,7 +118,7 @@ export function NewTaskDialog({
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>New task</DialogTitle>
-          <DialogDescription>Add a requirement, bug, enhancement or task to this sprint.</DialogDescription>
+          <DialogDescription>Add a requirement, bug, enhancement or task to this release.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
           <Field label="Title" htmlFor="nt-title" error={errors.title?.message}>
@@ -212,11 +214,26 @@ export function NewTaskDialog({
             <Field label="Due date" htmlFor="nt-due">
               <Input id="nt-due" type="date" {...register("dueDate", { setValueAs: (v: string) => v || null })} />
             </Field>
+            <Field label="Release date" htmlFor="nt-release">
+              <Input id="nt-release" type="date" {...register("releaseDate", { setValueAs: (v: string) => v || null })} />
+            </Field>
             <Field label="Estimated hours" htmlFor="nt-est" error={errors.estimatedHours?.message}>
               <Input id="nt-est" type="number" min={0} step={0.5} {...hours("estimatedHours")} />
             </Field>
-            <Field label="Environment / Build" htmlFor="nt-env">
-              <Input id="nt-env" placeholder="e.g. Staging v2.3.1" {...register("environment")} />
+            <Field label="Environment">
+              <Controller
+                control={control}
+                name="environment"
+                render={({ field }) => (
+                  <PropSelect
+                    label="Environment"
+                    value={field.value || null}
+                    options={environmentOptions()}
+                    onChange={(v) => field.onChange(v ?? "")}
+                    allowNone
+                  />
+                )}
+              />
             </Field>
           </div>
           {type === "bug" && (

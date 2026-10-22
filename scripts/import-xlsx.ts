@@ -28,7 +28,7 @@ import type { Priority, TaskStatus, TaskType } from "../types";
 /* ------------------------------------------------------------------ mapping */
 
 const MAPPING = {
-  sprintName: "Sprint 1 (imported from Excel)",
+  sprintName: "Release 1 (imported from Excel)",
   sprintGoal: "Everything from the Aug 2026 Excel bug list. Close it to carry unfinished tasks forward.",
   /** sheet name → App Type code (null: per-row "App"/"Application" column, or rowApp overrides) */
   sheetApp: {
@@ -219,7 +219,7 @@ async function main() {
     priority: Priority;
     status: TaskStatus;
     assigneeId: string | null;
-    environment: string;
+    remarks: string;
     dueDate: string | null;
     notes: string[];
   }[] = [];
@@ -279,7 +279,7 @@ async function main() {
       }
       const assigneeName = assigneeId ? users.find((u) => u.id === assigneeId)!.name : "Unassigned";
 
-      // Release status → environment
+      // Release status (Backend/Android/iOS) → remarks; Environment is Staging/Production only
       const release = (["backend", "android", "ios"] as const)
         .map((k) => [k, (row.cells[k] ?? "").trim()] as const)
         .filter(([k, v]) => v && v.toLowerCase() !== k)
@@ -297,7 +297,7 @@ async function main() {
       ];
       const dueDate: string | null = Object.entries(row.dates).find(([k]) => /target/.test(k))?.[1] ?? null;
 
-      plans.push({ row, title, paragraphs, appCode, type: isProduction ? "bug" : mapType(pick(row, /^type$/)), priority, status, assigneeId, environment: release.slice(0, 120), dueDate, notes });
+      plans.push({ row, title, paragraphs, appCode, type: isProduction ? "bug" : mapType(pick(row, /^type$/)), priority, status, assigneeId, remarks: release ? `Release status: ${release}` : "", dueDate, notes });
       stats.byApp[appCode] = (stats.byApp[appCode] ?? 0) + 1;
       stats.byStatus[status] = (stats.byStatus[status] ?? 0) + 1;
       stats.byAssignee[assigneeName] = (stats.byAssignee[assigneeName] ?? 0) + 1;
@@ -390,7 +390,8 @@ async function main() {
         status: p.status,
         reporterId: importer.uid,
         dueDate: p.dueDate,
-        environment: p.environment,
+        environment: "",
+        remarks: p.remarks,
         stepsToReproduce: "",
         expectedResult: "",
         actualResult: "",
