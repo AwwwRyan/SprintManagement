@@ -48,10 +48,9 @@ describe("form schemas", () => {
     appTypeId: "app1",
     type: "task" as const,
     moduleId: null,
-    assigneeId: null,
+    assigneeIds: [],
     priority: "medium" as const,
-    severity: "major" as const,
-    status: "todo" as const,
+    status: "pending" as const,
     estimatedHours: 1.5,
     actualHours: null,
     dueDate: null,
@@ -61,9 +60,11 @@ describe("form schemas", () => {
     actualResult: "",
   };
 
-  it("task: drops severity for non-bugs and keeps it for bugs", () => {
-    expect(taskFormSchema.parse(validTask).severity).toBeNull();
-    expect(taskFormSchema.parse({ ...validTask, type: "bug" }).severity).toBe("major");
+  it("task: accepts the new categories / statuses and rejects legacy ones", () => {
+    expect(taskFormSchema.safeParse({ ...validTask, type: "improvement", status: "on_hold" }).success).toBe(true);
+    expect(taskFormSchema.safeParse({ ...validTask, type: "enhancement" }).success).toBe(false);
+    expect(taskFormSchema.safeParse({ ...validTask, status: "blocked" }).success).toBe(false);
+    expect(taskFormSchema.parse({ ...validTask, assigneeIds: ["a", "b"] }).assigneeIds).toEqual(["a", "b"]);
   });
 
   it("task: hours use 0.5 steps and can't be negative", () => {

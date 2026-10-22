@@ -54,12 +54,11 @@ export function baseTask(overrides: Record<string, unknown> = {}) {
     title: "A task",
     description: "",
     descriptionText: "",
-    assigneeId: UIDS.dev,
+    assigneeIds: [UIDS.dev],
     priority: "medium",
-    severity: null,
     estimatedHours: null,
     actualHours: null,
-    status: "todo",
+    status: "pending",
     reporterId: UIDS.qa,
     dueDate: null,
     environment: "",
@@ -110,7 +109,7 @@ export async function seed(env: RulesTestEnvironment) {
     await setDoc(doc(db, "counters", "tasks"), { next: 3 });
     // t-dev: assigned to dev, reported by qa. t-other: belongs to nobody the developer is.
     await setDoc(doc(db, "tasks", "t-dev"), baseTask());
-    await setDoc(doc(db, "tasks", "t-other"), baseTask({ taskKey: "TSK-2", assigneeId: UIDS.dev2 }));
+    await setDoc(doc(db, "tasks", "t-other"), baseTask({ taskKey: "TSK-2", assigneeIds: [UIDS.dev2] }));
     await setDoc(doc(db, "tasks", "t-closed"), baseTask({ taskKey: "TSK-0", sprintId: "s-closed" }));
   });
 }

@@ -4,7 +4,7 @@ import type { Task } from "@/types";
 
 type T = Pick<
   Task,
-  "id" | "taskKey" | "title" | "status" | "type" | "appTypeId" | "assigneeId" | "estimatedHours" | "actualHours" | "severity"
+  "id" | "taskKey" | "title" | "status" | "type" | "appTypeId" | "assigneeIds" | "estimatedHours" | "actualHours" | "priority"
 > & { createdAtMs: number | null };
 
 let n = 0;
@@ -14,13 +14,13 @@ function t(o: Partial<T>): T {
     id: `t${n}`,
     taskKey: `TSK-${n}`,
     title: `Task ${n}`,
-    status: "todo",
+    status: "pending",
     type: "task",
     appTypeId: "app1",
-    assigneeId: null,
+    assigneeIds: [],
     estimatedHours: null,
     actualHours: null,
-    severity: null,
+    priority: "medium",
     createdAtMs: null,
     ...o,
   };
@@ -46,9 +46,9 @@ describe("computeSprintMetrics", () => {
 
   it("computes totals, completion and hour sums", () => {
     const tasks = [
-      t({ status: "done", estimatedHours: 2, actualHours: 3, assigneeId: "u1" }),
-      t({ status: "done", estimatedHours: 1.5, actualHours: 1, assigneeId: "u1" }),
-      t({ status: "in_progress", estimatedHours: 4, assigneeId: "u2" }),
+      t({ status: "done", estimatedHours: 2, actualHours: 3, assigneeIds: ["u1"] }),
+      t({ status: "released", estimatedHours: 1.5, actualHours: 1, assigneeIds: ["u1"] }),
+      t({ status: "in_progress", estimatedHours: 4, assigneeIds: ["u2"] }),
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
     expect(m.total).toBe(3);
@@ -56,15 +56,26 @@ describe("computeSprintMetrics", () => {
     expect(m.completionPct).toBe(67);
     expect(m.estimatedHours).toBe(7.5);
     expect(m.actualHours).toBe(4);
-    expect(m.byStatus.find((s) => s.key === "done")?.count).toBe(2);
-    expect(m.byStatus).toHaveLength(7);
+    expect(m.byStatus.find((s) => s.key === "done")?.count).toBe(1);
+    expect(m.byStatus).toHaveLength(9);
+  });
+
+  it("leaves Closed and Duplicate out of the completion %", () => {
+    const tasks = [t({ status: "done" }), t({ status: "pending" }), t({ status: "closed" }), t({ status: "duplicate" })];
+    expect(computeSprintMetrics(tasks, users, appTypes).completionPct).toBe(50);
+  });
+
+  it("gives every assignee the task's full hours", () => {
+    const m = computeSprintMetrics([t({ assigneeIds: ["u1", "u2"], estimatedHours: 6, status: "done" })], users, appTypes);
+    expect(m.byPerson).toHaveLength(2);
+    for (const p of m.byPerson) expect(p).toMatchObject({ tasks: 1, done: 1, estimatedHours: 6 });
   });
 
   it("breaks down by person, with Unassigned last", () => {
     const tasks = [
-      t({ assigneeId: null }),
-      t({ assigneeId: "u2", status: "done", estimatedHours: 1 }),
-      t({ assigneeId: "u1" }),
+      t({ assigneeIds: [] }),
+      t({ assigneeIds: ["u2"], status: "done", estimatedHours: 1 }),
+      t({ assigneeIds: ["u1"] }),
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
     expect(m.byPerson.map((p) => p.name)).toEqual(["Alice", "Bob", "Unassigned"]);
@@ -79,20 +90,21 @@ describe("computeSprintMetrics", () => {
     expect(m.byAppType.find((a) => a.appTypeId === "app2")?.completionPct).toBe(0);
   });
 
-  it("counts only open bugs by severity", () => {
+  it("counts only open bugs by priority", () => {
     const tasks = [
-      t({ type: "bug", severity: "blocker" }),
-      t({ type: "bug", severity: "blocker", status: "done" }),
-      t({ type: "bug", severity: null }),
-      t({ type: "task" }),
+      t({ type: "bug", priority: "critical" }),
+      t({ type: "bug", priority: "critical", status: "done" }),
+      t({ type: "bug", priority: "critical", status: "duplicate" }),
+      t({ type: "bug", priority: "low", status: "on_hold" }),
+      t({ type: "task", priority: "critical" }),
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
-    expect(m.openBugsBySeverity.find((s) => s.key === "blocker")?.count).toBe(1);
-    expect(m.openBugsBySeverity.find((s) => s.key === "unset")?.count).toBe(1);
+    expect(m.openBugsByPriority.find((s) => s.key === "critical")?.count).toBe(1);
+    expect(m.openBugsByPriority.find((s) => s.key === "low")?.count).toBe(1);
   });
 
   it("labels unknown users and app types instead of crashing", () => {
-    const m = computeSprintMetrics([t({ assigneeId: "ghost", appTypeId: "gone" })], users, appTypes);
+    const m = computeSprintMetrics([t({ assigneeIds: ["ghost"], appTypeId: "gone" })], users, appTypes);
     expect(m.byPerson[0].name).toBe("Unknown user");
     expect(m.byAppType[0].name).toBe("Unknown");
   });
@@ -105,13 +117,13 @@ describe("buildSprintReport", () => {
   const closedAtMs = new Date("2026-03-14T18:00:00").getTime();
 
   it("splits unfinished tasks into carried and left incomplete", () => {
-    const done = t({ status: "done" });
+    const released = t({ status: "released" });
     const carried = t({ status: "in_progress" });
-    const left = t({ status: "todo" });
+    const left = t({ status: "pending" });
     const r = buildSprintReport({
       sprint,
-      tasks: [done, carried, left],
-      carriedTaskIds: [carried.id, done.id], // done tasks are never "carried"
+      tasks: [released, carried, left],
+      carriedTaskIds: [carried.id, released.id], // released tasks are never "carried"
       target: { id: "s2", name: "Sprint 2" },
       users,
       appTypes,
@@ -125,13 +137,27 @@ describe("buildSprintReport", () => {
     expect(r.sprintName).toBe("Sprint 1");
   });
 
+  it("carries Done (tested, not released) tasks", () => {
+    const done = t({ status: "done" });
+    const r = buildSprintReport({
+      sprint,
+      tasks: [done],
+      carriedTaskIds: [done.id],
+      target: { id: "s2", name: "Sprint 2" },
+      users,
+      appTypes,
+      closedAtMs,
+    });
+    expect(r.carriedOver.map((x) => x.taskId)).toEqual([done.id]);
+  });
+
   it("counts bugs opened during the sprint and bugs fixed", () => {
     const r = buildSprintReport({
       sprint,
       tasks: [
         t({ type: "bug", createdAtMs: inSprint, status: "done" }),
         t({ type: "bug", createdAtMs: inSprint }),
-        t({ type: "bug", createdAtMs: before, status: "done" }),
+        t({ type: "bug", createdAtMs: before, status: "released" }),
         t({ type: "task", createdAtMs: inSprint }),
       ],
       carriedTaskIds: [],
@@ -147,7 +173,7 @@ describe("buildSprintReport", () => {
   it("contains no undefined values (Firestore rejects them)", () => {
     const r = buildSprintReport({
       sprint,
-      tasks: [t({ status: "todo" })],
+      tasks: [t({ status: "pending" })],
       carriedTaskIds: [],
       target: null,
       users,

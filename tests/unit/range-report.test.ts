@@ -10,8 +10,8 @@ const task = (o: Partial<ReportTask>): ReportTask => ({
   appTypeId: "app1",
   type: "task",
   priority: "medium",
-  status: "todo",
-  assigneeId: "u1",
+  status: "pending",
+  assigneeIds: ["u1"],
   reporterId: "u2",
   sprintId: "s1",
   dueDate: null,
@@ -46,24 +46,24 @@ describe("presetRange", () => {
 describe("buildRangeReport", () => {
   const tasks = [
     task({ id: "a", taskKey: "TSK-1", type: "bug", status: "done", actualHours: 3 }),
-    task({ id: "b", taskKey: "TSK-2", status: "in_progress", createdAtMs: ms("2026-09-20T10:00:00") }),
+    task({ id: "b", taskKey: "TSK-2", status: "released", createdAtMs: ms("2026-09-20T10:00:00") }),
     task({ id: "c", taskKey: "TSK-3", status: "done", descriptionText: "x\nImported from Excel: sheet", createdAtMs: ms("2026-10-02T09:00:00") }),
-    task({ id: "d", taskKey: "TSK-4", appTypeId: "app2", priority: "critical", status: "blocked", assigneeId: null, dueDate: "2026-10-03" }),
+    task({ id: "d", taskKey: "TSK-4", appTypeId: "app2", priority: "critical", status: "on_hold", assigneeIds: [], dueDate: "2026-10-03" }),
   ];
   const changes = [
-    { taskId: "a", atMs: ms("2026-10-05T12:00:00"), actorId: "u2", from: "qa_testing", to: "done" },
-    { taskId: "b", atMs: ms("2026-10-06T12:00:00"), actorId: "u1", from: "done", to: "reopened" },
-    { taskId: "b", atMs: ms("2026-09-25T12:00:00"), actorId: "u1", from: "todo", to: "done" }, // outside range
+    { taskId: "a", atMs: ms("2026-10-05T12:00:00"), actorId: "u2", from: "testing", to: "done" },
+    { taskId: "b", atMs: ms("2026-10-06T12:00:00"), actorId: "u1", from: "done", to: "released" },
+    { taskId: "b", atMs: ms("2026-09-25T12:00:00"), actorId: "u1", from: "pending", to: "done" }, // outside range
   ];
   const r = buildRangeReport({ tasks, changes, from: "2026-10-01", to: "2026-10-31", appTypeId: null, lookups, now: new Date("2026-10-14T12:00:00") });
   const s = Object.fromEntries(r.summary.map((x) => [x.label, x.value]));
 
   it("counts completions only from status changes inside the range", () => {
-    expect(r.completed.map((x) => x["Task ID"])).toEqual(["TSK-1"]);
-    expect(r.completed[0]).toMatchObject({ "Completed by": "Sreevani", "Actual h": 3 });
-    expect(s["Tasks completed"]).toBe(1);
+    expect(r.completed.map((x) => x["Task ID"]).sort()).toEqual(["TSK-1", "TSK-2"]);
+    expect(r.completed.find((x) => x["Task ID"] === "TSK-1")).toMatchObject({ "Completed by": "Sreevani", "Actual h": 3 });
+    expect(s["Tasks completed"]).toBe(2); // done or released inside the range
+    expect(s["Tasks released"]).toBe(1);
     expect(s["Bugs fixed"]).toBe(1);
-    expect(s["Tasks reopened"]).toBe(1);
   });
 
   it("separates imported tasks from real creations and never counts them as completed", () => {
@@ -73,9 +73,9 @@ describe("buildRangeReport", () => {
   });
 
   it("reports the current open state", () => {
-    expect(s["Open tasks now"]).toBe(2);
+    expect(s["Open tasks now"]).toBe(1); // only d: a and c are done, b is released
     expect(s["Critical open now"]).toBe(1);
-    expect(s["Blocked now"]).toBe(1);
+    expect(s["On hold now"]).toBe(1);
     expect(s["Overdue now"]).toBe(1);
     expect(r.openNow[0]["Task ID"]).toBe("TSK-4"); // critical first
   });
@@ -88,38 +88,42 @@ describe("buildRangeReport", () => {
   });
 
   it("breaks down by person and app", () => {
-    expect(r.byPerson.find((p) => p.Person === "Nagma")).toMatchObject({ "Completed in range": 1, "Open now": 1 });
-    expect(r.byApp.find((a) => a.App === "User App")).toMatchObject({ "Completed in range": 1, "Bugs fixed in range": 1 });
+    expect(r.byPerson.find((p) => p.Person === "Nagma")).toMatchObject({ "Completed in range": 2, "Open now": 0 });
+    expect(r.byApp.find((a) => a.App === "User App")).toMatchObject({ "Completed in range": 2, "Bugs fixed in range": 1 });
   });
 });
 
 describe("sprintProgress", () => {
   const sprint = { startDate: "2026-10-06", endDate: "2026-10-19" }; // 14 days
-  const t = (status: ReportTask["status"], o: Partial<ReportTask> = {}) => ({ status, priority: "medium" as const, assigneeId: "u", dueDate: null, ...o });
+  const t = (status: ReportTask["status"], o: Partial<ReportTask> = {}) => ({ status, priority: "medium" as const, assigneeIds: ["u"], dueDate: null, ...o });
 
   it("splits tasks into stages whose percentages sum to 100", () => {
-    const p = sprintProgress([t("done"), t("done"), t("qa_testing"), t("in_progress"), t("todo"), t("reopened"), t("blocked")], sprint, new Date("2026-10-12T10:00:00"));
-    expect(p.stages.map((s) => s.count)).toEqual([2, 1, 1, 2, 1]);
+    const p = sprintProgress(
+      [t("released"), t("done"), t("testing"), t("dev_done"), t("in_progress"), t("pending"), t("on_hold"), t("duplicate")],
+      sprint,
+      new Date("2026-10-12T10:00:00"),
+    );
+    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 2, 1, 1, 1, 1]);
     expect(p.stages.reduce((a, s) => a + s.pct, 0)).toBe(100);
-    expect(p.completionPct).toBe(29);
+    expect(p.completionPct).toBe(29); // 2 of 7 (the duplicate doesn't count)
   });
 
   it("compares completion with time used", () => {
-    const p = sprintProgress([t("done"), t("todo"), t("todo"), t("todo")], sprint, new Date("2026-10-12T10:00:00"));
+    const p = sprintProgress([t("done"), t("pending"), t("pending"), t("pending")], sprint, new Date("2026-10-12T10:00:00"));
     expect(p.dayOfSprint).toBe(7);
     expect(p.timePct).toBe(50);
     expect(p.paceDelta).toBe(-25);
     expect(p.pace).toBe("behind");
-    expect(sprintProgress([t("todo")], sprint, new Date("2026-10-01")).pace).toBe("not_started");
+    expect(sprintProgress([t("pending")], sprint, new Date("2026-10-01")).pace).toBe("not_started");
   });
 
-  it("counts overdue, critical, blocked and unassigned open tasks", () => {
+  it("counts overdue, critical, on-hold and unassigned open tasks", () => {
     const p = sprintProgress(
-      [t("todo", { dueDate: "2026-10-10" }), t("done", { dueDate: "2026-10-01" }), t("blocked", { priority: "critical", assigneeId: null })],
+      [t("pending", { dueDate: "2026-10-10" }), t("done", { dueDate: "2026-10-01" }), t("on_hold", { priority: "critical", assigneeIds: [] })],
       sprint,
       new Date("2026-10-12T10:00:00"),
     );
-    expect(p).toMatchObject({ overdue: 1, criticalOpen: 1, blocked: 1, unassignedOpen: 1 });
+    expect(p).toMatchObject({ overdue: 1, criticalOpen: 1, onHold: 1, unassignedOpen: 1 });
   });
 
   it("roundedShares always totals 100", () => {

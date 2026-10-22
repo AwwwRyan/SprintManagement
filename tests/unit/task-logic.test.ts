@@ -12,37 +12,42 @@ const task = (o: Partial<Task>) =>
     appTypeId: "app1",
     type: "task",
     moduleId: null,
-    assigneeId: null,
-    status: "todo",
+    assigneeIds: [],
+    status: "pending",
     priority: "medium",
     title: "Login page",
     descriptionText: "",
     order: 1,
     carryOverCount: 0,
-    severity: null,
     ...o,
   }) as Task;
 
 describe("task filters", () => {
   const tasks = [
-    task({ id: "1", taskKey: "TSK-10", title: "Login page", appTypeId: "a", status: "todo", assigneeId: "u1" }),
+    task({ id: "1", taskKey: "TSK-10", title: "Login page", appTypeId: "a", status: "pending", assigneeIds: ["u1"] }),
     task({ id: "2", taskKey: "TSK-11", title: "Crash on save", type: "bug", appTypeId: "b", status: "done", priority: "high" }),
     task({ id: "3", taskKey: "TSK-12", title: "Export", descriptionText: "CSV download for reports", moduleId: "m1", appTypeId: "a" }),
+    task({ id: "4", taskKey: "TSK-13", title: "Shared", appTypeId: "c", assigneeIds: ["u1", "u2"] }),
   ];
 
   it("returns everything with empty filters", () => {
-    expect(applyFilters(tasks, EMPTY_FILTERS)).toHaveLength(3);
+    expect(applyFilters(tasks, EMPTY_FILTERS)).toHaveLength(4);
     expect(hasActiveFilters(EMPTY_FILTERS)).toBe(false);
   });
 
   it("combines multi-select filters with AND across fields, OR within a field", () => {
-    const r = applyFilters(tasks, { ...EMPTY_FILTERS, appTypeId: ["a"], status: ["todo", "done"] });
+    const r = applyFilters(tasks, { ...EMPTY_FILTERS, appTypeId: ["a"], status: ["pending", "done"] });
     expect(r.map((x) => x.id)).toEqual(["1", "3"]);
   });
 
   it("filters unassigned tasks via the sentinel", () => {
     const r = applyFilters(tasks, { ...EMPTY_FILTERS, assigneeId: [UNASSIGNED] });
     expect(r.map((x) => x.id)).toEqual(["2", "3"]);
+  });
+
+  it("matches a task when any of its assignees is selected", () => {
+    expect(applyFilters(tasks, { ...EMPTY_FILTERS, assigneeId: ["u2"] }).map((x) => x.id)).toEqual(["4"]);
+    expect(applyFilters(tasks, { ...EMPTY_FILTERS, assigneeId: ["u1"] }).map((x) => x.id)).toEqual(["1", "4"]);
   });
 
   it("searches title, description text and task id (case-insensitive)", () => {
@@ -72,12 +77,12 @@ describe("task filters", () => {
 });
 
 describe("diffPatch / normalizePatch", () => {
-  const base = task({ title: "Old", status: "todo", estimatedHours: 2, description: "{}" });
+  const base = task({ title: "Old", status: "pending", estimatedHours: 2, description: "{}" });
 
   it("keeps only changed fields", () => {
     const { changed, changes } = diffPatch(base, { title: "Old", status: "done" });
     expect(changed).toEqual({ status: "done" });
-    expect(changes).toEqual([{ field: "status", oldValue: "todo", newValue: "done" }]);
+    expect(changes).toEqual([{ field: "status", oldValue: "pending", newValue: "done" }]);
   });
 
   it("treats null and undefined as equal (no-op save)", () => {
@@ -90,10 +95,16 @@ describe("diffPatch / normalizePatch", () => {
     expect(changes).toEqual([{ field: "description", oldValue: null, newValue: null }]);
   });
 
-  it("clears severity when the type is not bug", () => {
-    const bug = task({ type: "bug", severity: "major" });
-    expect(normalizePatch(bug, { type: "task" })).toEqual({ type: "task", severity: null });
-    expect(normalizePatch(bug, { title: "x" })).toEqual({ title: "x" });
+  it("ignores a reordered but identical assignee list", () => {
+    const t = task({ assigneeIds: ["u1", "u2"] });
+    expect(diffPatch(t, { assigneeIds: ["u2", "u1"] }).changes).toHaveLength(0);
+    expect(diffPatch(t, { assigneeIds: ["u1"] }).changes).toEqual([
+      { field: "assigneeIds", oldValue: '["u1","u2"]', newValue: '["u1"]' },
+    ]);
+  });
+
+  it("leaves a category change alone", () => {
+    expect(normalizePatch(task({ type: "bug" }), { type: "task" })).toEqual({ type: "task" });
   });
 
   it("clears the module when the App Type changes", () => {
@@ -105,10 +116,11 @@ describe("diffPatch / normalizePatch", () => {
 
 describe("planCarryForward", () => {
   const tasks = [
-    task({ id: "a", status: "done", order: 1 }),
+    task({ id: "a", status: "released", order: 1 }),
     task({ id: "b", status: "in_progress", order: 3, carryOverCount: 1 }),
-    task({ id: "c", status: "todo", order: 2 }),
-    task({ id: "d", status: "blocked", order: 4 }),
+    task({ id: "c", status: "done", order: 2 }), // tested but not released: still carries
+    task({ id: "d", status: "on_hold", order: 4 }),
+    task({ id: "e", status: "duplicate", order: 5 }),
   ];
 
   it("carries only selected unfinished tasks, keeping status and relative order", () => {
@@ -119,14 +131,14 @@ describe("planCarryForward", () => {
       finalStatusInSprint: "in_progress",
       newCarryOverCount: 2,
     });
-    expect(plan.completed).toBe(1);
+    expect(plan.completed).toBe(2);
     expect(plan.leftIncomplete).toBe(1);
   });
 
   it("produces the success summary", () => {
     const plan = planCarryForward(tasks, ["b", "c"], 0);
-    expect(carrySummary(plan, "Sprint 15")).toBe("1 completed, 2 carried to Sprint 15, 1 left incomplete.");
-    expect(carrySummary(planCarryForward(tasks, [], 0), null)).toBe("1 completed, 3 left incomplete.");
+    expect(carrySummary(plan, "Sprint 15")).toBe("2 finished, 2 carried to Sprint 15, 1 left incomplete.");
+    expect(carrySummary(planCarryForward(tasks, [], 0), null)).toBe("2 finished, 3 left incomplete.");
   });
 });
 

@@ -11,9 +11,9 @@ const open = { status: "active" as const };
 const planned = { status: "planned" as const };
 const closed = { status: "closed" as const };
 
-const devTask = { reporterId: "q", assigneeId: "d" };
-const otherTask = { reporterId: "q", assigneeId: "z" };
-const devReported = { reporterId: "d", assigneeId: null };
+const devTask = { reporterId: "q", assigneeIds: ["d"] };
+const otherTask = { reporterId: "q", assigneeIds: ["z"] };
+const devReported = { reporterId: "d", assigneeIds: [] };
 
 describe("permission table (spec §3)", () => {
   it("only admins manage users and master data", () => {

@@ -22,8 +22,8 @@ async function newSession(browser: Browser, email: string) {
 
 // Rows carry data-task-key (the Task ID column is hidden by default).
 const row = (page: Page, key: string) => page.locator(`tr[data-task-key="${key}"]`);
-/** Column index in the default layout (Sr No, App Type, Type, Module, Title, Description, Assigned to, Priority, …). */
-const COL = { srNo: 0, priority: 7, status: 11, remarks: 12 } as const;
+/** Column index in the default layout (Sr No, App Type, Category, Module, Task, Assignees, Priority, Est, Actual, Status, Remarks, …). */
+const COL = { srNo: 0, category: 2, task: 4, assignees: 5, priority: 6, status: 9, remarks: 10 } as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -105,6 +105,41 @@ test("anyone can edit Remarks inline, and others see it live", async ({ browser 
   await expect(cell(qa.page)).toContainText("Reproduced on staging");
   await qa.ctx.close();
   await dev.ctx.close();
+});
+
+test("a task can have several assignees, and it shows in each one's My Tasks", async ({ browser }) => {
+  const qa = await newSession(browser, "qa1@example.com");
+  const dev = await newSession(browser, "dev2@example.com");
+  const cell = (page: Page) => row(page, "TSK-12").locator("td").nth(COL.assignees); // seeded with Sara Kim only
+  await cell(qa.page).click();
+  await qa.page.getByRole("option", { name: "Maya Chen" }).click();
+  await qa.page.keyboard.press("Escape"); // closing the picker saves once
+  await expect(cell(qa.page)).toContainText("Sara Kim, Maya Chen");
+  await expect(cell(dev.page)).toContainText("Maya Chen");
+
+  await dev.page.goto("/my-tasks");
+  await expect(row(dev.page, "TSK-12")).toBeVisible();
+
+  await row(qa.page, "TSK-12").locator("td").nth(COL.srNo).click();
+  await qa.page.getByRole("tab", { name: "Activity" }).click();
+  await expect(qa.page.getByText(/changed assignees from Sara Kim to Sara Kim, Maya Chen/)).toBeVisible();
+  await qa.ctx.close();
+  await dev.ctx.close();
+});
+
+test("statuses include On Hold, Released and Duplicate; the old Description column is gone", async ({ page }) => {
+  await login(page, "qa2@example.com");
+  await expect(page.getByRole("columnheader", { name: "Task", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Category" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Description" })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Severity" })).toHaveCount(0);
+  const status = row(page, "TSK-11").locator("td").nth(COL.status);
+  await status.click();
+  for (const name of ["Pending", "On Hold", "Dev Done", "Testing in Progress", "Released", "Closed", "Duplicate"]) {
+    await expect(page.getByRole("option", { name, exact: true })).toBeVisible();
+  }
+  await page.getByRole("option", { name: "On Hold", exact: true }).click();
+  await expect(status).toContainText("On Hold");
 });
 
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
@@ -201,7 +236,7 @@ test("dashboard: detailed progress card, and admin exports a date-range Excel re
   await login(page, "admin@example.com");
   await page.goto("/dashboard");
   await expect(page.getByText("Release progress")).toBeVisible();
-  await expect(page.getByLabel("Progress legend")).toContainText("In QA");
+  await expect(page.getByLabel("Progress legend")).toContainText("Dev done / testing");
   await expect(page.getByText(/Release time: day \d+ of 14/)).toBeVisible();
   await expect(page.getByText("Critical open")).toBeVisible();
 
@@ -292,7 +327,7 @@ test("close release carries tasks forward and produces a report", async ({ page 
   // leave TSK-10 behind
   await dialog.getByRole("checkbox", { name: "Carry TSK-10" }).click();
   await dialog.getByRole("button", { name: "Close release" }).click();
-  await expect(page.getByText(/completed, \d+ carried to Release 15, 1 left incomplete/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/finished, \d+ carried to Release 15, 1 left incomplete/)).toBeVisible({ timeout: 30_000 });
 
   // closed sprint is read-only and has a report
   await expect(page.getByRole("link", { name: "View report" })).toBeVisible();

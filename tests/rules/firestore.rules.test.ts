@@ -229,11 +229,17 @@ describe("task creation & counter", () => {
   it("cannot create a task in a closed sprint", async () => {
     await assertFails(createTaskBatch(fsOf(as(env, "admin")), UIDS.admin, { sprintId: "s-closed" }));
   });
-  it("validates enums and the bug-only severity", async () => {
+  it("validates the category / status enums and the assignee list", async () => {
     const db = fsOf(as(env, "qa"));
     await assertFails(createTaskBatch(db, UIDS.qa, { status: "nope" }));
-    await assertFails(createTaskBatch(db, UIDS.qa, { type: "task", severity: "major" }));
-    await assertSucceeds(createTaskBatch(db, UIDS.qa, { type: "bug", severity: "major" }));
+    await assertFails(createTaskBatch(db, UIDS.qa, { status: "todo" })); // legacy value
+    await assertFails(createTaskBatch(db, UIDS.qa, { type: "enhancement" })); // legacy value
+    await assertFails(createTaskBatch(db, UIDS.qa, { assigneeIds: UIDS.dev })); // must be a list
+    await assertSucceeds(createTaskBatch(db, UIDS.qa, { type: "improvement", status: "on_hold" }));
+  });
+  it("accepts several assignees", async () => {
+    const db = fsOf(as(env, "qa"));
+    await assertSucceeds(createTaskBatch(db, UIDS.qa, { status: "released", assigneeIds: [UIDS.dev, UIDS.dev2] }));
   });
   it("new tasks start with zero attachments / carry-overs", async () => {
     await assertFails(createTaskBatch(fsOf(as(env, "qa")), UIDS.qa, { carryOverCount: 2 }));
@@ -255,7 +261,7 @@ describe("task updates", () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(
         doc(ctx.firestore() as unknown as Firestore, "tasks", "t-reported"),
-        baseTask({ taskKey: "TSK-9", reporterId: UIDS.dev, assigneeId: null }),
+        baseTask({ taskKey: "TSK-9", reporterId: UIDS.dev, assigneeIds: [] }),
       );
     });
     await assertSucceeds(edit("dev", "t-reported", { title: "mine" }));
@@ -288,7 +294,7 @@ describe("task updates", () => {
         sprintId: "s-planned",
         order: 100,
         carryOverCount: increment(1),
-        sprintHistory: arrayUnion({ sprintId: "s-closed", sprintName: "x", finalStatusInSprint: "todo", movedAt: Timestamp.now() }),
+        sprintHistory: arrayUnion({ sprintId: "s-closed", sprintName: "x", finalStatusInSprint: "pending", movedAt: Timestamp.now() }),
       }),
     );
   });
