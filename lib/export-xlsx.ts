@@ -10,13 +10,13 @@ type Rows = Record<string, string | number>[];
 
 export function reportFileName(r: RangeReport, appName: string | null): string {
   const app = appName ? `_${appName.replace(/[^\w-]+/g, "-")}` : "";
-  return `Sprint-report${app}_${r.from}_to_${r.to}.xlsx`;
+  return `Release-report${app}_${r.from}_to_${r.to}.xlsx`;
 }
 
 export async function downloadRangeReport(r: RangeReport, fileName: string): Promise<void> {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Sprint Task Manager";
+  wb.creator = "Release Task Manager";
   wb.created = new Date();
 
   const header = (ws: import("exceljs").Worksheet) => {

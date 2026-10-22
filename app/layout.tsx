@@ -7,8 +7,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Sprint Task Manager", template: "%s · Sprint Task Manager" },
-  description: "Real-time sprint task management",
+  title: { default: "Release Task Manager", template: "%s · Release Task Manager" },
+  description: "Real-time release task management",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

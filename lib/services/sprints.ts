@@ -63,15 +63,15 @@ export async function startSprint(sprintId: string): Promise<void> {
   const metaRef = ref.activeSprintMeta();
   await runTransaction(db(), async (tx) => {
     const [meta, target] = await Promise.all([tx.get(metaRef), tx.get(ref.sprint(sprintId))]);
-    if (!target.exists()) throw new SprintRuleError("Sprint not found.");
-    if (target.data().status !== "planned") throw new SprintRuleError("Only planned sprints can be started.");
+    if (!target.exists()) throw new SprintRuleError("Release not found.");
+    if (target.data().status !== "planned") throw new SprintRuleError("Only planned releases can be started.");
 
     const currentId = meta.exists() ? (meta.data().sprintId as string | null) : null;
     if (currentId && currentId !== sprintId) {
       const current = await tx.get(ref.sprint(currentId));
       if (current.exists() && current.data().status === "active") {
         throw new SprintRuleError(
-          `"${current.data().name}" is already active. Close it before starting another sprint.`,
+          `"${current.data().name}" is already active. Close it before starting another release.`,
         );
       }
     }
@@ -106,14 +106,14 @@ export async function closeSprint(args: CloseSprintArgs): Promise<string> {
   // 1. Target sprint
   let targetSprint: { id: string; name: string } | null = null;
   if (selectedTaskIds.length > 0) {
-    if (!target) throw new SprintRuleError("Choose a sprint to carry tasks into.");
+    if (!target) throw new SprintRuleError("Choose a release to carry tasks into.");
     if (target.kind === "new") {
       const id = await createSprint(target.input, actorId);
       targetSprint = { id, name: target.input.name.trim() };
     } else {
       const snap = await getDoc(ref.sprint(target.sprintId));
       if (!snap.exists() || snap.data().status !== "planned") {
-        throw new SprintRuleError("The target sprint must be a planned sprint.");
+        throw new SprintRuleError("The target release must be a planned release.");
       }
       targetSprint = { id: snap.id, name: snap.data().name };
     }

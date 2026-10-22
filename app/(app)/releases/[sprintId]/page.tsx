@@ -36,10 +36,10 @@ function SprintView() {
     return (
       <EmptyState
         icon={SearchX}
-        title="Sprint not found"
+        title="Release not found"
         action={
           <Button asChild variant="outline">
-            <Link href="/sprints">All sprints</Link>
+            <Link href="/releases">All releases</Link>
           </Button>
         }
       />
@@ -85,17 +85,17 @@ function SprintView() {
               )}
               {staff && sprint.status === "planned" && (
                 <Button size="sm" onClick={() => setStartOpen(true)}>
-                  <Play /> Start sprint
+                  <Play /> Start release
                 </Button>
               )}
               {staff && sprint.status === "active" && (
                 <Button size="sm" variant="destructive" onClick={() => setCloseOpen(true)} disabled={live.loading}>
-                  <Square /> Close sprint
+                  <Square /> Close release
                 </Button>
               )}
               {sprint.status === "closed" && (
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`/sprints/${sprint.id}/report`}>
+                  <Link href={`/releases/${sprint.id}/report`}>
                     <FileBarChart /> View report
                   </Link>
                 </Button>
@@ -110,8 +110,8 @@ function SprintView() {
         open={startOpen}
         onOpenChange={setStartOpen}
         title={`Start ${sprint.name}?`}
-        description="Only one sprint can be active at a time."
-        confirmLabel="Start sprint"
+        description="Only one release can be active at a time."
+        confirmLabel="Start release"
         onConfirm={async () => {
           await attempt(() => startSprint(sprint.id), "Couldn't start sprint", `${sprint.name} started`);
         }}

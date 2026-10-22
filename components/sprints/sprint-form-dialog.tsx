@@ -45,7 +45,7 @@ export function SprintFields({
   return (
     <div className="grid gap-3">
       <Field label="Name" htmlFor={`${idPrefix}-name`} error={errors.name?.message}>
-        <Input id={`${idPrefix}-name`} placeholder="Sprint 15" {...form.register("name")} />
+        <Input id={`${idPrefix}-name`} placeholder="Release 15" {...form.register("name")} />
       </Field>
       <Field label="Goal" htmlFor={`${idPrefix}-goal`} error={errors.goal?.message}>
         <Textarea id={`${idPrefix}-goal`} rows={2} {...form.register("goal")} />
@@ -93,7 +93,7 @@ export function SprintFormDialog({
     try {
       if (sprint) {
         await updateSprint(sprint.id, values);
-        toast.success("Sprint updated");
+        toast.success("Release updated");
         onSaved?.(sprint.id);
       } else {
         const id = await createSprint(values, actor.uid);
@@ -102,7 +102,7 @@ export function SprintFormDialog({
       }
       onOpenChange(false);
     } catch (err) {
-      notifyError(err, "Couldn't save sprint");
+      notifyError(err, "Couldn't save release");
     }
   });
 
@@ -110,9 +110,9 @@ export function SprintFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{sprint ? "Edit sprint" : "New sprint"}</DialogTitle>
+          <DialogTitle>{sprint ? "Edit release" : "New release"}</DialogTitle>
           <DialogDescription>
-            {sprint ? "Update the sprint details." : "New sprints start as planned. Start one when it begins."}
+            {sprint ? "Update the release details." : "New releases start as planned. Start one when it begins."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
@@ -122,7 +122,7 @@ export function SprintFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Saving…" : sprint ? "Save" : "Create sprint"}
+              {form.formState.isSubmitting ? "Saving…" : sprint ? "Save" : "Create release"}
             </Button>
           </DialogFooter>
         </form>

@@ -49,7 +49,7 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
       <CardContent className="grid gap-4 px-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <div className="text-xs text-muted-foreground">Sprint progress</div>
+            <div className="text-xs text-muted-foreground">Release progress</div>
             <div className="mt-0.5 flex items-baseline gap-2">
               <span className="text-3xl font-semibold tabular-nums">{p.completionPct}%</span>
               <span className="text-sm text-muted-foreground">
@@ -94,7 +94,7 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
         <div>
           <div className="mb-1 flex justify-between text-xs text-muted-foreground">
             <span>
-              Sprint time: day {p.dayOfSprint} of {p.sprintDays}
+              Release time: day {p.dayOfSprint} of {p.sprintDays}
             </span>
             <span>
               {format(parseISO(sprint.startDate), "MMM d")} to {format(parseISO(sprint.endDate), "MMM d")} · {p.timePct}% used

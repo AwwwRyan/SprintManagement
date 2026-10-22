@@ -27,7 +27,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
             ST
           </div>
-          <span className="text-lg font-semibold">Sprint Task Manager</span>
+          <span className="text-lg font-semibold">Release Task Manager</span>
         </div>
         {children}
       </div>

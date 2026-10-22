@@ -47,12 +47,12 @@ export default function SprintsPage() {
   return (
     <>
       <PageHeader
-        title="Sprints"
-        description="Sprints are shared across all App Types. Only one can be active at a time."
+        title="Releases"
+        description="Releases are shared across all App Types. Only one can be active at a time."
         actions={
           canManageSprints(actor) && (
             <Button onClick={() => setOpen(true)}>
-              <Plus /> New Sprint
+              <Plus /> New Release
             </Button>
           )
         }
@@ -67,12 +67,12 @@ export default function SprintsPage() {
       ) : ordered.length === 0 ? (
         <EmptyState
           icon={Zap}
-          title="No sprints yet"
-          description={canManageSprints(actor) ? "Create the first sprint to start adding tasks." : "QA will create the first sprint."}
+          title="No releases yet"
+          description={canManageSprints(actor) ? "Create the first release to start adding tasks." : "QA will create the first release."}
           action={
             canManageSprints(actor) && (
               <Button onClick={() => setOpen(true)}>
-                <Plus /> New Sprint
+                <Plus /> New Release
               </Button>
             )
           }
@@ -85,7 +85,7 @@ export default function SprintsPage() {
             return (
               <li key={s.id}>
                 <Link
-                  href={`/sprints/${s.id}`}
+                  href={`/releases/${s.id}`}
                   className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <div className="min-w-48 flex-1">
@@ -120,7 +120,7 @@ export default function SprintsPage() {
                       size="sm"
                       onClick={(e) => {
                         e.preventDefault();
-                        router.push(`/sprints/${s.id}/report`);
+                        router.push(`/releases/${s.id}/report`);
                       }}
                     >
                       <FileBarChart /> Report
@@ -137,7 +137,7 @@ export default function SprintsPage() {
         open={open}
         onOpenChange={setOpen}
         suggestedName={suggestSprintName(sprints)}
-        onSaved={(id) => router.push(`/sprints/${id}`)}
+        onSaved={(id) => router.push(`/releases/${id}`)}
       />
     </>
   );

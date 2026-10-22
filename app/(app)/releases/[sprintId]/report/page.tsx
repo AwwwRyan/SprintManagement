@@ -62,11 +62,11 @@ export default function SprintReportPage() {
     return (
       <EmptyState
         icon={FileBarChart}
-        title="No report for this sprint"
-        description="Reports are generated when a sprint is closed."
+        title="No report for this release"
+        description="Reports are generated when a release is closed."
         action={
           <Button asChild variant="outline">
-            <Link href={`/sprints/${sprintId}`}>Back to sprint</Link>
+            <Link href={`/releases/${sprintId}`}>Back to release</Link>
           </Button>
         }
       />
@@ -79,11 +79,11 @@ export default function SprintReportPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button asChild variant="ghost" size="sm" className="no-print -ml-2 mb-1">
-            <Link href={`/sprints/${sprintId}`}>
-              <ArrowLeft /> Back to sprint
+            <Link href={`/releases/${sprintId}`}>
+              <ArrowLeft /> Back to release
             </Link>
           </Button>
-          <h1 className="text-xl font-semibold tracking-tight">{report.sprintName}: Sprint report</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{report.sprintName}: Release report</h1>
           <p className="text-sm text-muted-foreground">
             {fmt(report.startDate)} to {fmt(report.endDate)}
             {sprint?.closedAt && ` · closed ${format(sprint.closedAt.toDate(), "MMM d, yyyy")}`}
@@ -99,7 +99,7 @@ export default function SprintReportPage() {
         <StatTile label="Planned vs completed" value={`${report.done} / ${report.total}`} sub={`${report.completionPct}% completed`} />
         <StatTile label="Carried over" value={report.carriedOver.length} sub={`${report.leftIncomplete.length} left incomplete`} />
         <StatTile label="Hours (estimated / actual)" value={`${report.estimatedHours} / ${report.actualHours}`} />
-        <StatTile label="Bugs opened / fixed" value={`${report.bugsOpened} / ${report.bugsFixed}`} sub="Opened during the sprint · fixed by close" />
+        <StatTile label="Bugs opened / fixed" value={`${report.bugsOpened} / ${report.bugsFixed}`} sub="Opened during the release · fixed by close" />
       </div>
 
       <MetricsView metrics={report} />
@@ -120,7 +120,7 @@ export default function SprintReportPage() {
           <TaskRefTable rows={report.leftIncomplete} />
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">This report is a snapshot taken when the sprint closed and never changes.</p>
+      <p className="text-xs text-muted-foreground">This report is a snapshot taken when the release closed and never changes.</p>
     </div>
   );
 }

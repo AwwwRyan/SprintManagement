@@ -12,7 +12,7 @@ export default function HomeRedirect() {
 
   useEffect(() => {
     if (loading) return;
-    router.replace(activeSprint ? `/sprints/${activeSprint.id}` : "/sprints");
+    router.replace(activeSprint ? `/releases/${activeSprint.id}` : "/releases");
   }, [loading, activeSprint, router]);
 
   return <FullPageSpinner />;

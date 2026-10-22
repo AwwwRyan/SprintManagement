@@ -24,11 +24,11 @@ function MyTasks() {
         <PageHeader title="My Tasks" />
         <EmptyState
           icon={ListChecks}
-          title="No active sprint"
-          description="Your tasks show up here once a sprint is started."
+          title="No active release"
+          description="Your tasks show up here once a release is started."
           action={
             <Button asChild variant="outline">
-              <Link href="/sprints">View sprints</Link>
+              <Link href="/releases">View releases</Link>
             </Button>
           }
         />
@@ -46,7 +46,7 @@ function MyTasks() {
           description={
             <>
               Assigned to you in{" "}
-              <Link href={`/sprints/${activeSprint.id}`} className="font-medium text-foreground hover:underline">
+              <Link href={`/releases/${activeSprint.id}`} className="font-medium text-foreground hover:underline">
                 {activeSprint.name}
               </Link>
             </>

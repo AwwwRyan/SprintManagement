@@ -45,7 +45,7 @@ export function planCarryForward(
 
 export function carrySummary(plan: CarryPlan, targetName: string | null): string {
   const parts = [`${plan.completed} completed`];
-  if (plan.carried.length) parts.push(`${plan.carried.length} carried to ${targetName ?? "the next sprint"}`);
+  if (plan.carried.length) parts.push(`${plan.carried.length} carried to ${targetName ?? "the next release"}`);
   parts.push(`${plan.leftIncomplete} left incomplete`);
   return parts.join(", ") + ".";
 }

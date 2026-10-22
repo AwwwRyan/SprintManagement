@@ -51,11 +51,11 @@ export default function DashboardPage() {
         <PageHeader title="Dashboard" actions={exportButton} />
         <EmptyState
           icon={LayoutDashboard}
-          title="No active sprint right now"
-          description="When a sprint is started, its live progress shows up here."
+          title="No active release right now"
+          description="When a release is started, its live progress shows up here."
           action={
             <Button asChild variant="outline">
-              <Link href="/sprints">Go to sprints</Link>
+              <Link href="/releases">Go to releases</Link>
             </Button>
           }
         />
@@ -71,7 +71,7 @@ export default function DashboardPage() {
         title="Dashboard"
         description={
           <>
-            <Link href={`/sprints/${activeSprint.id}`} className="font-medium text-foreground hover:underline">
+            <Link href={`/releases/${activeSprint.id}`} className="font-medium text-foreground hover:underline">
               {activeSprint.name}
             </Link>{" "}
             · {fmt(activeSprint.startDate)} to {fmt(activeSprint.endDate)} · updates live
@@ -107,7 +107,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
             <ProgressCard progress={progress} sprint={activeSprint} />
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-1">
-              <StatTile label="Open tasks" value={metrics.total - metrics.done} sub={`of ${metrics.total} in this sprint`} />
+              <StatTile label="Open tasks" value={metrics.total - metrics.done} sub={`of ${metrics.total} in this release`} />
               <StatTile
                 label="Hours (estimated / actual)"
                 value={`${metrics.estimatedHours} / ${metrics.actualHours}`}

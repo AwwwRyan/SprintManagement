@@ -87,7 +87,7 @@ export function CloseSprintDialog({
       toast.success(`${sprint.name} closed`, { description: summary, duration: 8000 });
       onOpenChange(false);
     } catch (err) {
-      notifyError(err, "Couldn't close sprint");
+      notifyError(err, "Couldn't close release");
     } finally {
       setBusy(false);
     }
@@ -110,7 +110,7 @@ export function CloseSprintDialog({
         <DialogHeader>
           <DialogTitle>Close {sprint.name}</DialogTitle>
           <DialogDescription>
-            {doneCount} of {tasks.length} tasks are done. Choose which unfinished tasks to carry into the next sprint.
+            {doneCount} of {tasks.length} tasks are done. Choose which unfinished tasks to carry into the next release.
             Their status, comments, attachments and history move with them.
           </DialogDescription>
         </DialogHeader>
@@ -121,7 +121,7 @@ export function CloseSprintDialog({
           </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[40rem] table-fixed text-sm">
               <thead className="bg-muted text-xs text-muted-foreground">
                 <tr>
                   <th className="w-10 p-2 text-left">
@@ -132,32 +132,32 @@ export function CloseSprintDialog({
                     />
                   </th>
                   <th className="p-2 text-left font-medium">Task</th>
-                  <th className="p-2 text-left font-medium">App</th>
-                  <th className="p-2 text-left font-medium">Assignee</th>
-                  <th className="p-2 text-left font-medium">Status</th>
+                  <th className="w-40 p-2 text-left font-medium">App</th>
+                  <th className="w-40 p-2 text-left font-medium">Assignee</th>
+                  <th className="w-28 p-2 text-left font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {unfinished.map((t) => (
                   <tr key={t.id} className="border-t">
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                       <Checkbox
                         checked={selected.has(t.id)}
                         onCheckedChange={(v) => toggle(t.id, !!v)}
                         aria-label={`Carry ${t.taskKey}`}
                       />
                     </td>
-                    <td className="max-w-72 p-2">
-                      <span className="mr-2 font-mono text-xs">{t.taskKey}</span>
-                      <span className="truncate">{t.title}</span>
+                    <td className="p-2 align-top">
+                      <div className="font-mono text-xs whitespace-nowrap text-muted-foreground">{t.taskKey}</div>
+                      <div className="break-words whitespace-normal">{t.title}</div>
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                       <AppTypeBadge appType={appTypeById.get(t.appTypeId)} />
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                       <UserChip user={t.assigneeId ? userById.get(t.assigneeId) : undefined} />
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 align-top">
                       <StatusBadge status={t.status} />
                     </td>
                   </tr>
@@ -181,7 +181,7 @@ export function CloseSprintDialog({
                       {s.name} ({s.startDate} → {s.endDate})
                     </SelectItem>
                   ))}
-                  <SelectItem value={NEW}>+ Create a new sprint</SelectItem>
+                  <SelectItem value={NEW}>+ Create a new release</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -199,7 +199,7 @@ export function CloseSprintDialog({
             Cancel
           </Button>
           <Button onClick={() => void onConfirm()} disabled={busy}>
-            {busy ? "Closing…" : "Close sprint"}
+            {busy ? "Closing…" : "Close release"}
           </Button>
         </DialogFooter>
       </DialogContent>

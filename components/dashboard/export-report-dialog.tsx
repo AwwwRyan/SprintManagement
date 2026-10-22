@@ -95,7 +95,7 @@ export function ExportReportDialog({
         <DialogHeader>
           <DialogTitle>Export report</DialogTitle>
           <DialogDescription>
-            Excel file covering all sprints: what was created and completed in the period, plus everything open right now.
+            Excel file covering all releases: what was created and completed in the period, plus everything open right now.
           </DialogDescription>
         </DialogHeader>
 

@@ -103,7 +103,7 @@ export function TaskWorkspace({
           ) : (
             <EmptyState
               icon={ClipboardList}
-              title={mode === "my-tasks" ? "Nothing assigned to you" : "No tasks in this sprint yet"}
+              title={mode === "my-tasks" ? "Nothing assigned to you" : "No tasks in this release yet"}
               description={canAdd ? "Use the quick-add row below or the New Task button." : undefined}
             />
           )

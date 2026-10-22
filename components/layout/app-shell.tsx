@@ -33,7 +33,7 @@ interface NavItem {
 
 const MAIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: (p) => p.startsWith("/dashboard") },
-  { href: "/sprints", label: "Sprints", icon: Zap, match: (p) => p.startsWith("/sprints") },
+  { href: "/releases", label: "Releases", icon: Zap, match: (p) => p.startsWith("/releases") },
   { href: "/my-tasks", label: "My Tasks", icon: ListChecks, match: (p) => p.startsWith("/my-tasks") },
 ];
 
@@ -117,13 +117,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
             ST
           </div>
-          <span className={cn("truncate text-sm font-semibold", collapsed && "md:hidden")}>Sprint Tasks</span>
+          <span className={cn("truncate text-sm font-semibold", collapsed && "md:hidden")}>Release Tasks</span>
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
           {MAIN_NAV.map(renderItem)}
           {activeSprint && (
             <Link
-              href={`/sprints/${activeSprint.id}`}
+              href={`/releases/${activeSprint.id}`}
               className={cn(
                 "mt-1 flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs text-sidebar-foreground/75 hover:bg-sidebar-accent/60",
                 collapsed && "md:hidden",

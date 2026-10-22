@@ -1,12 +1,12 @@
 import type { Sprint } from "@/types";
 
-/** Suggests "Sprint N+1" from existing names like "Sprint 14". */
+/** Suggests "Release N+1" from existing names like "Release 14" (or older "Sprint 14"). */
 export function suggestSprintName(sprints: Pick<Sprint, "name">[]): string {
   const nums = sprints
     .map((s) => /(\d+)\s*$/.exec(s.name)?.[1])
     .filter((n): n is string => n !== undefined)
     .map(Number);
-  return `Sprint ${nums.length ? Math.max(...nums) + 1 : 1}`;
+  return `Release ${nums.length ? Math.max(...nums) + 1 : 1}`;
 }
 
 /** Sorts sprints: active first, then planned (soonest first), then closed (most recent first). */
