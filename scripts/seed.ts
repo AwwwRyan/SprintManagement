@@ -18,7 +18,7 @@ import { getFirestore, Timestamp, type Firestore } from "firebase-admin/firestor
 import { emulatorsEnabled, getAdminApp } from "../lib/firebase/admin-core";
 import { buildSprintReport } from "../lib/metrics";
 import { initialsFromName } from "../lib/utils";
-import type { Priority, Role, Severity, TaskStatus, TaskType } from "../types";
+import type { Priority, Role, TaskStatus, TaskType } from "../types";
 
 if (!emulatorsEnabled()) {
   console.error("Refusing to seed: NEXT_PUBLIC_USE_EMULATORS is not 'true'. Seeding is for the local emulators only.");
@@ -46,35 +46,34 @@ const APP_TYPES = [
 
 const TITLES: [TaskType, string][] = [
   ["bug", "Login button unresponsive on Safari"],
-  ["requirement", "Add two-factor authentication"],
-  ["enhancement", "Remember last selected filters"],
+  ["task", "Add two-factor authentication"],
+  ["improvement", "Remember last selected filters"],
   ["task", "Upgrade payment SDK to v5"],
   ["bug", "Invoice PDF shows wrong tax total"],
-  ["requirement", "Export monthly report as CSV"],
+  ["task", "Export monthly report as CSV"],
   ["bug", "Crash when syncing with no network"],
-  ["enhancement", "Dark mode for dashboard"],
+  ["improvement", "Dark mode for dashboard"],
   ["task", "Write migration for audit log table"],
   ["bug", "Push notifications arrive twice"],
-  ["requirement", "Bulk user import from spreadsheet"],
-  ["enhancement", "Faster search on inventory list"],
+  ["task", "Bulk user import from spreadsheet"],
+  ["improvement", "Faster search on inventory list"],
   ["bug", "Date picker off by one day in IST"],
   ["task", "Set up error monitoring alerts"],
-  ["requirement", "Self-service password reset"],
+  ["task", "Self-service password reset"],
   ["bug", "Onboarding skips step 3 on Android"],
-  ["enhancement", "Show avatars in assignee dropdown"],
+  ["improvement", "Show avatars in assignee dropdown"],
   ["task", "Load-test the billing API"],
   ["bug", "Report totals ignore cancelled orders"],
-  ["requirement", "Inventory low-stock alerts"],
-  ["enhancement", "Keyboard shortcuts in task table"],
+  ["task", "Inventory low-stock alerts"],
+  ["improvement", "Keyboard shortcuts in task table"],
   ["bug", "Profile photo upload fails above 5 MB"],
   ["task", "Document the release checklist"],
-  ["requirement", "Audit trail for role changes"],
+  ["task", "Audit trail for role changes"],
   ["bug", "Session expires too early on mobile"],
 ];
 
-const STATUSES: TaskStatus[] = ["todo", "in_progress", "ready_for_qa", "qa_testing", "done", "reopened", "blocked", "done", "in_progress", "done"];
+const STATUSES: TaskStatus[] = ["pending", "in_progress", "dev_done", "testing", "done", "released", "on_hold", "done", "in_progress", "released", "pending", "duplicate"];
 const PRIORITIES: Priority[] = ["critical", "high", "medium", "medium", "low"];
-const SEVERITIES: Severity[] = ["blocker", "major", "minor", "trivial", "major"];
 
 function doc(text: string) {
   return JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
@@ -169,11 +168,11 @@ async function main() {
       title,
       description: doc(`Details for "${title}". Acceptance criteria to be confirmed with QA.`),
       descriptionText: `Details for "${title}". Acceptance criteria to be confirmed with QA.`,
-      assigneeId: i % 7 === 6 ? null : devs[i % devs.length],
+      // every 5th task is shared by two developers; every 7th is unassigned
+      assigneeIds: i % 7 === 6 ? [] : i % 5 === 2 ? [devs[i % devs.length], devs[(i + 1) % devs.length]] : [devs[i % devs.length]],
       priority: PRIORITIES[i % PRIORITIES.length],
-      severity: type === "bug" ? SEVERITIES[i % SEVERITIES.length] : null,
       estimatedHours: est,
-      actualHours: status === "done" ? est + ((i % 3) - 1) * 0.5 : status === "todo" ? null : est / 2,
+      actualHours: status === "done" || status === "released" ? est + ((i % 3) - 1) * 0.5 : status === "pending" ? null : est / 2,
       status,
       reporterId: qas[i % 2],
       dueDate: i % 4 === 0 ? day(addDays(activeStart, 10)) : null,
@@ -190,10 +189,10 @@ async function main() {
     };
   };
 
-  // Closed sprint: 8 tasks, 6 done; 2 carried into the active sprint.
+  // Closed sprint: 8 tasks, 6 released; 2 carried into the active sprint.
   const closedTasks = Array.from({ length: 8 }, (_, i) => ({
     id: `c${i}`,
-    ...makeTask(i + 3, "s13", i < 6 ? "done" : i === 6 ? "in_progress" : "todo", addDays(closedStart, 1)),
+    ...makeTask(i + 3, "s13", i < 6 ? "released" : i === 6 ? "in_progress" : "pending", addDays(closedStart, 1)),
   }));
   const carriedIds = ["c6", "c7"];
   const report = buildSprintReport({
@@ -236,9 +235,9 @@ async function main() {
     batch.set(ref.collection("activity").doc(), {
       actorId: t.reporterId, action: "created", field: null, oldValue: null, newValue: t.taskKey, createdAt: t.createdAt,
     });
-    if (t.status !== "todo") {
+    if (t.status !== "pending") {
       batch.set(ref.collection("activity").doc(), {
-        actorId: t.assigneeId ?? t.reporterId, action: "updated", field: "status", oldValue: "todo", newValue: t.status,
+        actorId: t.assigneeIds[0] ?? t.reporterId, action: "updated", field: "status", oldValue: "pending", newValue: t.status,
         createdAt: Timestamp.fromDate(addDays(t.createdAt.toDate(), 1)),
       });
     }

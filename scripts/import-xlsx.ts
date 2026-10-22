@@ -104,20 +104,19 @@ const MAPPING = {
 
 function mapStatus(raw: string): { status: TaskStatus; note?: string } {
   const s = raw.trim().toLowerCase();
-  if (!s || s === "open" || s === "pending") return { status: "todo" };
+  if (!s || s === "open" || s === "pending") return { status: "pending" };
   if (s === "in progress") return { status: "in_progress" };
-  if (s.startsWith("testing")) return { status: "qa_testing" };
-  if (s === "hold") return { status: "blocked", note: "On hold in the Excel sheet." };
-  if (s === "completed" || s === "done") return { status: "done" };
-  if (s.startsWith("cancel")) return { status: "done", note: "Marked CANCELLED in the Excel sheet (imported as Done)." };
-  return { status: "todo", note: `Unrecognised Excel status "${raw}", imported as To Do.` };
+  if (s.startsWith("testing")) return { status: "testing" };
+  if (s === "hold") return { status: "on_hold" };
+  if (s === "completed" || s === "done") return { status: "released" };
+  if (s.startsWith("cancel")) return { status: "closed", note: "Marked CANCELLED in the Excel sheet (imported as Closed)." };
+  return { status: "pending", note: `Unrecognised Excel status "${raw}", imported as Pending.` };
 }
 
 function mapType(raw: string): TaskType {
   const s = raw.trim().toLowerCase();
   if (s === "bug") return "bug";
-  if (s === "enhancement" || s === "ui" || s === "change") return "enhancement";
-  if (s === "new" || s === "request" || s === "requirement") return "requirement";
+  if (s === "enhancement" || s === "ui" || s === "change") return "improvement";
   return "task";
 }
 
@@ -218,7 +217,7 @@ async function main() {
     type: TaskType;
     priority: Priority;
     status: TaskStatus;
-    assigneeId: string | null;
+    assigneeIds: string[];
     remarks: string;
     dueDate: string | null;
     notes: string[];
@@ -262,22 +261,24 @@ async function main() {
       const isProduction = MAPPING.criticalSheets.includes(ws.name);
       const priority: Priority = isProduction ? "critical" : (mapPriority(priorityCell) ?? mapPriority(stray) ?? "medium");
 
-      // Assignee: first known person; the full original kept as a note
-      let assigneeId: string | null = null;
+      // Assignees: every known person; the original kept as a note when someone didn't match
+      const assigneeIds: string[] = [];
+      let unmatched = false;
       if (ownerRaw && !/^cancel/i.test(ownerRaw)) {
         const parts = ownerRaw.split(/[/&,]| and /i).map((p) => p.trim().toLowerCase()).filter(Boolean);
         for (const p of parts) {
           const display = MAPPING.ownerAliases[p];
           const u = display ? userByName.get(display.toLowerCase()) : undefined;
           if (u) {
-            assigneeId = u.id;
-            break;
+            if (!assigneeIds.includes(u.id)) assigneeIds.push(u.id);
+            continue;
           }
+          unmatched = true;
           if (display && !u) problems.push(`${rowKey}: owner "${display}" has no user account yet.`);
         }
-        if (parts.length > 1 || !assigneeId) notes.push(`Owner in Excel: ${ownerRaw}`);
+        if (unmatched) notes.push(`Owner in Excel: ${ownerRaw}`);
       }
-      const assigneeName = assigneeId ? users.find((u) => u.id === assigneeId)!.name : "Unassigned";
+      const assigneeName = assigneeIds.length ? assigneeIds.map((id) => users.find((u) => u.id === id)!.name).join(", ") : "Unassigned";
 
       // Release status (Backend/Android/iOS) → remarks; Environment is Staging/Production only
       const release = (["backend", "android", "ios"] as const)
@@ -297,7 +298,7 @@ async function main() {
       ];
       const dueDate: string | null = Object.entries(row.dates).find(([k]) => /target/.test(k))?.[1] ?? null;
 
-      plans.push({ row, title, paragraphs, appCode, type: isProduction ? "bug" : mapType(pick(row, /^type$/)), priority, status, assigneeId, remarks: release ? `Release status: ${release}` : "", dueDate, notes });
+      plans.push({ row, title, paragraphs, appCode, type: isProduction ? "bug" : mapType(pick(row, /^type$/)), priority, status, assigneeIds, remarks: release ? `Release status: ${release}` : "", dueDate, notes });
       stats.byApp[appCode] = (stats.byApp[appCode] ?? 0) + 1;
       stats.byStatus[status] = (stats.byStatus[status] ?? 0) + 1;
       stats.byAssignee[assigneeName] = (stats.byAssignee[assigneeName] ?? 0) + 1;
@@ -382,9 +383,8 @@ async function main() {
         title: p.title,
         description: tiptapDoc(p.paragraphs),
         descriptionText: p.paragraphs.join("\n").slice(0, 5000),
-        assigneeId: p.assigneeId,
+        assigneeIds: p.assigneeIds,
         priority: p.priority,
-        severity: null,
         estimatedHours: null,
         actualHours: null,
         status: p.status,
