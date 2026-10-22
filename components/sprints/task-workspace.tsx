@@ -78,6 +78,7 @@ export function TaskWorkspace({
         flashing={live.flashing}
         onOpenTask={(key, sec) => setTaskParam(key, sec)}
         storageKey={mode}
+        reorderable={mode === "sprint"}
         quickAddDefaults={mode === "my-tasks" ? { assigneeIds: [actor.uid] } : undefined}
         toolbar={
           <>

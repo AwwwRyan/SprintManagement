@@ -10,13 +10,14 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Paperclip, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, GripVertical, Paperclip, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
 import { applyFilters, type TaskFilters } from "@/lib/task-filters";
 import { canCreateTask, canEditTask } from "@/lib/permissions";
-import { createTask, updateTask, type NewTaskInput } from "@/lib/services/tasks";
+import { createTask, setTaskOrders, updateTask, type NewTaskInput } from "@/lib/services/tasks";
+import { planMove } from "@/lib/reorder";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
@@ -102,6 +103,8 @@ export interface TaskGridProps {
   quickAddDefaults?: Partial<NewTaskInput>;
   toolbar?: React.ReactNode;
   emptyState?: React.ReactNode;
+  /** rows can be dragged into a new order (the release view; order is shared by everyone) */
+  reorderable?: boolean;
 }
 
 export function TaskGrid({
@@ -115,6 +118,7 @@ export function TaskGrid({
   quickAddDefaults,
   toolbar,
   emptyState,
+  reorderable = false,
 }: TaskGridProps) {
   const { actor } = useCurrentUser();
   const { appTypes, modules, userById, appTypeById, moduleById } = useData();
@@ -132,7 +136,7 @@ export function TaskGrid({
       {
         id: "srNo",
         label: "Sr No",
-        width: 56,
+        width: 64,
         sticky: true,
         locked: true,
         opensPanel: true,
@@ -428,6 +432,18 @@ export function TaskGrid({
   const onGridKeyDown = (e: React.KeyboardEvent) => {
     if (editing) return;
     const { r, c } = focus;
+    // Alt+↑/↓ moves the focused row (keyboard alternative to dragging).
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const up = e.key === "ArrowUp";
+      const row = rows[r];
+      const target = rows[up ? r - 1 : r + 1];
+      if (reorderOn && row && target && canEdit(row.original)) {
+        e.preventDefault();
+        move(row.id, target.id, up ? "before" : "after");
+        focusCell(up ? r - 1 : r + 1, c);
+      }
+      return;
+    }
     const maxR = rows.length - 1;
     const maxC = visibleCols.length - 1;
     const moves: Record<string, [number, number]> = {
@@ -447,6 +463,33 @@ export function TaskGrid({
       const col = visibleCols[c];
       if (row && col) activate(row.original, col.id, "key");
     }
+  };
+
+  /* ---------------------------------------------------------------- reorder (drag & drop) */
+
+  // Manual order only makes sense when rows are shown in that order (Sr No ascending, or unsorted).
+  const manualOrder = sorting.length === 0 || (sorting[0].id === "srNo" && !sorting[0].desc);
+  const reorderOn = reorderable && manualOrder && sprint.status !== "closed";
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropHint, setDropHint] = useState<{ id: string; pos: "before" | "after" } | null>(null);
+
+  const move = useCallback(
+    (movedId: string, targetId: string, pos: "before" | "after") => {
+      const plan = planMove(tasks, movedId, targetId, pos);
+      if (plan.kind === "none") return;
+      const writes = plan.kind === "one" ? [{ id: plan.id, order: plan.order }] : plan.orders;
+      setTaskOrders(writes, actor.uid).catch((err) => notifyError(err, "Couldn't reorder"));
+    },
+    [tasks, actor.uid],
+  );
+
+  const dropPos = (e: React.DragEvent<HTMLElement>): "before" | "after" => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return e.clientY < rect.top + rect.height / 2 ? "before" : "after";
+  };
+  const endDrag = () => {
+    setDragId(null);
+    setDropHint(null);
   };
 
   /* ---------------------------------------------------------------- quick add */
@@ -635,6 +678,25 @@ export function TaskGrid({
                     aria-rowindex={r + 1}
                     data-task-key={task.taskKey}
                     className={cn("group", flashing.has(task.id) && "row-flash")}
+                    onDragOver={
+                      dragId
+                        ? (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            const pos = dropPos(e);
+                            if (dropHint?.id !== task.id || dropHint.pos !== pos) setDropHint({ id: task.id, pos });
+                          }
+                        : undefined
+                    }
+                    onDrop={
+                      dragId
+                        ? (e) => {
+                            e.preventDefault();
+                            move(dragId, task.id, dropPos(e));
+                            endDrag();
+                          }
+                        : undefined
+                    }
                   >
                     {row.getVisibleCells().map((cell, c) => {
                       const cfg = colById.get(cell.column.id)!;
@@ -658,10 +720,43 @@ export function TaskGrid({
                             cfg.id === lastStickyId && "border-r",
                             cellEditable || cfg.opensPanel ? "cursor-pointer" : "cursor-default",
                             isEditing && "p-0.5",
+                            dragId === task.id && "opacity-50",
+                            // drop indicator: an inset line, so nothing moves or changes position
+                            dropHint?.id === task.id &&
+                              (dropHint.pos === "before"
+                                ? "shadow-[inset_0_2px_0_0_var(--primary)]"
+                                : "shadow-[inset_0_-2px_0_0_var(--primary)]"),
                           )}
                           style={{ width: cfg.width, minWidth: cfg.width, maxWidth: cfg.width, left }}
                         >
-                          {isEditing ? renderEditor(task, cfg, r, c) : cfg.render(task)}
+                          {isEditing ? (
+                            renderEditor(task, cfg, r, c)
+                          ) : cfg.id === "srNo" && reorderOn && editable ? (
+                            <span className="flex items-center gap-1">
+                              <span
+                                draggable
+                                role="button"
+                                aria-label={`Drag to reorder ${task.taskKey}`}
+                                title="Drag to reorder (or Alt+↑/↓)"
+                                data-drag-handle
+                                className="-ml-1 cursor-grab text-muted-foreground opacity-40 group-hover:opacity-100 active:cursor-grabbing"
+                                onClick={(e) => e.stopPropagation()}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.effectAllowed = "move";
+                                  e.dataTransfer.setData("text/plain", task.taskKey);
+                                  const tr = e.currentTarget.closest("tr");
+                                  if (tr) e.dataTransfer.setDragImage(tr, 24, 16);
+                                  setDragId(task.id);
+                                }}
+                                onDragEnd={endDrag}
+                              >
+                                <GripVertical className="size-3.5" />
+                              </span>
+                              {cfg.render(task)}
+                            </span>
+                          ) : (
+                            cfg.render(task)
+                          )}
                         </td>
                       );
                     })}
@@ -697,6 +792,8 @@ export function TaskGrid({
       <div className="text-xs text-muted-foreground">
         {filtered.length === tasks.length ? `${tasks.length} tasks` : `${filtered.length} of ${tasks.length} tasks`}
         {" · "}Arrow keys move, Enter edits, Esc cancels
+        {reorderOn && " · Drag the grip or press Alt+↑/↓ to reorder"}
+        {reorderable && !manualOrder && " · Sort by Sr No to reorder"}
       </div>
     </div>
   );

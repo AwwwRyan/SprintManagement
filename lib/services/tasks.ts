@@ -123,6 +123,20 @@ export async function updateTask(task: Task, patch: TaskPatch, actorId: string):
 }
 
 /**
+ * Manual reorder (drag and drop). Only `order` changes, and reorders aren't written to the
+ * activity log (team decision, see DECISIONS.md).
+ */
+export async function setTaskOrders(orders: { id: string; order: number }[], actorId: string): Promise<void> {
+  for (const group of chunk(orders, BATCH_CHUNK_SIZE)) {
+    const batch = writeBatch(db());
+    for (const o of group) {
+      batch.update(doc(db(), "tasks", o.id), { order: o.order, updatedAt: serverTimestamp(), updatedBy: actorId });
+    }
+    await batch.commit();
+  }
+}
+
+/**
  * Deletes a task, its attachments (chunks + metadata) and comments. Activity entries are append-only
  * (rules forbid deleting them) and are left orphaned; nothing reads them once the task is gone.
  */
