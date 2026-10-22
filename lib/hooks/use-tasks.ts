@@ -86,7 +86,7 @@ export function useSprintTasks(sprintId: string | null, myUid: string): LiveTask
 export function useMyTasks(sprintId: string | null, myUid: string): LiveTasks {
   return useLiveTasks(
     sprintId ? `my-tasks:${sprintId}:${myUid}` : null,
-    () => query(col.tasks(), where("sprintId", "==", sprintId), where("assigneeId", "==", myUid), orderBy("order")),
+    () => query(col.tasks(), where("sprintId", "==", sprintId), where("assigneeIds", "array-contains", myUid), orderBy("order")),
     myUid,
   );
 }

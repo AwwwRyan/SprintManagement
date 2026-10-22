@@ -90,7 +90,7 @@ export function hasActiveFilters(f: TaskFilters): boolean {
 
 type FilterableTask = Pick<
   Task,
-  "appTypeId" | "type" | "moduleId" | "assigneeId" | "status" | "priority" | "title" | "descriptionText" | "taskKey"
+  "appTypeId" | "type" | "moduleId" | "assigneeIds" | "status" | "priority" | "title" | "descriptionText" | "taskKey"
 > & { remarks?: string };
 
 export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilters): T[] {
@@ -99,7 +99,10 @@ export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilter
     if (f.appTypeId.length && !f.appTypeId.includes(t.appTypeId)) return false;
     if (f.type.length && !f.type.includes(t.type)) return false;
     if (f.moduleId.length && !(t.moduleId && f.moduleId.includes(t.moduleId))) return false;
-    if (f.assigneeId.length && !f.assigneeId.includes(t.assigneeId ?? UNASSIGNED)) return false;
+    if (f.assigneeId.length) {
+      const ids = t.assigneeIds.length ? t.assigneeIds : [UNASSIGNED];
+      if (!ids.some((id) => f.assigneeId.includes(id))) return false;
+    }
     if (f.status.length && !f.status.includes(t.status)) return false;
     if (f.priority.length && !f.priority.includes(t.priority)) return false;
     if (q) {

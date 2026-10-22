@@ -78,7 +78,7 @@ export function TaskWorkspace({
         flashing={live.flashing}
         onOpenTask={(key, sec) => setTaskParam(key, sec)}
         storageKey={mode}
-        quickAddDefaults={mode === "my-tasks" ? { assigneeId: actor.uid } : undefined}
+        quickAddDefaults={mode === "my-tasks" ? { assigneeIds: [actor.uid] } : undefined}
         toolbar={
           <>
             <TaskFiltersBar filters={filters} onChange={setFilters} hideAssignee={mode === "my-tasks"} />

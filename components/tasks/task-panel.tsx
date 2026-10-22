@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CarryBadge } from "@/components/common/badges";
 import { UserAvatar, UserChip } from "@/components/common/user-avatar";
 import { AttachmentsSection } from "./attachments-section";
+import { AssigneePicker } from "./assignee-picker";
 import { CommentsSection } from "./comments-section";
 import { ActivityList } from "./activity-list";
 import { RichTextEditor } from "./rich-text-editor";
@@ -27,10 +28,8 @@ import {
   appTypeOptions,
   moduleOptions,
   priorityOptions,
-  severityOptions,
   statusOptions,
   typeOptions,
-  userOptions,
   environmentOptions,
 } from "./options";
 
@@ -58,7 +57,7 @@ export function TaskPanel({
   onClose: () => void;
 }) {
   const { actor } = useCurrentUser();
-  const { users, appTypes, modules, sprintById, userById } = useData();
+  const { appTypes, modules, sprintById, userById } = useData();
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -170,7 +169,7 @@ export function TaskPanel({
                 onSave={field("title")}
                 disabled={!editable}
                 required
-                label="Title"
+                label="Task"
                 className="h-auto px-1 py-1 text-lg font-semibold md:text-lg"
               />
               {sprint?.status === "closed" && (
@@ -193,8 +192,8 @@ export function TaskPanel({
                   disabled={!editable}
                 />
               </Row>
-              <Row label="Type">
-                <PropSelect label="Type" value={task.type} options={typeOptions} onChange={(v) => v && save({ type: v as Task["type"] })} disabled={!editable} />
+              <Row label="Category">
+                <PropSelect label="Category" value={task.type} options={typeOptions} onChange={(v) => v && save({ type: v as Task["type"] })} disabled={!editable} />
               </Row>
               <Row label="Module">
                 <PropSelect
@@ -206,32 +205,12 @@ export function TaskPanel({
                   disabled={!editable}
                 />
               </Row>
-              <Row label="Assigned to">
-                <PropSelect
-                  label="Assigned to"
-                  value={task.assigneeId}
-                  options={userOptions(users, task.assigneeId)}
-                  onChange={field("assigneeId")}
-                  allowNone
-                  noneLabel="Unassigned"
-                  disabled={!editable}
-                />
+              <Row label="Assignees">
+                <AssigneePicker value={task.assigneeIds} onChange={(ids) => save({ assigneeIds: ids })} disabled={!editable} />
               </Row>
               <Row label="Priority">
                 <PropSelect label="Priority" value={task.priority} options={priorityOptions} onChange={(v) => v && save({ priority: v as Task["priority"] })} disabled={!editable} />
               </Row>
-              {task.type === "bug" && (
-                <Row label="Severity">
-                  <PropSelect
-                    label="Severity"
-                    value={task.severity}
-                    options={severityOptions}
-                    onChange={(v) => save({ severity: v as Task["severity"] })}
-                    allowNone
-                    disabled={!editable}
-                  />
-                </Row>
-              )}
               <Row label="Estimated (h)">
                 <PropNumber label="Estimated hours" value={task.estimatedHours} onSave={field("estimatedHours")} disabled={!editable} />
               </Row>

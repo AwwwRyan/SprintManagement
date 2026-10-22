@@ -161,16 +161,15 @@ service cloud.firestore {
         && d.sprintId is string
         && d.order is number
         && d.appTypeId is string && d.appTypeId.size() > 0
-        && d.type in ['requirement', 'bug', 'enhancement', 'task']
+        && d.type in ['bug', 'improvement', 'task']
         && optString(d.moduleId)
         && d.title is string && d.title.size() > 0 && d.title.size() <= 300
         && d.description is string && d.description.size() <= 200000
         && d.descriptionText is string
-        && optString(d.assigneeId)
+        && d.assigneeIds is list && d.assigneeIds.size() <= 20
         && d.priority in ['critical', 'high', 'medium', 'low']
-        && (d.severity == null || (d.type == 'bug' && d.severity in ['blocker', 'major', 'minor', 'trivial']))
         && optHours(d.estimatedHours) && optHours(d.actualHours)
-        && d.status in ['todo', 'in_progress', 'ready_for_qa', 'qa_testing', 'done', 'reopened', 'blocked']
+        && d.status in ['pending', 'in_progress', 'on_hold', 'dev_done', 'testing', 'done', 'released', 'closed', 'duplicate']
         && d.reporterId is string
         && (d.dueDate == null || isDateString(d.dueDate))
         && (!('releaseDate' in d) || d.releaseDate == null || isDateString(d.releaseDate))

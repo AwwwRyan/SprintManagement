@@ -3,15 +3,14 @@
 /** Option lists for task fields, shared by the table cells, side panel and task form. */
 import {
   PRIORITIES,
-  SEVERITIES,
   TASK_STATUSES,
   TASK_TYPES,
   type AppType,
   type AppUser,
   type Module,
 } from "@/types";
-import { ENVIRONMENTS, PRIORITY_LABELS, SEVERITY_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
-import { AppTypeBadge, PriorityBadge, SeverityBadge, StatusBadge, TypeBadge } from "@/components/common/badges";
+import { ENVIRONMENTS, PRIORITY_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
+import { AppTypeBadge, PriorityBadge, StatusBadge, TypeBadge } from "@/components/common/badges";
 import { UserChip } from "@/components/common/user-avatar";
 
 export interface Option {
@@ -39,12 +38,6 @@ export const priorityOptions: Option[] = PRIORITIES.map((p) => ({
   value: p,
   label: PRIORITY_LABELS[p],
   node: <PriorityBadge priority={p} />,
-}));
-
-export const severityOptions: Option[] = SEVERITIES.map((s) => ({
-  value: s,
-  label: SEVERITY_LABELS[s],
-  node: <SeverityBadge severity={s} />,
 }));
 
 /** Staging / Production, plus the task's current value if it's something else (older data). */

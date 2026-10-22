@@ -3,8 +3,9 @@
  * No Firebase imports here, so it is fully unit-testable.
  */
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { completionPct as completionOf, isComplete, isFinished, isOpen } from "@/lib/task-model";
 import {
-  SEVERITIES,
+  PRIORITIES,
   TASK_STATUSES,
   TASK_TYPES,
   type AppType,
@@ -22,10 +23,9 @@ import {
 
 type MetricTask = Pick<
   Task,
-  "status" | "type" | "appTypeId" | "assigneeId" | "estimatedHours" | "actualHours" | "severity"
+  "status" | "type" | "appTypeId" | "assigneeIds" | "estimatedHours" | "actualHours" | "priority"
 >;
 
-const pct = (done: number, total: number) => (total === 0 ? 0 : Math.round((done / total) * 100));
 const sum = (ns: (number | null)[]) => ns.reduce<number>((a, n) => a + (n ?? 0), 0);
 
 export function computeSprintMetrics(
@@ -34,7 +34,7 @@ export function computeSprintMetrics(
   appTypes: Pick<AppType, "id" | "name" | "color">[],
 ): SprintMetrics {
   const total = tasks.length;
-  const done = tasks.filter((t) => t.status === "done").length;
+  const done = tasks.filter((t) => isComplete(t.status)).length;
 
   const byStatus: CountByKey[] = TASK_STATUSES.map((key) => ({
     key,
@@ -50,7 +50,7 @@ export function computeSprintMetrics(
   const byAppType: AppTypeBreakdown[] = appTypeIds
     .map((id) => {
       const subset = tasks.filter((t) => t.appTypeId === id);
-      const d = subset.filter((t) => t.status === "done").length;
+      const d = subset.filter((t) => isComplete(t.status)).length;
       const at = appTypes.find((a) => a.id === id);
       return {
         appTypeId: id,
@@ -58,20 +58,22 @@ export function computeSprintMetrics(
         color: at?.color ?? "#64748b",
         total: subset.length,
         done: d,
-        completionPct: pct(d, subset.length),
+        completionPct: completionOf(subset.map((t) => t.status)),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const assigneeIds = Array.from(new Set(tasks.map((t) => t.assigneeId)));
-  const byPerson: PersonBreakdown[] = assigneeIds
+  // A task with several assignees counts (with its full hours) for each of them.
+  const people: (string | null)[] = Array.from(new Set(tasks.flatMap((t) => t.assigneeIds)));
+  if (tasks.some((t) => t.assigneeIds.length === 0)) people.push(null);
+  const byPerson: PersonBreakdown[] = people
     .map((userId) => {
-      const subset = tasks.filter((t) => t.assigneeId === userId);
+      const subset = tasks.filter((t) => (userId === null ? t.assigneeIds.length === 0 : t.assigneeIds.includes(userId)));
       return {
         userId,
         name: userId ? (users.find((u) => u.id === userId)?.name ?? "Unknown user") : "Unassigned",
         tasks: subset.length,
-        done: subset.filter((t) => t.status === "done").length,
+        done: subset.filter((t) => isComplete(t.status)).length,
         estimatedHours: sum(subset.map((t) => t.estimatedHours)),
         actualHours: sum(subset.map((t) => t.actualHours)),
       };
@@ -82,21 +84,21 @@ export function computeSprintMetrics(
       return a.name.localeCompare(b.name);
     });
 
-  const openBugs = tasks.filter((t) => t.type === "bug" && t.status !== "done");
-  const openBugsBySeverity: CountByKey[] = [
-    ...SEVERITIES.map((key) => ({ key, count: openBugs.filter((t) => t.severity === key).length })),
-    { key: "unset", count: openBugs.filter((t) => !t.severity).length },
-  ];
+  const openBugs = tasks.filter((t) => t.type === "bug" && isOpen(t.status));
+  const openBugsByPriority: CountByKey[] = PRIORITIES.map((key) => ({
+    key,
+    count: openBugs.filter((t) => t.priority === key).length,
+  }));
 
   return {
     total,
     done,
-    completionPct: pct(done, total),
+    completionPct: completionOf(tasks.map((t) => t.status)),
     byStatus,
     byType,
     byAppType,
     byPerson,
-    openBugsBySeverity,
+    openBugsByPriority,
     estimatedHours: sum(tasks.map((t) => t.estimatedHours)),
     actualHours: sum(tasks.map((t) => t.actualHours)),
   };
@@ -104,7 +106,7 @@ export function computeSprintMetrics(
 
 /* ------------------------------------------------------------------ sprint progress */
 
-export type ProgressStage = "done" | "qa" | "inProgress" | "todo" | "blocked";
+export type ProgressStage = "released" | "done" | "qa" | "inProgress" | "pending" | "onHold" | "dropped";
 
 export interface SprintProgress {
   total: number;
@@ -120,20 +122,22 @@ export interface SprintProgress {
   pace: "ahead" | "on_track" | "behind" | "not_started";
   overdue: number;
   criticalOpen: number;
-  blocked: number;
+  onHold: number;
   unassignedOpen: number;
 }
 
 const STAGE_OF: Record<TaskStatus, ProgressStage> = {
+  released: "released",
   done: "done",
-  ready_for_qa: "qa",
-  qa_testing: "qa",
+  dev_done: "qa",
+  testing: "qa",
   in_progress: "inProgress",
-  todo: "todo",
-  reopened: "todo",
-  blocked: "blocked",
+  pending: "pending",
+  on_hold: "onHold",
+  closed: "dropped",
+  duplicate: "dropped",
 };
-const STAGES: ProgressStage[] = ["done", "qa", "inProgress", "todo", "blocked"];
+const STAGES: ProgressStage[] = ["released", "done", "qa", "inProgress", "pending", "onHold", "dropped"];
 
 /** Percentages that always sum to exactly 100 (or 0 for an empty sprint). */
 export function roundedShares(counts: number[]): number[] {
@@ -152,15 +156,14 @@ export function roundedShares(counts: number[]): number[] {
 }
 
 export function sprintProgress(
-  tasks: Pick<Task, "status" | "priority" | "assigneeId" | "dueDate">[],
+  tasks: Pick<Task, "status" | "priority" | "assigneeIds" | "dueDate">[],
   sprint: Pick<Sprint, "startDate" | "endDate">,
   today: Date = new Date(),
 ): SprintProgress {
   const counts = STAGES.map((k) => tasks.filter((t) => STAGE_OF[t.status] === k).length);
   const shares = roundedShares(counts);
   const total = tasks.length;
-  const done = counts[0];
-  const completionPct = total === 0 ? 0 : Math.round((done / total) * 100);
+  const completionPct = completionOf(tasks.map((t) => t.status));
 
   const start = parseISO(sprint.startDate);
   const sprintDays = Math.max(1, differenceInCalendarDays(parseISO(sprint.endDate), start) + 1);
@@ -171,7 +174,7 @@ export function sprintProgress(
   const pace = paceDelta === null ? "not_started" : paceDelta >= 10 ? "ahead" : paceDelta >= -10 ? "on_track" : "behind";
 
   const todayStr = format(today, "yyyy-MM-dd");
-  const open = tasks.filter((t) => t.status !== "done");
+  const open = tasks.filter((t) => isOpen(t.status));
   return {
     total,
     stages: STAGES.map((key, i) => ({ key, count: counts[i], pct: shares[i] })),
@@ -183,8 +186,8 @@ export function sprintProgress(
     pace,
     overdue: open.filter((t) => t.dueDate !== null && t.dueDate < todayStr).length,
     criticalOpen: open.filter((t) => t.priority === "critical").length,
-    blocked: tasks.filter((t) => t.status === "blocked").length,
-    unassignedOpen: open.filter((t) => !t.assigneeId).length,
+    onHold: tasks.filter((t) => t.status === "on_hold").length,
+    unassignedOpen: open.filter((t) => t.assigneeIds.length === 0).length,
   };
 }
 
@@ -217,11 +220,12 @@ export function buildSprintReport(input: ReportInput): ReportSnapshot {
     taskKey: t.taskKey,
     title: t.title,
     appTypeId: t.appTypeId,
-    assigneeId: t.assigneeId,
+    assigneeIds: t.assigneeIds,
     status: t.status,
   });
 
-  const unfinished = tasks.filter((t) => t.status !== "done");
+  // Done still carries forward; only Released / Closed / Duplicate are finished.
+  const unfinished = tasks.filter((t) => !isFinished(t.status));
   const carriedOver = unfinished
     .filter((t) => carried.has(t.id))
     .map((t) => ({ ...ref(t), targetSprintId: target?.id ?? "", targetSprintName: target?.name ?? "" }));
@@ -232,7 +236,7 @@ export function buildSprintReport(input: ReportInput): ReportSnapshot {
   const bugsOpened = bugs.filter(
     (t) => t.createdAtMs !== null && t.createdAtMs >= startMs && t.createdAtMs <= closedAtMs,
   ).length;
-  const bugsFixed = bugs.filter((t) => t.status === "done").length;
+  const bugsFixed = bugs.filter((t) => isComplete(t.status)).length;
 
   return {
     ...metrics,

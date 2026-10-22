@@ -35,7 +35,7 @@ export async function downloadRangeReport(r: RangeReport, fileName: string): Pro
   r.summary.forEach((s) => summary.addRow(s));
   header(summary);
   summary.addRow({});
-  summary.addRow({ label: "Note", value: "Completed = status changed to Done within the period (from the activity log)." });
+  summary.addRow({ label: "Note", value: "Completed = status changed to Done or Released within the period (from the activity log)." });
 
   const table = (name: string, rows: Rows, empty: string) => {
     const ws = wb.addWorksheet(name);

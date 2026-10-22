@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PRIORITIES, ROLES, SEVERITIES, TASK_STATUSES, TASK_TYPES } from "@/types";
+import { PRIORITIES, ROLES, TASK_STATUSES, TASK_TYPES } from "@/types";
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 
@@ -106,13 +106,12 @@ const hours = z
 
 export const taskFormSchema = z
   .object({
-    title: z.string().trim().min(1, "Title is required").max(300),
+    title: z.string().trim().min(1, "Task is required").max(300),
     appTypeId: z.string().min(1, "App Type is required"),
     type: z.enum(TASK_TYPES),
     moduleId: z.string().nullable(),
-    assigneeId: z.string().nullable(),
+    assigneeIds: z.array(z.string()).max(20).default([]),
     priority: z.enum(PRIORITIES),
-    severity: z.enum(SEVERITIES).nullable(),
     status: z.enum(TASK_STATUSES),
     estimatedHours: hours,
     actualHours: hours,
@@ -123,8 +122,7 @@ export const taskFormSchema = z
     expectedResult: z.string().max(5000),
     actualResult: z.string().max(5000),
     remarks: z.string().max(2000).default(""),
-  })
-  .transform((v) => (v.type === "bug" ? v : { ...v, severity: null }));
+  });
 export type TaskFormInput = z.input<typeof taskFormSchema>;
 export type TaskFormValues = z.output<typeof taskFormSchema>;
 

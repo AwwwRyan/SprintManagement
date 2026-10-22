@@ -20,6 +20,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { SprintFormDialog } from "@/components/sprints/sprint-form-dialog";
 import { CloseSprintDialog } from "@/components/sprints/close-sprint-dialog";
 import { TaskWorkspace } from "@/components/sprints/task-workspace";
+import { isComplete, isExcluded } from "@/lib/task-model";
 
 function SprintView() {
   const { sprintId } = useParams<{ sprintId: string }>();
@@ -47,7 +48,7 @@ function SprintView() {
 
   const staff = canManageSprints(actor);
   const fmt = (d: string) => format(parseISO(d), "MMM d, yyyy");
-  const done = live.tasks.filter((t) => t.status === "done").length;
+  const done = live.tasks.filter((t) => isComplete(t.status)).length;
 
   return (
     <>
@@ -70,7 +71,7 @@ function SprintView() {
                 {sprint.status === "active" && <span>{daysRemaining(sprint.endDate)} days left</span>}
                 {!live.loading && (
                   <span>
-                    {done}/{live.tasks.length} done
+                    {done}/{live.tasks.filter((t) => !isExcluded(t.status)).length} done
                   </span>
                 )}
               </div>

@@ -40,7 +40,7 @@ export function AttachmentsSection({ task, sprint }: { task: Task; sprint: Sprin
   const inputRef = useRef<HTMLInputElement>(null);
 
   const canUpload = canUploadAttachment(actor, task, sprint);
-  const highlight = task.type === "bug" || task.type === "enhancement";
+  const highlight = task.type === "bug" || task.type === "improvement";
 
   const startUploads = useCallback(
     (files: File[]) => {

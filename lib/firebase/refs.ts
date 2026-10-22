@@ -24,12 +24,35 @@ import type {
   Task,
 } from "@/types";
 import { db } from "./client";
+import { normalizeAssignees, normalizeStatus, normalizeType } from "@/lib/task-model";
+
+/**
+ * Tasks written before the 2026-10-22 workflow change may still hold old values
+ * (status "todo", type "requirement", single assigneeId, severity); read them as the new model.
+ */
+function normalizeTaskData(data: DocumentData): DocumentData {
+  const { assigneeId: _legacyAssignee, severity: _legacySeverity, ...rest } = data;
+  void _legacyAssignee;
+  void _legacySeverity;
+  return {
+    ...rest,
+    status: normalizeStatus(data.status),
+    type: normalizeType(data.type),
+    assigneeIds: normalizeAssignees(data),
+    sprintHistory: Array.isArray(data.sprintHistory)
+      ? data.sprintHistory.map((h: DocumentData) => ({ ...h, finalStatusInSprint: normalizeStatus(h.finalStatusInSprint) }))
+      : [],
+  };
+}
 
 /**
  * Generic converter: exposes the doc id as `id` on read and strips `id` on write.
  * `defaults` backfills fields that may be missing on older documents.
  */
-function converter<T extends { id: string }>(defaults: Partial<Omit<T, "id">> = {}): FirestoreDataConverter<T> {
+function converter<T extends { id: string }>(
+  defaults: Partial<Omit<T, "id">> = {},
+  normalize: (data: DocumentData) => DocumentData = (d) => d,
+): FirestoreDataConverter<T> {
   return {
     toFirestore(model: WithFieldValue<T>): DocumentData {
       const { id: _id, ...rest } = model as WithFieldValue<T> & { id?: unknown };
@@ -39,7 +62,7 @@ function converter<T extends { id: string }>(defaults: Partial<Omit<T, "id">> = 
     fromFirestore(snap: QueryDocumentSnapshot, options?: SnapshotOptions): T {
       // "estimate" gives pending serverTimestamp()s a local value instead of null.
       const data = snap.data({ serverTimestamps: "estimate", ...options });
-      return { ...defaults, ...data, id: snap.id } as T;
+      return { ...defaults, ...normalize(data), id: snap.id } as T;
     },
   };
 }
@@ -48,8 +71,7 @@ const taskDefaults: Partial<Omit<Task, "id">> = {
   description: "",
   descriptionText: "",
   moduleId: null,
-  assigneeId: null,
-  severity: null,
+  assigneeIds: [],
   estimatedHours: null,
   actualHours: null,
   dueDate: null,
@@ -69,7 +91,7 @@ export const converters = {
   appType: converter<AppType>(),
   module: converter<Module>(),
   sprint: converter<Sprint>({ goal: "", closedAt: null, closedBy: null }),
-  task: converter<Task>(taskDefaults),
+  task: converter<Task>(taskDefaults, normalizeTaskData),
   comment: converter<Comment>({ editedAt: null }),
   attachment: converter<Attachment>({ chunkCount: 0, thumbDataUrl: "" }),
   chunk: converter<AttachmentChunk>(),

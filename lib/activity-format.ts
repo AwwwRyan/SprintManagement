@@ -1,19 +1,16 @@
 /** Human-readable activity-log lines (names instead of ids, labels instead of enum values). */
-import {
-  PRIORITY_LABELS,
-  SEVERITY_LABELS,
-  TASK_STATUS_LABELS,
-  TASK_TYPE_LABELS,
-} from "@/lib/constants";
+import { PRIORITY_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
+import { LEGACY_LABELS } from "@/lib/task-model";
 import type { Activity, ActivityValue } from "@/types";
 
 export const FIELD_LABELS: Record<string, string> = {
   appTypeId: "App Type",
-  type: "type",
+  type: "category",
   moduleId: "module",
   title: "title",
   description: "description",
   assigneeId: "assignee",
+  assigneeIds: "assignees",
   priority: "priority",
   severity: "severity",
   estimatedHours: "estimated time",
@@ -41,18 +38,27 @@ export function formatValue(field: string | null, value: ActivityValue, lookups:
   switch (field) {
     case "assigneeId":
       return lookups.userName(s) ?? "unknown user";
+    case "assigneeIds": {
+      let ids: string[] = [];
+      try {
+        ids = JSON.parse(s) as string[];
+      } catch {
+        ids = [s];
+      }
+      return ids.length ? ids.map((id) => lookups.userName(id) ?? "unknown user").join(", ") : "none";
+    }
     case "appTypeId":
       return lookups.appTypeName(s) ?? "unknown App Type";
     case "moduleId":
       return lookups.moduleName(s) ?? "unknown module";
     case "status":
-      return TASK_STATUS_LABELS[s as keyof typeof TASK_STATUS_LABELS] ?? s;
+      return TASK_STATUS_LABELS[s as keyof typeof TASK_STATUS_LABELS] ?? LEGACY_LABELS[s] ?? s;
     case "priority":
       return PRIORITY_LABELS[s as keyof typeof PRIORITY_LABELS] ?? s;
-    case "severity":
-      return SEVERITY_LABELS[s as keyof typeof SEVERITY_LABELS] ?? s;
+    case "severity": // removed field; old history only
+      return s[0].toUpperCase() + s.slice(1);
     case "type":
-      return TASK_TYPE_LABELS[s as keyof typeof TASK_TYPE_LABELS] ?? s;
+      return TASK_TYPE_LABELS[s as keyof typeof TASK_TYPE_LABELS] ?? LEGACY_LABELS[s] ?? s;
     case "estimatedHours":
     case "actualHours":
       return `${s}h`;

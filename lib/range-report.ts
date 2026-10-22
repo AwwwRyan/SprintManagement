@@ -2,12 +2,13 @@
  * Date-range report ("what happened between <from> and <to>"), exported to Excel from the
  * dashboard. Pure: callers pass tasks + status-change activity; no Firebase imports.
  *
- * "Completed in range" = a status change to Done inside the range (from the activity log).
+ * "Completed in range" = a status change to Done or Released inside the range (activity log).
  * Tasks that were imported already Done have no such change, so they never count as
  * completed in a range (their real completion date isn't known).
  */
 import { addDays, endOfDay, endOfMonth, format, startOfDay, startOfMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
 import { PRIORITY_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
+import { isOpen } from "@/lib/task-model";
 import type { Priority, Task, TaskStatus, TaskType } from "@/types";
 
 export type RangePreset = "this_week" | "last_week" | "this_month" | "last_month" | "custom";
@@ -42,7 +43,7 @@ export function rangeBounds(from: string, to: string): { fromMs: number; toMs: n
 
 export type ReportTask = Pick<
   Task,
-  "id" | "taskKey" | "title" | "appTypeId" | "type" | "priority" | "status" | "assigneeId" | "reporterId" | "sprintId" | "dueDate" | "estimatedHours" | "actualHours" | "descriptionText"
+  "id" | "taskKey" | "title" | "appTypeId" | "type" | "priority" | "status" | "assigneeIds" | "reporterId" | "sprintId" | "dueDate" | "estimatedHours" | "actualHours" | "descriptionText"
 > & { createdAtMs: number | null; remarks?: string; releaseDate?: string | null };
 
 export interface StatusChange {
@@ -92,33 +93,34 @@ export function buildRangeReport(args: {
   const inRange = (ms: number | null) => ms !== null && ms >= fromMs && ms <= toMs;
   const changes = args.changes.filter((c) => byId.has(c.taskId) && inRange(c.atMs)).sort((a, b) => a.atMs - b.atMs);
 
-  // Last change to Done within the range, per task
+  // Completed = moved to Done or Released within the range (last such change per task).
   const doneChange = new Map<string, StatusChange>();
-  for (const c of changes) if (c.to === "done") doneChange.set(c.taskId, c);
-  const reopenedIds = new Set(changes.filter((c) => c.to === "reopened").map((c) => c.taskId));
+  for (const c of changes) if (c.to === "done" || c.to === "released") doneChange.set(c.taskId, c);
+  const releasedIds = new Set(changes.filter((c) => c.to === "released").map((c) => c.taskId));
 
   const createdTasks = tasks.filter((t) => inRange(t.createdAtMs));
   const importedCreated = createdTasks.filter(isImported).length;
   const completedTasks = Array.from(doneChange.values()).map((c) => ({ c, t: byId.get(c.taskId)! }));
-  const open = tasks.filter((t) => t.status !== "done");
+  const open = tasks.filter((t) => isOpen(t.status));
   const today = format(now, "yyyy-MM-dd");
 
   const row = (t: ReportTask) => ({
     "Task ID": t.taskKey,
-    Title: t.title,
+    Task: t.title,
     App: lookups.appName(t.appTypeId),
-    Type: TASK_TYPE_LABELS[t.type as TaskType],
+    Category: TASK_TYPE_LABELS[t.type as TaskType],
     Priority: PRIORITY_LABELS[t.priority as Priority],
-    Assignee: lookups.userName(t.assigneeId),
+    Assignees: t.assigneeIds.length ? t.assigneeIds.map((id) => lookups.userName(id)).join(", ") : lookups.userName(null),
     Release: lookups.sprintName(t.sprintId),
     "Release date": t.releaseDate ?? "",
     Remarks: t.remarks ?? "",
   });
 
-  const people = new Set<string | null>([...tasks.map((t) => t.assigneeId)]);
+  // A task with several assignees counts (with its full hours) for each of them.
+  const people = new Set<string | null>(tasks.flatMap((t) => (t.assigneeIds.length ? t.assigneeIds : [null])));
   const byPerson = Array.from(people)
     .map((uid) => {
-      const mine = (x: ReportTask) => x.assigneeId === uid;
+      const mine = (x: ReportTask) => (uid === null ? x.assigneeIds.length === 0 : x.assigneeIds.includes(uid));
       return {
         Person: lookups.userName(uid),
         "Completed in range": completedTasks.filter(({ t }) => mine(t)).length,
@@ -161,12 +163,12 @@ export function buildRangeReport(args: {
       { label: "Tasks created", value: createdTasks.length - importedCreated },
       ...(importedCreated ? [{ label: "Tasks imported from Excel in this period", value: importedCreated }] : []),
       { label: "Tasks completed", value: completedTasks.length },
-      { label: "Tasks reopened", value: reopenedIds.size },
+      { label: "Tasks released", value: releasedIds.size },
       { label: "Bugs reported", value: bugsCreated },
       { label: "Bugs fixed", value: bugsFixed },
       { label: "Open tasks now", value: open.length },
       { label: "Critical open now", value: open.filter((t) => t.priority === "critical").length },
-      { label: "Blocked now", value: open.filter((t) => t.status === "blocked").length },
+      { label: "On hold now", value: open.filter((t) => t.status === "on_hold").length },
       { label: "Overdue now", value: open.filter((t) => t.dueDate !== null && t.dueDate < today).length },
       { label: "Generated", value: format(now, "yyyy-MM-dd HH:mm") },
     ],

@@ -38,7 +38,7 @@ function TaskRefTable({ rows, showTarget }: { rows: ReportTaskRef[]; showTarget?
               <td className="py-1.5">
                 <AppTypeBadge appType={appTypeById.get(r.appTypeId)} />
               </td>
-              <td className="py-1.5">{r.assigneeId ? (userById.get(r.assigneeId)?.name ?? "Unknown") : "Unassigned"}</td>
+              <td className="py-1.5">{r.assigneeIds.length ? r.assigneeIds.map((id) => userById.get(id)?.name ?? "Unknown").join(", ") : "Unassigned"}</td>
               <td className="py-1.5">
                 <StatusBadge status={r.status} />
               </td>

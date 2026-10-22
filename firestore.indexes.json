@@ -37,8 +37,8 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "assigneeId",
-          "order": "ASCENDING"
+          "fieldPath": "assigneeIds",
+          "arrayConfig": "CONTAINS"
         },
         {
           "fieldPath": "order",

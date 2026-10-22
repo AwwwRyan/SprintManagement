@@ -10,25 +10,26 @@ export type Role = (typeof ROLES)[number];
 export const SPRINT_STATUSES = ["planned", "active", "closed"] as const;
 export type SprintStatus = (typeof SPRINT_STATUSES)[number];
 
-export const TASK_TYPES = ["requirement", "bug", "enhancement", "task"] as const;
+/** Shown as "Category" in the UI. */
+export const TASK_TYPES = ["bug", "improvement", "task"] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
 
+/** Workflow order. Which statuses are complete / finished / excluded: lib/task-model.ts. */
 export const TASK_STATUSES = [
-  "todo",
+  "pending",
   "in_progress",
-  "ready_for_qa",
-  "qa_testing",
+  "on_hold",
+  "dev_done",
+  "testing",
   "done",
-  "reopened",
-  "blocked",
+  "released",
+  "closed",
+  "duplicate",
 ] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export const PRIORITIES = ["critical", "high", "medium", "low"] as const;
 export type Priority = (typeof PRIORITIES)[number];
-
-export const SEVERITIES = ["blocker", "major", "minor", "trivial"] as const;
-export type Severity = (typeof SEVERITIES)[number];
 
 export const ACTIVITY_ACTIONS = [
   "created",
@@ -111,9 +112,9 @@ export interface Task {
   /** Tiptap JSON document, serialized as a string (see DECISIONS.md). */
   description: string;
   descriptionText: string;
-  assigneeId: string | null;
+  /** Everyone working on the task (any number; empty = unassigned). */
+  assigneeIds: string[];
   priority: Priority;
-  severity: Severity | null;
   estimatedHours: number | null;
   actualHours: number | null;
   status: TaskStatus;
@@ -142,9 +143,8 @@ export type EditableTaskField =
   | "moduleId"
   | "title"
   | "description"
-  | "assigneeId"
+  | "assigneeIds"
   | "priority"
-  | "severity"
   | "estimatedHours"
   | "actualHours"
   | "status"
@@ -243,7 +243,7 @@ export interface SprintMetrics {
   byType: CountByKey[];
   byAppType: AppTypeBreakdown[];
   byPerson: PersonBreakdown[];
-  openBugsBySeverity: CountByKey[];
+  openBugsByPriority: CountByKey[];
   estimatedHours: number;
   actualHours: number;
 }
@@ -253,7 +253,7 @@ export interface ReportTaskRef {
   taskKey: string;
   title: string;
   appTypeId: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
   status: TaskStatus;
   targetSprintId?: string;
   targetSprintName?: string;

@@ -1,4 +1,5 @@
 /** Pure helpers for turning a task patch into activity-log entries. */
+import { sameIds } from "@/lib/task-model";
 import type { ActivityValue, Task, TaskPatch } from "@/types";
 
 export interface FieldChange {
@@ -30,6 +31,7 @@ export function diffPatch(task: Partial<Task>, patch: TaskPatch): { changed: Tas
     if (newValue === undefined) continue;
     const oldValue = task[field];
     if (oldValue === newValue || (oldValue == null && newValue == null)) continue;
+    if (Array.isArray(oldValue) && Array.isArray(newValue) && sameIds(oldValue, newValue)) continue;
     changed[field] = newValue;
     if (DERIVED_FIELDS.has(field)) continue;
     changes.push(
@@ -43,11 +45,9 @@ export function diffPatch(task: Partial<Task>, patch: TaskPatch): { changed: Tas
   return { changed: changed as TaskPatch, changes };
 }
 
-/** Applies the bug-only rule: severity is null unless type === "bug". */
+/** App Type changes clear the module (modules belong to one App Type). */
 export function normalizePatch(task: Pick<Task, "type" | "appTypeId" | "moduleId">, patch: TaskPatch): TaskPatch {
   const out: TaskPatch = { ...patch };
-  const nextType = patch.type ?? task.type;
-  if (nextType !== "bug") out.severity = null;
   if (patch.appTypeId !== undefined && patch.appTypeId !== task.appTypeId && patch.moduleId === undefined) {
     out.moduleId = null; // App Type changed: the module belongs to the old App Type
   }

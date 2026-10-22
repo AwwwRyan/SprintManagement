@@ -8,11 +8,13 @@ import type { ProgressStage, SprintProgress } from "@/lib/metrics";
 import type { Sprint } from "@/types";
 
 const STAGE_META: Record<ProgressStage, { label: string; bar: string; dot: string }> = {
-  done: { label: "Done", bar: "bg-emerald-500", dot: "bg-emerald-500" },
-  qa: { label: "In QA", bar: "bg-purple-500", dot: "bg-purple-500" },
+  released: { label: "Released", bar: "bg-emerald-600", dot: "bg-emerald-600" },
+  done: { label: "Done (tested)", bar: "bg-emerald-400", dot: "bg-emerald-400" },
+  qa: { label: "Dev done / testing", bar: "bg-purple-500", dot: "bg-purple-500" },
   inProgress: { label: "In progress", bar: "bg-blue-500", dot: "bg-blue-500" },
-  todo: { label: "To do", bar: "bg-slate-300 dark:bg-slate-600", dot: "bg-slate-400" },
-  blocked: { label: "Blocked", bar: "bg-red-500", dot: "bg-red-500" },
+  pending: { label: "Pending", bar: "bg-slate-300 dark:bg-slate-600", dot: "bg-slate-400" },
+  onHold: { label: "On hold", bar: "bg-orange-500", dot: "bg-orange-500" },
+  dropped: { label: "Closed / duplicate", bar: "bg-zinc-200 dark:bg-zinc-700", dot: "bg-zinc-300 dark:bg-zinc-600" },
 };
 
 function PaceBadge({ p }: { p: SprintProgress }) {
@@ -43,7 +45,7 @@ function Flag({ icon: Icon, label, value, tone }: { icon: typeof AlertTriangle; 
 
 /** Detailed sprint progress: stage breakdown, time used vs work done, and warning counts. */
 export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress; sprint: Sprint }) {
-  const done = p.stages[0].count;
+  const done = p.stages[0].count + p.stages[1].count; // released + done
   return (
     <Card className="print-break-avoid gap-4 py-4">
       <CardContent className="grid gap-4 px-4">
@@ -53,7 +55,7 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
             <div className="mt-0.5 flex items-baseline gap-2">
               <span className="text-3xl font-semibold tabular-nums">{p.completionPct}%</span>
               <span className="text-sm text-muted-foreground">
-                {done} of {p.total} tasks done
+                {done} of {p.total - p.stages[6].count} tasks done
               </span>
             </div>
           </div>
@@ -114,7 +116,7 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
 
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <Flag icon={CircleAlert} label="Critical open" value={p.criticalOpen} tone="red" />
-          <Flag icon={OctagonPause} label="Blocked" value={p.blocked} tone="red" />
+          <Flag icon={OctagonPause} label="On hold" value={p.onHold} tone="amber" />
           <Flag icon={AlertTriangle} label="Overdue" value={p.overdue} tone="amber" />
           <Flag icon={UserX} label="Unassigned (open)" value={p.unassignedOpen} tone="amber" />
         </div>

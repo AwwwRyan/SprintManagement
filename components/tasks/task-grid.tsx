@@ -19,8 +19,8 @@ import { canCreateTask, canEditTask } from "@/lib/permissions";
 import { createTask, updateTask, type NewTaskInput } from "@/lib/services/tasks";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
-import { PRIORITIES, SEVERITIES, TASK_STATUSES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
-import { AppTypeBadge, CarryBadge, PriorityBadge, SeverityBadge, StatusBadge, TypeBadge } from "@/components/common/badges";
+import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
+import { AppTypeBadge, CarryBadge, PriorityBadge, StatusBadge, TypeBadge } from "@/components/common/badges";
 import { UserChip } from "@/components/common/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,22 +32,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AssigneeCellEditor, AssigneeStack } from "./assignee-picker";
 import { DateCellEditor, NumberCellEditor, SelectCellEditor, TextareaCellEditor, TextCellEditor } from "./cell-editors";
 import {
   appTypeOptions,
   moduleOptions,
   priorityOptions,
-  severityOptions,
   statusOptions,
   typeOptions,
-  userOptions,
   environmentOptions,
   type Option,
 } from "./options";
 
 /* ------------------------------------------------------------------ column config */
 
-type EditorKind = "text" | "textarea" | "number" | "date" | "select";
+type EditorKind = "text" | "textarea" | "number" | "date" | "select" | "assignees";
 
 interface ColConfig {
   id: string;
@@ -118,7 +117,7 @@ export function TaskGrid({
   emptyState,
 }: TaskGridProps) {
   const { actor } = useCurrentUser();
-  const { users, appTypes, modules, userById, appTypeById, moduleById } = useData();
+  const { appTypes, modules, userById, appTypeById, moduleById } = useData();
 
   /* Sr No = position within the whole sprint by `order` (independent of filters/sort). */
   const srNo = useMemo(() => {
@@ -161,13 +160,13 @@ export function TaskGrid({
       },
       {
         id: "type",
-        label: "Type",
-        width: 118,
+        label: "Category",
+        width: 112,
         field: "type",
         editor: "select",
         options: () => ({ options: typeOptions }),
         render: (t) => <TypeBadge type={t.type} />,
-        sortValue: (t) => t.type,
+        sortValue: (t) => TASK_TYPES.indexOf(t.type),
       },
       {
         id: "moduleId",
@@ -186,8 +185,8 @@ export function TaskGrid({
       },
       {
         id: "title",
-        label: "Title",
-        width: 300,
+        label: "Task",
+        width: 380,
         locked: true,
         field: "title",
         editor: "text",
@@ -198,26 +197,13 @@ export function TaskGrid({
         sortValue: (t) => t.title.toLowerCase(),
       },
       {
-        id: "description",
-        label: "Description",
-        width: 220,
-        opensPanel: true,
-        wrap: true,
-        // wraps, but long descriptions stop at 3 lines (full text is in the side panel)
-        render: (t) => (
-          <span className="line-clamp-3 break-words whitespace-normal text-muted-foreground">{t.descriptionText || "-"}</span>
-        ),
-        sortValue: (t) => t.descriptionText.toLowerCase(),
-      },
-      {
-        id: "assigneeId",
-        label: "Assigned to",
-        width: 160,
-        field: "assigneeId",
-        editor: "select",
-        options: (t) => ({ options: userOptions(users, t.assigneeId), allowNone: true, noneLabel: "Unassigned" }),
-        render: (t) => <UserChip user={t.assigneeId ? userById.get(t.assigneeId) : undefined} />,
-        sortValue: (t) => userName(t.assigneeId) || "￿",
+        id: "assigneeIds",
+        label: "Assignees",
+        width: 200,
+        field: "assigneeIds",
+        editor: "assignees",
+        render: (t) => <AssigneeStack ids={t.assigneeIds} />,
+        sortValue: (t) => (t.assigneeIds.length ? t.assigneeIds.map(userName).sort().join(", ") : "￿"),
       },
       {
         id: "priority",
@@ -228,22 +214,6 @@ export function TaskGrid({
         options: () => ({ options: priorityOptions }),
         render: (t) => <PriorityBadge priority={t.priority} />,
         sortValue: (t) => PRIORITIES.indexOf(t.priority),
-      },
-      {
-        id: "severity",
-        label: "Severity",
-        width: 96,
-        field: "severity",
-        editor: "select",
-        applicable: (t) => t.type === "bug",
-        options: () => ({ options: severityOptions, allowNone: true }),
-        render: (t) =>
-          t.type !== "bug" ? null : t.severity ? (
-            <SeverityBadge severity={t.severity} />
-          ) : (
-            <span className="text-muted-foreground">-</span>
-          ),
-        sortValue: (t) => (t.severity ? SEVERITIES.indexOf(t.severity) : 99),
       },
       {
         id: "estimatedHours",
@@ -266,7 +236,7 @@ export function TaskGrid({
       {
         id: "status",
         label: "Status",
-        width: 124,
+        width: 156,
         field: "status",
         editor: "select",
         options: () => ({ options: statusOptions }),
@@ -344,7 +314,7 @@ export function TaskGrid({
         sortValue: (t) => t.carryOverCount,
       },
     ];
-  }, [appTypes, modules, users, userById, appTypeById, moduleById, srNo]);
+  }, [appTypes, modules, userById, appTypeById, moduleById, srNo]);
 
   const colById = useMemo(() => new Map(cols.map((c) => [c.id, c])), [cols]);
 
@@ -498,7 +468,7 @@ export function TaskGrid({
     setAdding(true);
     try {
       const created = await createTask(
-        { title, sprintId: sprint.id, appTypeId, type: "task", status: "todo", priority: "medium", ...quickAddDefaults },
+        { title, sprintId: sprint.id, appTypeId, type: "task", status: "pending", priority: "medium", ...quickAddDefaults },
         actor.uid,
       );
       setQuickTitle("");
@@ -530,6 +500,8 @@ export function TaskGrid({
     switch (cfg.editor) {
       case "text":
         return <TextCellEditor initial={String(current ?? "")} onCommit={commit} onCancel={cancel} required={cfg.required} />;
+      case "assignees":
+        return <AssigneeCellEditor initial={task.assigneeIds} onCommit={commit} />;
       case "textarea":
         return <TextareaCellEditor initial={String(current ?? "")} onCommit={commit} onCancel={cancel} />;
       case "number":

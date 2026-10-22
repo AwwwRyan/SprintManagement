@@ -2,8 +2,6 @@ import { cn, readableTextColor } from "@/lib/utils";
 import {
   PRIORITY_COLORS,
   PRIORITY_LABELS,
-  SEVERITY_COLORS,
-  SEVERITY_LABELS,
   SPRINT_STATUS_COLORS,
   SPRINT_STATUS_LABELS,
   TASK_STATUS_COLORS,
@@ -11,7 +9,7 @@ import {
   TASK_TYPE_COLORS,
   TASK_TYPE_LABELS,
 } from "@/lib/constants";
-import type { AppType, Priority, Severity, SprintStatus, TaskStatus, TaskType } from "@/types";
+import type { AppType, Priority, SprintStatus, TaskStatus, TaskType } from "@/types";
 
 const base = "inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium";
 
@@ -25,10 +23,6 @@ export function StatusBadge({ status }: { status: TaskStatus }) {
 
 export function PriorityBadge({ priority }: { priority: Priority }) {
   return <span className={cn(base, PRIORITY_COLORS[priority])}>{PRIORITY_LABELS[priority]}</span>;
-}
-
-export function SeverityBadge({ severity }: { severity: Severity }) {
-  return <span className={cn(base, SEVERITY_COLORS[severity])}>{SEVERITY_LABELS[severity]}</span>;
 }
 
 export function SprintStatusBadge({ status }: { status: SprintStatus }) {

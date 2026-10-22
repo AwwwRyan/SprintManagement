@@ -12,7 +12,7 @@ export interface Actor {
 }
 
 type SprintLike = Pick<Sprint, "status"> | null | undefined;
-type TaskLike = Pick<Task, "reporterId" | "assigneeId">;
+type TaskLike = Pick<Task, "reporterId" | "assigneeIds">;
 
 export const isStaff = (role: Role) => role === "admin" || role === "qa";
 export const isClosed = (sprint: SprintLike) => sprint?.status === "closed";

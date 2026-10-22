@@ -1,4 +1,4 @@
-import type { Priority, Role, Severity, SprintStatus, TaskStatus, TaskType } from "@/types";
+import type { Priority, Role, SprintStatus, TaskStatus, TaskType } from "@/types";
 
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
@@ -6,21 +6,23 @@ export const ROLE_LABELS: Record<Role, string> = {
   developer: "Developer",
 };
 
+/** Category labels (the `type` field). */
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
-  requirement: "Requirement",
   bug: "Bug",
-  enhancement: "Enhancement",
+  improvement: "Improvement",
   task: "Task",
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: "To Do",
+  pending: "Pending",
   in_progress: "In Progress",
-  ready_for_qa: "Ready for QA",
-  qa_testing: "QA Testing",
+  on_hold: "On Hold",
+  dev_done: "Dev Done",
+  testing: "Testing in Progress",
   done: "Done",
-  reopened: "Reopened",
-  blocked: "Blocked",
+  released: "Released",
+  closed: "Closed",
+  duplicate: "Duplicate",
 };
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
@@ -28,13 +30,6 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   high: "High",
   medium: "Medium",
   low: "Low",
-};
-
-export const SEVERITY_LABELS: Record<Severity, string> = {
-  blocker: "Blocker",
-  major: "Major",
-  minor: "Minor",
-  trivial: "Trivial",
 };
 
 export const SPRINT_STATUS_LABELS: Record<SprintStatus, string> = {
@@ -45,20 +40,21 @@ export const SPRINT_STATUS_LABELS: Record<SprintStatus, string> = {
 
 /** Tailwind classes for colored badges. Kept in one place so light/dark stay consistent. */
 export const TASK_TYPE_COLORS: Record<TaskType, string> = {
-  requirement: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
   bug: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  enhancement: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
-  task: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  improvement: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
+  task: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
 };
 
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  pending: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
   in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-  ready_for_qa: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  qa_testing: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
+  on_hold: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
+  dev_done: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  testing: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
   done: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  reopened: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
-  blocked: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  released: "bg-emerald-600 text-white dark:bg-emerald-700",
+  closed: "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+  duplicate: "bg-zinc-200 text-zinc-600 line-through dark:bg-zinc-800 dark:text-zinc-400",
 };
 
 export const PRIORITY_COLORS: Record<Priority, string> = {
@@ -66,13 +62,6 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
   high: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
   medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
   low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-};
-
-export const SEVERITY_COLORS: Record<Severity, string> = {
-  blocker: "bg-red-600 text-white dark:bg-red-700",
-  major: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
-  minor: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
-  trivial: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
 export const SPRINT_STATUS_COLORS: Record<SprintStatus, string> = {
@@ -87,8 +76,8 @@ export const SPRINT_STATUS_COLORS: Record<SprintStatus, string> = {
  * Hex, not CSS variables: SVG presentation attributes don't resolve var().
  */
 export const TYPE_CHART_COLORS: Record<"light" | "dark", Record<TaskType, string>> = {
-  light: { requirement: "#2a78d6", bug: "#eb6834", enhancement: "#1baf7a", task: "#eda100" },
-  dark: { requirement: "#3987e5", bug: "#d95926", enhancement: "#199e70", task: "#c98500" },
+  light: { task: "#2a78d6", bug: "#eb6834", improvement: "#1baf7a" },
+  dark: { task: "#3987e5", bug: "#d95926", improvement: "#199e70" },
 };
 export const BAR_CHART_COLOR: Record<"light" | "dark", string> = { light: "#2a78d6", dark: "#3987e5" };
 

@@ -26,12 +26,11 @@ import {
   appTypeOptions,
   moduleOptions,
   priorityOptions,
-  severityOptions,
   statusOptions,
   typeOptions,
-  userOptions,
   environmentOptions,
 } from "./options";
+import { AssigneePicker } from "./assignee-picker";
 
 const LAST_APP_TYPE_KEY = "stm.lastAppTypeId";
 
@@ -49,7 +48,7 @@ export function NewTaskDialog({
   onCreated?: (taskKey: string) => void;
 }) {
   const { actor } = useCurrentUser();
-  const { appTypes, modules, users } = useData();
+  const { appTypes, modules } = useData();
 
   const defaults = (): TaskFormInput => {
     let last: string | null = null;
@@ -64,10 +63,9 @@ export function NewTaskDialog({
       appTypeId: active.find((a) => a.id === last)?.id ?? active[0]?.id ?? "",
       type: "task",
       moduleId: null,
-      assigneeId: defaultAssigneeId,
+      assigneeIds: defaultAssigneeId ? [defaultAssigneeId] : [],
       priority: "medium",
-      severity: null,
-      status: "todo",
+      status: "pending",
       estimatedHours: null,
       actualHours: null,
       dueDate: null,
@@ -121,7 +119,7 @@ export function NewTaskDialog({
           <DialogDescription>Add a requirement, bug, enhancement or task to this release.</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="grid gap-4" noValidate>
-          <Field label="Title" htmlFor="nt-title" error={errors.title?.message}>
+          <Field label="Task" htmlFor="nt-title" error={errors.title?.message}>
             <Input id="nt-title" autoFocus {...register("title")} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -157,26 +155,15 @@ export function NewTaskDialog({
                 )}
               />
             </Field>
-            <Field label="Type">
+            <Field label="Category">
               <Controller
                 control={control}
                 name="type"
                 render={({ field }) => (
-                  <PropSelect label="Type" value={field.value} options={typeOptions} onChange={(v) => v && field.onChange(v)} />
+                  <PropSelect label="Category" value={field.value} options={typeOptions} onChange={(v) => v && field.onChange(v)} />
                 )}
               />
             </Field>
-            {type === "bug" && (
-              <Field label="Severity">
-                <Controller
-                  control={control}
-                  name="severity"
-                  render={({ field }) => (
-                    <PropSelect label="Severity" value={field.value} options={severityOptions} onChange={field.onChange} allowNone />
-                  )}
-                />
-              </Field>
-            )}
             <Field label="Priority">
               <Controller
                 control={control}
@@ -195,20 +182,11 @@ export function NewTaskDialog({
                 )}
               />
             </Field>
-            <Field label="Assigned to">
+            <Field label="Assignees">
               <Controller
                 control={control}
-                name="assigneeId"
-                render={({ field }) => (
-                  <PropSelect
-                    label="Assigned to"
-                    value={field.value}
-                    options={userOptions(users)}
-                    onChange={field.onChange}
-                    allowNone
-                    noneLabel="Unassigned"
-                  />
-                )}
+                name="assigneeIds"
+                render={({ field }) => <AssigneePicker value={field.value ?? []} onChange={field.onChange} />}
               />
             </Field>
             <Field label="Due date" htmlFor="nt-due">

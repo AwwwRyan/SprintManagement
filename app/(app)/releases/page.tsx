@@ -17,6 +17,7 @@ import { SprintStatusBadge } from "@/components/common/badges";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { SprintFormDialog } from "@/components/sprints/sprint-form-dialog";
+import { isComplete, isExcluded } from "@/lib/task-model";
 
 export default function SprintsPage() {
   const { actor } = useCurrentUser();
@@ -33,8 +34,8 @@ export default function SprintsPage() {
     const m = new Map<string, { total: number; done: number }>();
     for (const t of liveTasks.data) {
       const c = m.get(t.sprintId) ?? { total: 0, done: 0 };
-      c.total += 1;
-      if (t.status === "done") c.done += 1;
+      if (!isExcluded(t.status)) c.total += 1; // closed / duplicate don't count
+      if (isComplete(t.status)) c.done += 1;
       m.set(t.sprintId, c);
     }
     for (const r of reports.data) m.set(r.sprintId, { total: r.total, done: r.done });

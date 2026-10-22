@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppTypeBadge, StatusBadge } from "@/components/common/badges";
-import { UserChip } from "@/components/common/user-avatar";
+import { AssigneeStack } from "@/components/tasks/assignee-picker";
+import { isFinished } from "@/lib/task-model";
 import { defaultSprintInput, SprintFields } from "./sprint-form-dialog";
 import type { Sprint, Task } from "@/types";
 
@@ -41,9 +42,9 @@ export function CloseSprintDialog({
   tasks: Task[];
 }) {
   const { actor } = useCurrentUser();
-  const { sprints, users, appTypes, userById, appTypeById } = useData();
+  const { sprints, users, appTypes, appTypeById } = useData();
   const unfinished = useMemo(
-    () => tasks.filter((t) => t.status !== "done").sort((a, b) => a.order - b.order),
+    () => tasks.filter((t) => !isFinished(t.status)).sort((a, b) => a.order - b.order),
     [tasks],
   );
   const planned = sprints.filter((s) => s.status === "planned");
@@ -110,14 +111,15 @@ export function CloseSprintDialog({
         <DialogHeader>
           <DialogTitle>Close {sprint.name}</DialogTitle>
           <DialogDescription>
-            {doneCount} of {tasks.length} tasks are done. Choose which unfinished tasks to carry into the next release.
+            {doneCount} of {tasks.length} tasks are released, closed or duplicate. Done (tested, not yet released) tasks
+            count as unfinished. Choose which unfinished tasks to carry into the next release.
             Their status, comments, attachments and history move with them.
           </DialogDescription>
         </DialogHeader>
 
         {unfinished.length === 0 ? (
           <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-            Every task is done. Nothing to carry forward.
+            Every task is released, closed or duplicate. Nothing to carry forward.
           </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
@@ -155,7 +157,7 @@ export function CloseSprintDialog({
                       <AppTypeBadge appType={appTypeById.get(t.appTypeId)} />
                     </td>
                     <td className="p-2 align-top">
-                      <UserChip user={t.assigneeId ? userById.get(t.assigneeId) : undefined} />
+                      <AssigneeStack ids={t.assigneeIds} max={2} />
                     </td>
                     <td className="p-2 align-top">
                       <StatusBadge status={t.status} />

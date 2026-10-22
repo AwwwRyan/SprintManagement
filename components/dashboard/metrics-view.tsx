@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   BAR_CHART_COLOR,
-  SEVERITY_LABELS,
+  PRIORITY_LABELS,
   TASK_STATUS_LABELS,
   TYPE_CHART_COLORS,
   TASK_TYPE_LABELS,
@@ -64,12 +64,10 @@ export function MetricsView({ metrics }: { metrics: SprintMetrics }) {
   const typeData = metrics.byType
     .filter((t) => t.count > 0)
     .map((t) => ({ key: t.key as TaskType, label: TASK_TYPE_LABELS[t.key as TaskType], count: t.count }));
-  const severityData = metrics.openBugsBySeverity
-    .filter((s) => s.key !== "unset" || s.count > 0)
-    .map((s) => ({
-      label: s.key === "unset" ? "Not set" : SEVERITY_LABELS[s.key as keyof typeof SEVERITY_LABELS],
-      count: s.count,
-    }));
+  const severityData = metrics.openBugsByPriority.map((s) => ({
+    label: PRIORITY_LABELS[s.key as keyof typeof PRIORITY_LABELS],
+    count: s.count,
+  }));
   const openBugs = severityData.reduce((a, s) => a + s.count, 0);
 
   return (
@@ -165,7 +163,7 @@ export function MetricsView({ metrics }: { metrics: SprintMetrics }) {
         )}
       </Section>
 
-      <Section title={`Open bugs by severity (${openBugs})`}>
+      <Section title={`Open bugs by priority (${openBugs})`}>
         {openBugs === 0 ? (
           <p className="text-sm text-muted-foreground">No open bugs.</p>
         ) : (
