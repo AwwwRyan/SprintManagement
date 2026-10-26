@@ -316,7 +316,18 @@ test("Backlog and All Tasks: QA moves tasks between a release and the Backlog; c
   await page.getByRole("button", { name: /^Release/ }).first().click();
   await page.getByRole("menuitemcheckbox", { name: "Backlog" }).click();
   await page.keyboard.press("Escape");
-  await expect(footer).toHaveText(/^4 of \d+ tasks/);
+  // the Release filter runs in the database: the page holds just the 4 Backlog tasks
+  await expect(footer).toHaveText(/^4 tasks/);
+  await expect(page.getByLabel("Pages")).toContainText("Showing 1–4 of 4");
+  await expect(page.getByLabel("Pages")).toContainText("Page 1 of 1");
+  await page.getByRole("button", { name: "Clear filters" }).click();
+
+  // a task number finds the task anywhere (here: TSK-1, in the closed Release 13)
+  await page.getByLabel("Search tasks").fill("1");
+  await expect(page.getByLabel("Pages")).toContainText("Showing task TSK-1 from any release");
+  await expect(row(page, "TSK-1")).toBeVisible();
+  await expect(page.locator("tbody tr[data-task-key]")).toHaveCount(1);
+  await page.getByLabel("Search tasks").fill("");
 
   // a developer sees no tick boxes / Move
   const dev = await newSession(browser, "dev1@example.com");

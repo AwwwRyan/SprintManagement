@@ -67,6 +67,12 @@ Decided with the owner:
 - **Closing a release**: every unfinished task must get a destination, next release or Backlog (Ready to Release: release only). Nothing is left behind any more. "Send all" buttons exist for both. The report lists "Moved to the Backlog"; older reports still show "Left incomplete".
 - Suggestions can also be added to the Backlog.
 
+## All Tasks paging (2026-10-26)
+- All Tasks reads **100 tasks per page** from Firestore, newest first (`createdAt` desc, then id), with Previous/Next cursors. Each page is live. The total comes from a count aggregate (about 1 read per 1000 tasks), so the page never reads every task (Spark quota).
+- **Release, Status and Category filters run in the database**. Firestore allows at most 30 combinations of "in" values per query; anything beyond that is applied to the loaded page (`lib/task-page.ts`). Composite indexes `tasks(sprintId|status|type…, createdAt desc, __name__ desc)` are in `firestore.indexes.json`.
+- **Searching a task number** (TSK-142, "tsk 142" or "142") finds that task anywhere. Other text search and the App Type / Module / Assignee / Priority / Date filters look within the 100 tasks on screen, and the page says so.
+- Sr No on All Tasks numbers rows across pages (1–100, 101–200…).
+
 ## Counts (2026-10-26)
 - A release's task count is now **every task in it**. Completion % is shown separately: (Ready to Release + Released) / (all − Closed − Duplicate). Before, the list showed the % denominator as the count (e.g. 267 vs 293 in the grid).
 - Dashboard: release picker (active first, then planned, then closed). Every number covers only the chosen release (not the Backlog or other releases). "Open tasks" no longer counts Closed/Duplicate as open.
