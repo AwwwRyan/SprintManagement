@@ -8,6 +8,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   LayoutDashboard,
+  Lightbulb,
   ListChecks,
   Menu,
   Layers,
@@ -17,7 +18,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
-import { canManageUsers } from "@/lib/permissions";
+import { canManageUsers, canTriageSuggestions } from "@/lib/permissions";
+import { useNewSuggestions } from "@/lib/hooks/use-suggestions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -35,6 +37,7 @@ const MAIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: (p) => p.startsWith("/dashboard") },
   { href: "/releases", label: "Releases", icon: Zap, match: (p) => p.startsWith("/releases") },
   { href: "/my-tasks", label: "My Tasks", icon: ListChecks, match: (p) => p.startsWith("/my-tasks") },
+  { href: "/suggestions", label: "Suggestions", icon: Lightbulb, match: (p) => p.startsWith("/suggestions") },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -72,8 +75,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // QA/Admin see how many suggestions are waiting to be looked at.
+  const newSuggestions = useNewSuggestions(canTriageSuggestions(actor)).data.length;
+  const badgeFor = (item: NavItem) => (item.href === "/suggestions" ? newSuggestions : 0);
+
   const renderItem = (item: NavItem) => {
     const active = item.match(pathname);
+    const badge = badgeFor(item);
     const link = (
       <Link
         key={item.href}
@@ -87,8 +95,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           collapsed && "md:justify-center md:px-0",
         )}
       >
-        <item.icon className="size-4 shrink-0" />
+        <span className="relative shrink-0">
+          <item.icon className="size-4" />
+          {badge > 0 && collapsed && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-sky-500 md:block" aria-hidden />}
+        </span>
         <span className={cn(collapsed && "md:sr-only")}>{item.label}</span>
+        {badge > 0 && (
+          <span
+            className={cn("ml-auto rounded-full bg-sky-500 px-1.5 text-[11px] font-semibold text-white tabular-nums", collapsed && "md:hidden")}
+            aria-label={`${badge} new`}
+          >
+            {badge}
+          </span>
+        )}
       </Link>
     );
     if (!collapsed) return link;

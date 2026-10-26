@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Link2, Trash2, X } from "lucide-react";
@@ -244,6 +246,13 @@ export function TaskPanel({
               <Row label="Release">
                 <div className="px-2.5 text-sm">{sprint?.name ?? "Unknown"}</div>
               </Row>
+              {task.suggestionId && (
+                <Row label="Came from">
+                  <Link href={`/suggestions?open=${task.suggestionId}`} className="px-2.5 text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+                    A suggestion (open it)
+                  </Link>
+                </Row>
+              )}
               {task.sprintHistory.length > 0 && (
                 <Row label="Carried from">
                   <ul className="px-2.5 text-xs text-muted-foreground">

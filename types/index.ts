@@ -133,6 +133,8 @@ export interface Task {
   attachmentCount: number;
   carryOverCount: number;
   sprintHistory: SprintHistoryEntry[];
+  /** set when the task was created from a suggestion (Suggestions → Add to release) */
+  suggestionId: string | null;
   createdAt: TS;
   updatedAt: TS;
   updatedBy: string;
@@ -166,6 +168,35 @@ export interface Comment {
   body: string;
   createdAt: TS;
   editedAt: TS;
+}
+
+/* ------------------------------------------------------------------ suggestions */
+
+export const SUGGESTION_KINDS = ["idea", "problem", "design", "other"] as const;
+export type SuggestionKind = (typeof SUGGESTION_KINDS)[number];
+/** "Done" isn't stored: an added suggestion is done when its task is Released. */
+export const SUGGESTION_STATUSES = ["new", "added", "not_planned"] as const;
+export type SuggestionStatus = (typeof SUGGESTION_STATUSES)[number];
+
+export interface Suggestion {
+  id: string;
+  title: string;
+  details: string;
+  kind: SuggestionKind;
+  status: SuggestionStatus;
+  authorId: string;
+  imageCount: number;
+  /** thumbnail of the first screenshot (data URL), "" when none */
+  coverThumb: string;
+  declineReason: string;
+  taskId: string | null;
+  taskKey: string | null;
+  sprintId: string | null;
+  sprintName: string | null;
+  /** who added it to a release / marked it not planned */
+  handledBy: string | null;
+  createdAt: TS;
+  updatedAt: TS;
 }
 
 /** Metadata doc. The image itself lives in `attachments/{id}/chunks/{index}` (base64). */

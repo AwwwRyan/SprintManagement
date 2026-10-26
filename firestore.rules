@@ -160,6 +160,95 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------------------------------------------------------------- suggestions
+    // Everyone sees all suggestions and can add their own (with up to 5 screenshots, stored like
+    // task attachments). QA/Admin add them to a release or mark them not planned; admins delete.
+
+    function validSuggestion(d) {
+      return d.keys().hasOnly(['title', 'details', 'kind', 'status', 'authorId', 'imageCount', 'coverThumb',
+                               'declineReason', 'taskId', 'taskKey', 'sprintId', 'sprintName', 'handledBy',
+                               'createdAt', 'updatedAt'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && d.details is string && d.details.size() <= 5000
+        && d.kind in ['idea', 'problem', 'design', 'other']
+        && d.status in ['new', 'added', 'not_planned']
+        && d.authorId is string
+        && d.imageCount is int && d.imageCount >= 0 && d.imageCount <= 5
+        && d.coverThumb is string && d.coverThumb.size() <= 150000
+        && d.declineReason is string && d.declineReason.size() <= 500
+        && (d.taskId == null || d.taskId is string)
+        && (d.taskKey == null || d.taskKey is string)
+        && (d.sprintId == null || d.sprintId is string)
+        && (d.sprintName == null || d.sprintName is string)
+        && (d.handledBy == null || d.handledBy == uid() || d.handledBy == resource.data.handledBy);
+    }
+
+    match /suggestions/{suggestionId} {
+      allow read: if isActive();
+      allow create: if isActive()
+        && validSuggestion(request.resource.data)
+        && request.resource.data.authorId == uid()
+        && request.resource.data.status == 'new'
+        && request.resource.data.imageCount == 0 && request.resource.data.coverThumb == ''
+        && request.resource.data.taskId == null && request.resource.data.handledBy == null
+        && request.resource.data.declineReason == ''
+        && request.resource.data.createdAt == request.time;
+      allow update: if isActive()
+        && validSuggestion(request.resource.data)
+        && unchanged(['authorId', 'createdAt', 'title', 'details', 'kind'])
+        && (
+          // the author adding screenshots while it's new (count goes up with each image batch)
+          (resource.data.authorId == uid() && resource.data.status == 'new'
+            && changed().hasOnly(['imageCount', 'coverThumb', 'updatedAt'])
+            && request.resource.data.imageCount == resource.data.imageCount + 1)
+          // QA/Admin: add to a release, mark not planned, or reopen
+          || (isStaff() && changed().hasOnly(['status', 'declineReason', 'taskId', 'taskKey', 'sprintId', 'sprintName', 'handledBy', 'updatedAt']))
+        );
+      allow delete: if isAdmin();
+
+      match /images/{imageId} {
+        function parent() { return get(/databases/$(database)/documents/suggestions/$(suggestionId)).data; }
+        function imagePath() { return /databases/$(database)/documents/suggestions/$(suggestionId)/images/$(imageId); }
+
+        allow read: if isActive();
+        allow create: if isActive()
+          && parent().authorId == uid() && parent().status == 'new'
+          && request.resource.data.keys().hasOnly(['fileName', 'contentType', 'chunkCount', 'thumbDataUrl', 'sizeBytes', 'width', 'height', 'uploadedBy', 'uploadedAt'])
+          && request.resource.data.uploadedBy == uid()
+          && request.resource.data.uploadedAt == request.time
+          && request.resource.data.fileName is string && request.resource.data.fileName.size() <= 200
+          && request.resource.data.contentType in ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+          && request.resource.data.sizeBytes is int && request.resource.data.sizeBytes <= 2621440
+          && request.resource.data.width is int && request.resource.data.height is int
+          && request.resource.data.chunkCount is int
+          && request.resource.data.chunkCount >= 1 && request.resource.data.chunkCount <= 4
+          && request.resource.data.thumbDataUrl is string
+          && request.resource.data.thumbDataUrl.size() <= 150000
+          && request.resource.data.thumbDataUrl.matches('^data:image/(webp|jpeg);base64,.*')
+          && existsAfter(/databases/$(database)/documents/suggestions/$(suggestionId)/images/$(imageId)/chunks/0)
+          && existsAfter(/databases/$(database)/documents/suggestions/$(suggestionId)/images/$(imageId)/chunks/$(string(request.resource.data.chunkCount - 1)))
+          && getAfter(/databases/$(database)/documents/suggestions/$(suggestionId)).data.imageCount == parent().imageCount + 1;
+        allow update: if false;
+        allow delete: if isAdmin();
+
+        match /chunks/{chunkId} {
+          allow read: if isActive();
+          allow create: if isActive()
+            && !exists(imagePath())
+            && getAfter(imagePath()).data.uploadedBy == uid()
+            && request.resource.data.keys().hasOnly(['index', 'data'])
+            && request.resource.data.index is int
+            && request.resource.data.index >= 0
+            && request.resource.data.index < getAfter(imagePath()).data.chunkCount
+            && chunkId == string(request.resource.data.index)
+            && request.resource.data.data is string
+            && request.resource.data.data.size() <= 900000;
+          allow update: if false;
+          allow delete: if isAdmin();
+        }
+      }
+    }
+
     // ---------------------------------------------------------------- tasks
 
     function validTask(d) {
@@ -185,6 +274,7 @@ service cloud.firestore {
         && d.attachmentCount is int && d.attachmentCount >= 0 && d.attachmentCount <= 10
         && d.carryOverCount is int && d.carryOverCount >= 0
         && d.sprintHistory is list
+        && (!('suggestionId' in d) || d.suggestionId == null || d.suggestionId is string)
         && d.updatedBy == uid();
     }
 

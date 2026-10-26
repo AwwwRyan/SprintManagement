@@ -89,7 +89,7 @@ async function main() {
   const db = getFirestore(app);
   console.log("Seeding emulators for project", app.options.projectId);
 
-  for (const c of ["users", "appTypes", "modules", "sprints", "tasks", "sprintReports", "counters", "meta", "presence"]) {
+  for (const c of ["users", "appTypes", "modules", "sprints", "tasks", "sprintReports", "counters", "meta", "presence", "suggestions"]) {
     await clearCollection(db, c);
   }
 
@@ -251,7 +251,34 @@ async function main() {
   await batch.commit();
   await db.doc("counters/tasks").set({ next: key });
 
-  console.log(`Seeded ${USERS.length} users, ${APP_TYPES.length} App Types, 3 sprints, ${key - 1} tasks.`);
+  // Suggestion box: one new, one not planned (no pictures)
+  const suggestionBase = { imageCount: 0, coverThumb: "", taskId: null, taskKey: null, sprintId: null, sprintName: null };
+  await db.doc("suggestions/sg-due").set({
+    ...suggestionBase,
+    title: "Show due dates on My Tasks",
+    details: "I check My Tasks every morning and would like to see what is due first.",
+    kind: "idea",
+    status: "new",
+    authorId: uid.dev1,
+    declineReason: "",
+    handledBy: null,
+    createdAt: Timestamp.fromDate(addDays(activeStart, 2)),
+    updatedAt: Timestamp.fromDate(addDays(activeStart, 2)),
+  });
+  await db.doc("suggestions/sg-sound").set({
+    ...suggestionBase,
+    title: "Play a sound when a task is assigned to me",
+    details: "",
+    kind: "idea",
+    status: "not_planned",
+    authorId: uid.dev4,
+    declineReason: "Browsers block sounds on pages that are not open",
+    handledBy: uid.qa1,
+    createdAt: Timestamp.fromDate(addDays(activeStart, 1)),
+    updatedAt: Timestamp.fromDate(addDays(activeStart, 3)),
+  });
+
+  console.log(`Seeded ${USERS.length} users, ${APP_TYPES.length} App Types, 3 sprints, ${key - 1} tasks, 2 suggestions.`);
   console.log(`Sign in with any of: ${USERS.map((u) => u.email).join(", ")}  (password: ${PASSWORD})`);
 }
 

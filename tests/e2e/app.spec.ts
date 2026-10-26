@@ -108,6 +108,7 @@ test("anyone can edit Remarks inline, and others see it live", async ({ browser 
 });
 
 test("a task can have several assignees, and it shows in each one's My Tasks", async ({ browser }) => {
+  test.setTimeout(120_000); // two sessions
   const qa = await newSession(browser, "qa1@example.com");
   const dev = await newSession(browser, "dev2@example.com");
   const cell = (page: Page) => row(page, "TSK-12").locator("td").nth(COL.assignees); // seeded with Sara Kim only
@@ -222,6 +223,54 @@ test("people pick their avatar colour; admins can set anyone's", async ({ browse
   await dev.ctx.close();
 });
 
+test("suggestion box: anyone shares one with a picture; QA adds it to a release as a task", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const dev = await newSession(browser, "dev2@example.com");
+  await dev.page.getByRole("link", { name: "Suggestions" }).click();
+  await expect(dev.page.getByRole("heading", { name: "Suggestions" })).toBeVisible({ timeout: 90_000 }); // first visit compiles the route in dev
+  await expect(dev.page.getByText("Show due dates on My Tasks")).toBeVisible(); // seeded, visible to everyone
+
+  await dev.page.getByRole("button", { name: "Share a suggestion" }).first().click();
+  const form = dev.page.getByRole("dialog", { name: "Share a suggestion" });
+  await form.getByRole("button", { name: "Send suggestion" }).click();
+  await expect(form.getByText("Please write your suggestion in a few words.")).toBeVisible();
+  await form.getByLabel("1. What’s your suggestion?").fill("Bigger text in the task panel");
+  await form.getByRole("radio", { name: /Looks or ease of use/ }).click();
+  await form.getByLabel(/Tell us more/).fill("Hard to read on my laptop.");
+  // 1x1 PNG
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  await form.getByLabel("Choose pictures").setInputFiles({ name: "screen.png", mimeType: "image/png", buffer: png });
+  await expect(form.getByRole("img", { name: "Picture 1" })).toBeVisible();
+  await form.screenshot({ path: "test-results/suggestion-form.png" });
+  await form.getByRole("button", { name: "Send suggestion" }).click();
+  await expect(dev.page.getByText("Thanks! Your suggestion was sent.")).toBeVisible({ timeout: 30_000 });
+  const card = (page: Page) => page.locator("li[data-suggestion]", { hasText: "Bigger text in the task panel" });
+  await expect(card(dev.page)).toContainText("1 picture");
+  await expect(card(dev.page)).toContainText("New");
+  await expect(card(dev.page).getByRole("button", { name: /Actions for/ })).toHaveCount(0); // developers don't triage
+
+  const qa = await newSession(browser, "qa1@example.com");
+  await expect(qa.page.getByRole("link", { name: /Suggestions/ })).toContainText("2"); // two new
+  await qa.page.goto("/suggestions");
+  await card(qa.page).getByRole("button", { name: /Actions for/ }).click();
+  await qa.page.getByRole("menuitem", { name: "Add to a release…" }).click();
+  const add = qa.page.getByRole("dialog", { name: "Add to a release" });
+  await expect(add.getByRole("combobox", { name: "Release" })).toContainText("Release 14 (active)");
+  await add.getByRole("button", { name: "Add to release" }).click();
+  await expect(qa.page.getByText(/Added to Release 14 as TSK-\d+/)).toBeVisible({ timeout: 30_000 });
+  await expect(card(qa.page)).toContainText(/Added to Release 14 · TSK-\d+/);
+  await expect(card(dev.page)).toContainText(/Added to Release 14 · TSK-\d+/); // the author sees it live
+
+  // the task carries the details, who suggested it, and the picture
+  await card(qa.page).click();
+  await qa.page.getByRole("link", { name: /Open task TSK-\d+/ }).click();
+  await expect(qa.page.getByText("Suggested by Maya Chen")).toBeVisible({ timeout: 30_000 });
+  await expect(qa.page.getByRole("link", { name: "A suggestion (open it)" })).toBeVisible();
+  await expect(qa.page.getByRole("heading", { name: /Attachments/ })).toContainText("(1/");
+  await qa.ctx.close();
+  await dev.ctx.close();
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task
@@ -251,8 +300,11 @@ test("quick add creates a task with the next global key", async ({ page }) => {
   const input = page.getByLabel("Quick add task");
   await input.fill("E2E quick added task");
   await input.press("Enter");
-  await expect(page.getByText("TSK-32 created")).toBeVisible();
-  await expect(row(page, "TSK-32")).toContainText("E2E quick added task");
+  // the next key depends on earlier flows (e.g. a suggestion added to the release), so read it from the toast
+  const toast = page.getByText(/^TSK-\d+ created$/);
+  await expect(toast).toBeVisible();
+  const key = (await toast.textContent())!.replace(" created", "");
+  await expect(row(page, key)).toContainText("E2E quick added task");
 });
 
 test("side panel: comment + bug fields", async ({ page }) => {
@@ -298,7 +350,7 @@ test("filters persist in the URL", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/type=bug/);
   await page.reload();
-  await expect(page.getByText(/of 26 tasks/)).toBeVisible();
+  await expect(page.getByText(/^\d+ of \d+ tasks/)).toBeVisible(); // the total varies with earlier flows
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).not.toHaveURL(/type=bug/);
 });

@@ -9,7 +9,18 @@
  * attachment either fully exists or not at all. Firestore rules guard all of it.
  */
 import imageCompression from "browser-image-compression";
-import { collection, doc, getDocs, increment, orderBy, query, serverTimestamp, writeBatch } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  increment,
+  orderBy,
+  query,
+  serverTimestamp,
+  writeBatch,
+  type DocumentReference,
+  type WriteBatch,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { converters } from "@/lib/firebase/refs";
 import { addActivity } from "./tasks";
@@ -78,6 +89,87 @@ export interface UploadHandle {
   cancel: () => void;
 }
 
+/** A compressed, chunked image ready to be written (task attachment or suggestion screenshot). */
+export interface PreparedImage {
+  fileName: string;
+  contentType: string;
+  chunks: string[];
+  thumb: string;
+  width: number;
+  height: number;
+  sizeBytes: number;
+}
+
+/** Compresses (except GIFs), encodes, thumbnails and chunks an image. Progress 0–0.9. */
+export async function prepareImage(
+  file: File,
+  opts: { signal?: AbortSignal; isCancelled?: () => boolean; onProgress?: (fraction: number) => void } = {},
+): Promise<PreparedImage> {
+  const onProgress = opts.onProgress ?? (() => {});
+  const checkCancelled = () => {
+    if (opts.isCancelled?.()) throw new AttachmentError("Upload cancelled");
+  };
+  // GIFs aren't recompressed (that would drop the animation); everything else becomes WebP.
+  const isGif = file.type === "image/gif";
+  const compressed: Blob = isGif
+    ? file
+    : await imageCompression(file, {
+        maxSizeMB: ATTACHMENT_TARGET_MB,
+        maxWidthOrHeight: ATTACHMENT_MAX_DIMENSION,
+        fileType: "image/webp",
+        useWebWorker: true,
+        signal: opts.signal,
+        onProgress: (p) => onProgress((p / 100) * 0.7),
+      }).catch((err: unknown) => {
+        checkCancelled();
+        throw err;
+      });
+  checkCancelled();
+  onProgress(0.75);
+
+  const base64 = stripDataUrl(await readAsDataUrl(compressed));
+  if (!fitsStorageBudget(base64)) {
+    throw new AttachmentError(`${file.name}: still larger than 2.5 MB after compression${isGif ? " (GIFs can't be compressed)" : ""}.`);
+  }
+  const { thumb, width, height } = await makeThumbnail(compressed);
+  checkCancelled();
+  onProgress(0.9);
+  return {
+    fileName: file.name || "pasted-image.png",
+    contentType: compressed.type || file.type,
+    chunks: splitBase64(base64),
+    thumb,
+    width,
+    height,
+    sizeBytes: compressed.size,
+  };
+}
+
+/** Adds the metadata + chunk writes of one image to a batch (the caller adds the count update). */
+export function addImageWrites(batch: WriteBatch, metaRef: DocumentReference, img: PreparedImage, actorId: string) {
+  batch.set(metaRef, {
+    fileName: img.fileName,
+    contentType: img.contentType,
+    chunkCount: img.chunks.length,
+    thumbDataUrl: img.thumb,
+    sizeBytes: img.sizeBytes,
+    width: img.width,
+    height: img.height,
+    uploadedBy: actorId,
+    uploadedAt: serverTimestamp(),
+  });
+  img.chunks.forEach((data, index) => batch.set(doc(metaRef, "chunks", String(index)), { index, data }));
+}
+
+/** Adds an already-prepared image to a task as an attachment (count + activity in the same batch). */
+export async function writeTaskAttachment(taskId: string, img: PreparedImage, actorId: string): Promise<void> {
+  const batch = writeBatch(db());
+  addImageWrites(batch, doc(collection(db(), "tasks", taskId, "attachments")), img, actorId);
+  batch.update(doc(db(), "tasks", taskId), { attachmentCount: increment(1), updatedAt: serverTimestamp(), updatedBy: actorId });
+  addActivity(batch, taskId, actorId, { action: "attachment_added", newValue: img.fileName });
+  await batch.commit();
+}
+
 /** Progress: 0–0.9 while compressing/encoding, 1 when saved. */
 export function uploadAttachment(
   taskId: string,
@@ -87,58 +179,12 @@ export function uploadAttachment(
 ): UploadHandle {
   let cancelled = false;
   const controller = new AbortController();
-  const checkCancelled = () => {
-    if (cancelled) throw new AttachmentError("Upload cancelled");
-  };
 
   const done = (async () => {
-    // GIFs aren't recompressed (that would drop the animation); everything else becomes WebP.
-    const isGif = file.type === "image/gif";
-    const compressed: Blob = isGif
-      ? file
-      : await imageCompression(file, {
-          maxSizeMB: ATTACHMENT_TARGET_MB,
-          maxWidthOrHeight: ATTACHMENT_MAX_DIMENSION,
-          fileType: "image/webp",
-          useWebWorker: true,
-          signal: controller.signal,
-          onProgress: (p) => onProgress((p / 100) * 0.7),
-        }).catch((err: unknown) => {
-          if (cancelled) throw new AttachmentError("Upload cancelled");
-          throw err;
-        });
-    checkCancelled();
-    onProgress(0.75);
-
-    const contentType = compressed.type || file.type;
-    const base64 = stripDataUrl(await readAsDataUrl(compressed));
-    if (!fitsStorageBudget(base64)) {
-      throw new AttachmentError(
-        `${file.name}: still larger than 2.5 MB after compression${isGif ? " (GIFs can't be compressed)" : ""}.`,
-      );
-    }
-    const { thumb, width, height } = await makeThumbnail(compressed);
-    checkCancelled();
-    onProgress(0.9);
-
-    const chunks = splitBase64(base64);
-    const attachmentRef = doc(collection(db(), "tasks", taskId, "attachments"));
-    const fileName = file.name || "pasted-image.png";
+    const img = await prepareImage(file, { signal: controller.signal, isCancelled: () => cancelled, onProgress });
+    const fileName = img.fileName;
     const batch = writeBatch(db());
-    batch.set(attachmentRef, {
-      fileName,
-      contentType,
-      chunkCount: chunks.length,
-      thumbDataUrl: thumb,
-      sizeBytes: compressed.size,
-      width,
-      height,
-      uploadedBy: actorId,
-      uploadedAt: serverTimestamp(),
-    });
-    chunks.forEach((data, index) => {
-      batch.set(doc(attachmentRef, "chunks", String(index)), { index, data });
-    });
+    addImageWrites(batch, doc(collection(db(), "tasks", taskId, "attachments")), img, actorId);
     batch.update(doc(db(), "tasks", taskId), {
       attachmentCount: increment(1),
       updatedAt: serverTimestamp(),
@@ -161,21 +207,24 @@ export function uploadAttachment(
 /** Full-size image cache (chunks never change after upload). */
 const imageCache = new Map<string, Promise<string>>();
 
-/** Loads and reassembles the full image as a data URL. */
-export function loadAttachmentImage(taskId: string, attachment: Attachment): Promise<string> {
-  const key = `${taskId}/${attachment.id}`;
+/** Loads and reassembles a chunked image stored under `parentPath` (e.g. ["tasks", id, "attachments"]). */
+export function loadChunkedImage(parentPath: string[], attachment: Attachment): Promise<string> {
+  const key = `${parentPath.join("/")}/${attachment.id}`;
   let p = imageCache.get(key);
   if (!p) {
+    const [first, ...rest] = parentPath;
     p = getDocs(
-      query(
-        collection(db(), "tasks", taskId, "attachments", attachment.id, "chunks").withConverter(converters.chunk),
-        orderBy("index"),
-      ),
+      query(collection(db(), first, ...rest, attachment.id, "chunks").withConverter(converters.chunk), orderBy("index")),
     ).then((snap) => toDataUrl(attachment.contentType, joinBase64(snap.docs.map((d) => d.data()))));
     p.catch(() => imageCache.delete(key));
     imageCache.set(key, p);
   }
   return p;
+}
+
+/** Loads and reassembles the full image as a data URL. */
+export function loadAttachmentImage(taskId: string, attachment: Attachment): Promise<string> {
+  return loadChunkedImage(["tasks", taskId, "attachments"], attachment);
 }
 
 /** Deletes the chunks + metadata, decrements attachmentCount and logs it, in one batch. */
@@ -191,5 +240,5 @@ export async function deleteAttachment(taskId: string, attachment: Attachment, a
   });
   addActivity(batch, taskId, actorId, { action: "attachment_removed", oldValue: attachment.fileName });
   await batch.commit();
-  imageCache.delete(`${taskId}/${attachment.id}`);
+  imageCache.delete(`tasks/${taskId}/attachments/${attachment.id}`);
 }

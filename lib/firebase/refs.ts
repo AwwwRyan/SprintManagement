@@ -21,6 +21,7 @@ import type {
   PresenceViewer,
   Sprint,
   SprintReport,
+  Suggestion,
   Task,
 } from "@/types";
 import { db } from "./client";
@@ -68,6 +69,7 @@ function converter<T extends { id: string }>(
 }
 
 const taskDefaults: Partial<Omit<Task, "id">> = {
+  suggestionId: null,
   description: "",
   descriptionText: "",
   moduleId: null,
@@ -98,6 +100,17 @@ export const converters = {
   activity: converter<Activity>({ field: null, oldValue: null, newValue: null }),
   report: converter<SprintReport>(),
   presence: converter<PresenceViewer>({ viewingTaskId: null }),
+  suggestion: converter<Suggestion>({
+    details: "",
+    imageCount: 0,
+    coverThumb: "",
+    declineReason: "",
+    taskId: null,
+    taskKey: null,
+    sprintId: null,
+    sprintName: null,
+    handledBy: null,
+  }),
 };
 
 export const col = {
@@ -109,6 +122,10 @@ export const col = {
   comments: (taskId: string) => collection(db(), "tasks", taskId, "comments").withConverter(converters.comment),
   attachments: (taskId: string) =>
     collection(db(), "tasks", taskId, "attachments").withConverter(converters.attachment),
+  suggestions: () => collection(db(), "suggestions").withConverter(converters.suggestion),
+  /** suggestion screenshots: same shape as task attachments (metadata + chunks) */
+  suggestionImages: (suggestionId: string) =>
+    collection(db(), "suggestions", suggestionId, "images").withConverter(converters.attachment),
   activity: (taskId: string) => collection(db(), "tasks", taskId, "activity").withConverter(converters.activity),
   reports: () => collection(db(), "sprintReports").withConverter(converters.report),
   viewers: (sprintId: string) =>

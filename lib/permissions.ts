@@ -21,6 +21,14 @@ export function canManageUsers(actor: Actor | null): boolean {
   return !!actor?.active && actor.role === "admin";
 }
 
+/** Suggestions: everyone can share one; QA/Admin add them to a release or mark them not planned. */
+export function canTriageSuggestions(actor: Actor | null): boolean {
+  return !!actor?.active && isStaff(actor.role);
+}
+export function canDeleteSuggestion(actor: Actor | null): boolean {
+  return !!actor?.active && actor.role === "admin";
+}
+
 /** Avatar colour: your own, or anyone's for admins (mirrors the users rule). */
 export function canSetAvatarColor(actor: Actor | null, userId: string): boolean {
   return !!actor?.active && (actor.uid === userId || actor.role === "admin");

@@ -59,6 +59,15 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Suggestion box (2026-10-26)
+- **Suggestions** in the main sidebar for every role (not under Admin). **Everyone sees all suggestions** (owner's choice). No votes and no anonymous option.
+- Kept simple for ages 20 to 60: one required question ("What's your suggestion?"), four big "What is it about?" buttons (💡 New idea / 🐞 Something's not working / 🎨 Looks or ease of use / 💬 Other), optional details, up to 5 pictures by click, drag or Ctrl+V. Plain-word statuses.
+- Data: `suggestions/{id}`. Screenshots go in `images/{id}` + `chunks/{i}`, stored exactly like task attachments (no Cloud Storage on Spark). Each image is written in one batch with `imageCount` +1. The first picture's thumbnail is kept on the suggestion (`coverThumb`), so the list needs no extra reads.
+- **QA/Admin "Add to a release"** (… menu or detail view): pick an open release (active first), with task title, category (from the kind), App Type and priority pre-filled. It creates a normal task with `suggestionId`, the details and "Suggested by X on date". Then it links the suggestion (`taskId/taskKey/sprintId/sprintName`) and copies the pictures onto the task as attachments. The task's reporter is whoever added it (rules require reporter == creator); the description credits the author.
+- **"Done" is not stored:** an added suggestion shows Done when its task is Released, via one live query on tasks with `suggestionId != null`, so it never goes stale.
+- Statuses: New → Added to <release> · TSK-n → Done, or **Not planned** (optional reason, can be moved back to New). Only admins delete; the linked task stays.
+- Rules: anyone active creates their own (status new, nothing triaged). The author may only bump `imageCount`/`coverThumb` while new; the text can't be edited after sending. Staff change only the triage fields. Images follow the attachment rules (author only, while new, count +1 in the same batch). QA/Admin get a sidebar badge with the number of new suggestions.
+
 ## Avatar colours (2026-10-26)
 - `users.avatarColor` ("#rrggbb", or null = the automatic colour from the user id). Everyone sees the same colour; text is black or white for contrast.
 - Set from the account menu ("Avatar colour") for yourself, or from Admin → Users → "…" → Avatar colour for anyone.

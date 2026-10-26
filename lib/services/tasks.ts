@@ -85,6 +85,7 @@ export async function createTask(input: NewTaskInput, actorId: string): Promise<
       attachmentCount: 0,
       carryOverCount: 0,
       sprintHistory: [],
+      suggestionId: input.suggestionId ?? null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedBy: actorId,

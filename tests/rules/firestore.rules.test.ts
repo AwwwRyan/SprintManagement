@@ -513,3 +513,118 @@ describe("presence", () => {
     await assertSucceeds(deleteDoc(doc(db, "presence/s-active/viewers", UIDS.dev)));
   });
 });
+
+describe("suggestions", () => {
+  type Who = "admin" | "qa" | "dev" | "dev2" | "inactive";
+  const THUMB = "data:image/webp;base64,UklGRg==";
+  const suggestion = (uid: string, overrides: Record<string, unknown> = {}) => ({
+    title: "Bigger buttons please",
+    details: "Hard to tap on a tablet.",
+    kind: "design",
+    status: "new",
+    authorId: uid,
+    imageCount: 0,
+    coverThumb: "",
+    declineReason: "",
+    taskId: null,
+    taskKey: null,
+    sprintId: null,
+    sprintName: null,
+    handledBy: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  });
+  const create = (who: Who, overrides: Record<string, unknown> = {}) =>
+    setDoc(doc(fsOf(as(env, who)), "suggestions", "sg1"), suggestion(UIDS[who], overrides));
+  const seedSuggestion = (overrides: Record<string, unknown> = {}) =>
+    env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore() as unknown as Firestore, "suggestions", "sg1"), {
+        ...suggestion(UIDS.dev, overrides),
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    });
+  /** Mirrors createSuggestion(): image metadata + chunks + count bump in one batch. */
+  const addImage = (who: Who, countDelta = 1) => {
+    const db = fsOf(as(env, who));
+    const b = writeBatch(db);
+    b.set(doc(db, "suggestions/sg1/images/i1"), {
+      fileName: "shot.png",
+      contentType: "image/webp",
+      chunkCount: 1,
+      thumbDataUrl: THUMB,
+      sizeBytes: 1000,
+      width: 10,
+      height: 10,
+      uploadedBy: UIDS[who],
+      uploadedAt: serverTimestamp(),
+    });
+    b.set(doc(db, "suggestions/sg1/images/i1/chunks/0"), { index: 0, data: "QUJD" });
+    b.update(doc(db, "suggestions/sg1"), { imageCount: increment(countDelta), coverThumb: THUMB, updatedAt: serverTimestamp() });
+    return b.commit();
+  };
+
+  it("any active user shares a suggestion as themselves; everyone can read it", async () => {
+    await assertSucceeds(create("dev"));
+    await assertSucceeds(getDoc(doc(fsOf(as(env, "qa")), "suggestions", "sg1")));
+    await assertSucceeds(getDocs(collection(fsOf(as(env, "dev2")), "suggestions")));
+  });
+  it("rejects sharing as someone else, pre-triaged, or when deactivated", async () => {
+    await assertFails(setDoc(doc(fsOf(as(env, "dev")), "suggestions", "sg1"), suggestion(UIDS.dev2)));
+    await assertFails(create("dev", { status: "added" }));
+    await assertFails(create("dev", { kind: "rant" }));
+    await assertFails(create("dev", { title: "" }));
+    await assertFails(create("inactive"));
+  });
+  it("the author adds screenshots while it's new; nobody else can", async () => {
+    await seedSuggestion();
+    await assertFails(addImage("dev2"));
+    await assertFails(addImage("dev", 2)); // count must go up by exactly one
+    await assertSucceeds(addImage("dev"));
+    await assertSucceeds(getDoc(doc(fsOf(as(env, "qa")), "suggestions/sg1/images/i1/chunks/0")));
+  });
+  it("no screenshots once it has been handled", async () => {
+    await seedSuggestion({ status: "added" });
+    await assertFails(addImage("dev"));
+  });
+  it("only QA/Admin add it to a release or mark it not planned; the text can't be changed", async () => {
+    await seedSuggestion();
+    const triage = (who: Who) =>
+      updateDoc(doc(fsOf(as(env, who)), "suggestions", "sg1"), {
+        status: "added",
+        taskId: "t-new",
+        taskKey: "TSK-9",
+        sprintId: "s-active",
+        sprintName: "Active",
+        handledBy: UIDS[who],
+        updatedAt: serverTimestamp(),
+      });
+    await assertFails(triage("dev"));
+    await assertSucceeds(triage("qa"));
+    await assertFails(updateDoc(doc(fsOf(as(env, "admin")), "suggestions", "sg1"), { title: "Edited" }));
+    await assertFails(updateDoc(doc(fsOf(as(env, "dev")), "suggestions", "sg1"), { title: "Edited" }));
+    await assertSucceeds(
+      updateDoc(doc(fsOf(as(env, "admin")), "suggestions", "sg1"), {
+        status: "not_planned",
+        declineReason: "Duplicate",
+        handledBy: UIDS.admin,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+  it("only admins delete suggestions", async () => {
+    await seedSuggestion();
+    await assertFails(deleteDoc(doc(fsOf(as(env, "qa")), "suggestions", "sg1")));
+    await assertFails(deleteDoc(doc(fsOf(as(env, "dev")), "suggestions", "sg1")));
+    await assertSucceeds(deleteDoc(doc(fsOf(as(env, "admin")), "suggestions", "sg1")));
+  });
+  it("tasks may carry the suggestion they came from", async () => {
+    await assertSucceeds(
+      updateDoc(doc(fsOf(as(env, "qa")), "tasks", "t-dev"), { suggestionId: "sg1", updatedBy: UIDS.qa, updatedAt: serverTimestamp() }),
+    );
+    await assertFails(
+      updateDoc(doc(fsOf(as(env, "qa")), "tasks", "t-dev"), { suggestionId: 5, updatedBy: UIDS.qa, updatedAt: serverTimestamp() }),
+    );
+  });
+});

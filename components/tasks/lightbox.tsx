@@ -21,12 +21,15 @@ export function Lightbox({
   index,
   onIndexChange,
   onClose,
+  load,
 }: {
   taskId: string;
   items: Attachment[];
   index: number | null;
   onIndexChange: (i: number) => void;
   onClose: () => void;
+  /** loads the full image; defaults to a task attachment of `taskId` */
+  load?: (item: Attachment) => Promise<string>;
 }) {
   const [zoom, setZoom] = useState(false);
   const [full, setFull] = useState<{ id: string; src: string } | null>(null);
@@ -39,13 +42,13 @@ export function Lightbox({
   useEffect(() => {
     if (!item) return;
     let alive = true;
-    loadAttachmentImage(taskId, item)
+    (load ? load(item) : loadAttachmentImage(taskId, item))
       .then((src) => alive && setFull({ id: item.id, src }))
       .catch((err) => notifyError(err, "Couldn't load image"));
     return () => {
       alive = false;
     };
-  }, [taskId, item]);
+  }, [taskId, item, load]);
 
   const src = item && full?.id === item.id ? full.src : null;
   const prev = () => index !== null && onIndexChange((index - 1 + count) % count);
