@@ -4,11 +4,13 @@ import Link from "next/link";
 
 import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
-import { Link2, Trash2, X } from "lucide-react";
+import { Link2, MoveRight, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
-import { canDeleteTask, canEditTask } from "@/lib/permissions";
+import { canDeleteTask, canEditTask, canMoveTasks } from "@/lib/permissions";
+import { MoveTasksDialog } from "./move-tasks-dialog";
+import { BACKLOG_ID } from "@/types";
 import { deleteTask, updateTask } from "@/lib/services/tasks";
 import { notifyError } from "@/lib/notify";
 import { TASK_STATUS_LABELS } from "@/lib/constants";
@@ -18,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
-import { CarryBadge } from "@/components/common/badges";
+import { CarryBadge, ReleaseChip } from "@/components/common/badges";
 import { UserAvatar, UserChip } from "@/components/common/user-avatar";
 import { AttachmentsSection } from "./attachments-section";
 import { AssigneePicker } from "./assignee-picker";
@@ -64,6 +66,7 @@ export function TaskPanel({
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   // Focus management: move focus into the panel on open, restore it on close.
   useEffect(() => {
@@ -95,7 +98,7 @@ export function TaskPanel({
   const copyLink = async () => {
     if (!task) return;
     const url = new URL(window.location.href);
-    url.pathname = `/releases/${task.sprintId}`;
+    url.pathname = task.sprintId === BACKLOG_ID ? "/backlog" : `/releases/${task.sprintId}`;
     url.search = `?task=${task.taskKey}`;
     try {
       await navigator.clipboard.writeText(url.toString());
@@ -140,6 +143,11 @@ export function TaskPanel({
               </Tooltip>
             ))}
           </div>
+        )}
+        {task && canMoveTasks(actor) && sprint?.status !== "closed" && (
+          <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+            <MoveRight /> Move to…
+          </Button>
         )}
         {task && canDeleteTask(actor, sprint) && (
           <Button variant="ghost" size="icon-sm" onClick={() => setConfirmDelete(true)} aria-label="Delete task">
@@ -244,7 +252,9 @@ export function TaskPanel({
                 </div>
               </Row>
               <Row label="Release">
-                <div className="px-2.5 text-sm">{sprint?.name ?? "Unknown"}</div>
+                <div className="px-2.5 text-sm">
+                  <ReleaseChip sprint={sprint} />
+                </div>
               </Row>
               {task.suggestionId && (
                 <Row label="Came from">
@@ -333,6 +343,7 @@ export function TaskPanel({
           }
         }}
       />
-    </aside>
+      <MoveTasksDialog tasks={moveOpen && task ? [task] : null} onClose={() => setMoveOpen(false)} />
+      </aside>
   );
 }

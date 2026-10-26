@@ -10,6 +10,12 @@ export type Role = (typeof ROLES)[number];
 export const SPRINT_STATUSES = ["planned", "active", "closed"] as const;
 export type SprintStatus = (typeof SPRINT_STATUSES)[number];
 
+/**
+ * The Backlog is stored as one permanent sprint doc (`sprints/backlog`, status "backlog"), so tasks,
+ * comments, attachments, rules and links work there unchanged. It never appears in release lists.
+ */
+export const BACKLOG_ID = "backlog";
+
 /** Shown as "Category" in the UI. */
 export const TASK_TYPES = ["bug", "improvement", "task"] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
@@ -35,6 +41,7 @@ export const ACTIVITY_ACTIONS = [
   "created",
   "updated",
   "carried_over",
+  "moved",
   "attachment_added",
   "attachment_removed",
   "comment_added",
@@ -88,7 +95,8 @@ export interface Sprint {
   goal: string;
   startDate: DateString;
   endDate: DateString;
-  status: SprintStatus;
+  /** "backlog" only for the Backlog doc (BACKLOG_ID) */
+  status: SprintStatus | "backlog";
   createdBy: string;
   createdAt: TS;
   closedAt: TS;
@@ -302,6 +310,9 @@ export interface SprintReport extends SprintMetrics {
   bugsOpened: number;
   bugsFixed: number;
   carriedOver: ReportTaskRef[];
+  /** tasks sent to the Backlog at close (reports from before 2026-10-26 don't have it) */
+  movedToBacklog?: ReportTaskRef[];
+  /** only in older reports: closing now requires every unfinished task to get a destination */
   leftIncomplete: ReportTaskRef[];
   createdBy: string;
   createdAt: TS;

@@ -74,6 +74,8 @@ export function describeActivity(a: Pick<Activity, "action" | "field" | "oldValu
       return "created this task";
     case "carried_over":
       return `carried this task over from ${a.oldValue ?? "a closed release"} to ${a.newValue ?? "the next release"}`;
+    case "moved":
+      return `moved this task from ${a.oldValue ?? "a release"} to ${a.newValue ?? "another release"}`;
     case "attachment_added":
       return `added attachment ${a.newValue ?? ""}`.trim();
     case "attachment_removed":

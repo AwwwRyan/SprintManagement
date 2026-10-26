@@ -2,7 +2,9 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+import { BACKLOG_ID } from "@/types";
 import { format, parseISO } from "date-fns";
 import { CalendarRange, FileBarChart, Pencil, Play, SearchX, Square } from "lucide-react";
 import { useCurrentUser } from "@/components/providers/auth-provider";
@@ -20,10 +22,16 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { SprintFormDialog } from "@/components/sprints/sprint-form-dialog";
 import { CloseSprintDialog } from "@/components/sprints/close-sprint-dialog";
 import { TaskWorkspace } from "@/components/sprints/task-workspace";
-import { isComplete, isExcluded } from "@/lib/task-model";
+import { completionPct } from "@/lib/task-model";
 
 function SprintView() {
   const { sprintId } = useParams<{ sprintId: string }>();
+  const router = useRouter();
+  const params = useSearchParams();
+  // The Backlog has its own page; old/shared links to /releases/backlog land there.
+  useEffect(() => {
+    if (sprintId === BACKLOG_ID) router.replace(`/backlog${params.size ? `?${params}` : ""}`);
+  }, [sprintId, router, params]);
   const { actor } = useCurrentUser();
   const { sprintById, loading } = useData();
   const sprint = sprintById.get(sprintId);
@@ -32,7 +40,7 @@ function SprintView() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
 
-  if (loading) return <Skeleton className="h-96" />;
+  if (loading || sprintId === BACKLOG_ID) return <Skeleton className="h-96" />;
   if (!sprint)
     return (
       <EmptyState
@@ -48,7 +56,7 @@ function SprintView() {
 
   const staff = canManageSprints(actor);
   const fmt = (d: string) => format(parseISO(d), "MMM d, yyyy");
-  const done = live.tasks.filter((t) => isComplete(t.status)).length;
+  const pct = completionPct(live.tasks.map((t) => t.status));
 
   return (
     <>
@@ -70,8 +78,8 @@ function SprintView() {
                 </span>
                 {sprint.status === "active" && <span>{daysRemaining(sprint.endDate)} days left</span>}
                 {!live.loading && (
-                  <span>
-                    {done}/{live.tasks.filter((t) => !isExcluded(t.status)).length} done
+                  <span title="Completion counts Ready to Release + Released; Closed and Duplicate tasks are left out of the %">
+                    {live.tasks.length} tasks · {pct}% complete
                   </span>
                 )}
               </div>

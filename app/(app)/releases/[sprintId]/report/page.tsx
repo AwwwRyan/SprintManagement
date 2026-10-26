@@ -97,7 +97,15 @@ export default function SprintReportPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile label="Planned vs completed" value={`${report.done} / ${report.total}`} sub={`${report.completionPct}% completed`} />
-        <StatTile label="Carried over" value={report.carriedOver.length} sub={`${report.leftIncomplete.length} left incomplete`} />
+        <StatTile
+          label="Carried over"
+          value={report.carriedOver.length}
+          sub={
+            report.movedToBacklog
+              ? `${report.movedToBacklog.length} moved to the Backlog`
+              : `${report.leftIncomplete.length} left incomplete`
+          }
+        />
         <StatTile label="Hours (estimated / actual)" value={`${report.estimatedHours} / ${report.actualHours}`} />
         <StatTile label="Bugs opened / fixed" value={`${report.bugsOpened} / ${report.bugsFixed}`} sub="Opened during the release · fixed by close" />
       </div>
@@ -112,14 +120,27 @@ export default function SprintReportPage() {
           <TaskRefTable rows={report.carriedOver} showTarget />
         </CardContent>
       </Card>
-      <Card className="print-break-avoid gap-3 py-4">
-        <CardHeader className="px-4">
-          <CardTitle className="text-sm font-medium">Left incomplete ({report.leftIncomplete.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4">
-          <TaskRefTable rows={report.leftIncomplete} />
-        </CardContent>
-      </Card>
+      {report.movedToBacklog && (
+        <Card className="print-break-avoid gap-3 py-4">
+          <CardHeader className="px-4">
+            <CardTitle className="text-sm font-medium">Moved to the Backlog ({report.movedToBacklog.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4">
+            <TaskRefTable rows={report.movedToBacklog} />
+          </CardContent>
+        </Card>
+      )}
+      {/* older reports (before every unfinished task had to get a destination) */}
+      {report.leftIncomplete.length > 0 && (
+        <Card className="print-break-avoid gap-3 py-4">
+          <CardHeader className="px-4">
+            <CardTitle className="text-sm font-medium">Left incomplete ({report.leftIncomplete.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4">
+            <TaskRefTable rows={report.leftIncomplete} />
+          </CardContent>
+        </Card>
+      )}
       <p className="text-xs text-muted-foreground">This report is a snapshot taken when the release closed and never changes.</p>
     </div>
   );

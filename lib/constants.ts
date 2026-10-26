@@ -32,10 +32,11 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   low: "Low",
 };
 
-export const SPRINT_STATUS_LABELS: Record<SprintStatus, string> = {
+export const SPRINT_STATUS_LABELS: Record<SprintStatus | "backlog", string> = {
   planned: "Planned",
   active: "Active",
   closed: "Closed",
+  backlog: "Backlog",
 };
 
 /** Tailwind classes for colored badges. Kept in one place so light/dark stay consistent. */
@@ -64,10 +65,11 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
   low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
-export const SPRINT_STATUS_COLORS: Record<SprintStatus, string> = {
+export const SPRINT_STATUS_COLORS: Record<SprintStatus | "backlog", string> = {
   planned: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
   active: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
   closed: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  backlog: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
 };
 
 /**

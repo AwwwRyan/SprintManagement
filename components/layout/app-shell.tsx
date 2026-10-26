@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Boxes,
+  Inbox,
+  Rows3,
   ChevronsLeft,
   ChevronsRight,
   LayoutDashboard,
@@ -36,6 +38,8 @@ interface NavItem {
 const MAIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: (p) => p.startsWith("/dashboard") },
   { href: "/releases", label: "Releases", icon: Zap, match: (p) => p.startsWith("/releases") },
+  { href: "/all-tasks", label: "All Tasks", icon: Rows3, match: (p) => p.startsWith("/all-tasks") },
+  { href: "/backlog", label: "Backlog", icon: Inbox, match: (p) => p.startsWith("/backlog") },
   { href: "/my-tasks", label: "My Tasks", icon: ListChecks, match: (p) => p.startsWith("/my-tasks") },
   { href: "/suggestions", label: "Suggestions", icon: Lightbulb, match: (p) => p.startsWith("/suggestions") },
 ];

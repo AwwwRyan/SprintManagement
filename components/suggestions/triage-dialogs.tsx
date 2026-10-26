@@ -24,14 +24,16 @@ const LAST_APP_TYPE_KEY = "stm.lastAppTypeId";
 
 export function AddToReleaseDialog({ suggestion: s, onClose }: { suggestion: Suggestion | null; onClose: () => void }) {
   const { actor } = useCurrentUser();
-  const { sprints, appTypes, userById } = useData();
+  const { sprints, appTypes, userById, backlog } = useData();
   const router = useRouter();
   const releases = useMemo(
     () =>
       sprints
         .filter((r) => r.status !== "closed")
-        .sort((a, b) => (a.status === b.status ? a.startDate.localeCompare(b.startDate) : a.status === "active" ? -1 : 1)),
-    [sprints],
+        .sort((a, b) => (a.status === b.status ? a.startDate.localeCompare(b.startDate) : a.status === "active" ? -1 : 1))
+        // accepted but not scheduled yet
+        .concat(backlog ? [backlog] : []),
+    [sprints, backlog],
   );
   const [sprintId, setSprintId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -95,7 +97,10 @@ export function AddToReleaseDialog({ suggestion: s, onClose }: { suggestion: Sug
               <PropSelect
                 label="Release"
                 value={sprintId}
-                options={releases.map((r) => ({ value: r.id, label: `${r.name}${r.status === "active" ? " (active)" : " (planned)"}` }))}
+                options={releases.map((r) => ({
+                  value: r.id,
+                  label: r.status === "backlog" ? "Backlog (not planned into a release yet)" : `${r.name}${r.status === "active" ? " (active)" : " (planned)"}`,
+                }))}
                 onChange={setSprintId}
               />
             </Field>

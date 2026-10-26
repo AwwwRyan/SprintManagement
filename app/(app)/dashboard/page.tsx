@@ -20,15 +20,21 @@ import { ExportReportDialog } from "@/components/dashboard/export-report-dialog"
 import { CategoryBreakdownCard } from "@/components/dashboard/category-breakdown";
 import { DateFilterControl } from "@/components/tasks/date-filter-control";
 import { matchesDate, type DateFilter } from "@/lib/date-filter";
-import { TASK_TYPE_LABELS } from "@/lib/constants";
+import { SPRINT_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
+import { sortSprints } from "@/lib/sprint-utils";
+import { isOpen } from "@/lib/task-model";
 import { TASK_TYPES, type TaskType } from "@/types";
 
 const ALL = "__all__";
 
 export default function DashboardPage() {
   const { actor } = useCurrentUser();
-  const { activeSprint, appTypes, users, loading } = useData();
-  const live = useSprintTasks(activeSprint?.id ?? null, actor.uid);
+  const { activeSprint, sprints, sprintById, appTypes, users, loading } = useData();
+  // Any release can be shown; the active one by default (then the most relevant: planned, then latest closed).
+  const ordered = useMemo(() => sortSprints(sprints), [sprints]);
+  const [releaseId, setReleaseId] = useState<string | null>(null);
+  const release = (releaseId ? sprintById.get(releaseId) : undefined) ?? activeSprint ?? ordered[0] ?? null;
+  const live = useSprintTasks(release?.id ?? null, actor.uid);
   const [appTypeId, setAppTypeId] = useState(ALL);
   const [category, setCategory] = useState<TaskType | typeof ALL>(ALL);
   const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
@@ -42,7 +48,8 @@ export default function DashboardPage() {
   );
   const tasks = useMemo(() => (category === ALL ? appTasks : appTasks.filter((t) => t.type === category)), [appTasks, category]);
   const metrics = useMemo(() => computeSprintMetrics(tasks, users, appTypes), [tasks, users, appTypes]);
-  const progress = useMemo(() => (activeSprint ? sprintProgress(tasks, activeSprint) : null), [tasks, activeSprint]);
+  const progress = useMemo(() => (release ? sprintProgress(tasks, release) : null), [tasks, release]);
+  const openCount = tasks.filter((t) => isOpen(t.status)).length;
 
   const exportButton = isAdmin && (
     <Button variant="outline" onClick={() => setExportOpen(true)}>
@@ -54,14 +61,14 @@ export default function DashboardPage() {
   );
 
   if (loading) return <Skeleton className="h-96" />;
-  if (!activeSprint)
+  if (!release)
     return (
       <>
         <PageHeader title="Dashboard" actions={exportButton} />
         <EmptyState
           icon={LayoutDashboard}
-          title="No active release right now"
-          description="When a release is started, its live progress shows up here."
+          title="No releases yet"
+          description="Create a release under Releases; its progress shows up here."
           action={
             <Button asChild variant="outline">
               <Link href="/releases">Go to releases</Link>
@@ -80,14 +87,36 @@ export default function DashboardPage() {
         title="Dashboard"
         description={
           <>
-            <Link href={`/releases/${activeSprint.id}`} className="font-medium text-foreground hover:underline">
-              {activeSprint.name}
+            <Link href={`/releases/${release.id}`} className="font-medium text-foreground hover:underline">
+              {release.name}
             </Link>{" "}
-            · {fmt(activeSprint.startDate)} to {fmt(activeSprint.endDate)} · updates live
+            · {fmt(release.startDate)} to {fmt(release.endDate)} · {live.tasks.length} tasks in this release
+            {release.status === "closed" && (
+              <>
+                {" "}
+                · closed: carried-over tasks have moved on (
+                <Link href={`/releases/${release.id}/report`} className="underline underline-offset-2">
+                  see its report
+                </Link>
+                )
+              </>
+            )}
           </>
         }
         actions={
           <>
+            <Select value={release.id} onValueChange={setReleaseId}>
+              <SelectTrigger className="w-56" aria-label="Release shown on the dashboard">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {ordered.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} <span className="text-muted-foreground">({SPRINT_STATUS_LABELS[s.status].toLowerCase()})</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <DateFilterControl value={dateFilter} onChange={setDateFilter} defaultField="created" />
             <Select value={category} onValueChange={(v) => setCategory(v as TaskType | typeof ALL)}>
               <SelectTrigger className="w-44" aria-label="Filter dashboard by category">
@@ -128,9 +157,9 @@ export default function DashboardPage() {
       ) : (
         <div className="grid gap-4">
           <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
-            <ProgressCard progress={progress} sprint={activeSprint} />
+            <ProgressCard progress={progress} sprint={release} />
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-1">
-              <StatTile label="Open tasks" value={metrics.total - metrics.done} sub={`of ${metrics.total} in this release`} />
+              <StatTile label="Open tasks" value={openCount} sub={`of ${metrics.total} in this release (not Ready, Released, Closed or Duplicate)`} />
               <StatTile
                 label="Hours (estimated / actual)"
                 value={`${metrics.estimatedHours} / ${metrics.actualHours}`}
@@ -138,7 +167,7 @@ export default function DashboardPage() {
               />
             </div>
           </div>
-          <CategoryBreakdownCard tasks={appTasks} sprint={activeSprint} only={category === ALL ? null : category} />
+          <CategoryBreakdownCard tasks={appTasks} sprint={release} only={category === ALL ? null : category} />
           <MetricsView metrics={metrics} />
         </div>
       )}

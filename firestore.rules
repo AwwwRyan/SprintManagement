@@ -95,8 +95,21 @@ service cloud.firestore {
       allow read: if isActive();
 
       allow create: if isStaff()
+        && sprintId != 'backlog'
         && validSprint(request.resource.data)
         && request.resource.data.status == 'planned'
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.closedAt == null
+        && request.resource.data.closedBy == null;
+
+      // The Backlog: one permanent doc (sprints/backlog, status "backlog"), set up once by an
+      // admin and never edited (validSprint rejects its status, so updates are impossible).
+      // Tasks live in it like in an open release.
+      allow create: if isAdmin()
+        && sprintId == 'backlog'
+        && request.resource.data.keys().hasOnly(['name', 'goal', 'startDate', 'endDate', 'status', 'createdBy', 'createdAt', 'closedAt', 'closedBy'])
+        && request.resource.data.name == 'Backlog'
+        && request.resource.data.status == 'backlog'
         && request.resource.data.createdBy == uid()
         && request.resource.data.closedAt == null
         && request.resource.data.closedBy == null;
@@ -303,6 +316,9 @@ service cloud.firestore {
       allow update: if isActive()
         && validTask(request.resource.data)
         && unchanged(['taskKey', 'reporterId', 'createdAt'])
+        // Ready to Release / Released tasks never go to the Backlog (owner's rule)
+        && !(request.resource.data.sprintId == 'backlog' && resource.data.sprintId != 'backlog'
+             && request.resource.data.status in ['done', 'released'])
         && (
           // Normal edit inside an open sprint (moving to another open sprint is staff-only below).
           (sprintOpen(resource.data.sprintId) && sprintOpen(request.resource.data.sprintId)
@@ -397,7 +413,7 @@ service cloud.firestore {
         allow create: if isActive()
           && request.resource.data.keys().hasOnly(['actorId', 'action', 'field', 'oldValue', 'newValue', 'createdAt'])
           && request.resource.data.actorId == uid()
-          && request.resource.data.action in ['created', 'updated', 'carried_over', 'attachment_added', 'attachment_removed', 'comment_added']
+          && request.resource.data.action in ['created', 'updated', 'carried_over', 'moved', 'attachment_added', 'attachment_removed', 'comment_added']
           && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }

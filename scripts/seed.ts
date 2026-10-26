@@ -150,6 +150,18 @@ async function main() {
   await db.doc("sprints/s14").set(sprintDoc("Release 14", "Ship 2FA and mobile offline sync", activeStart, "active"));
   await db.doc("sprints/s15").set(sprintDoc("Release 15", "Reporting improvements", addDays(activeStart, 14), "planned"));
   await db.doc("meta/activeSprint").set({ sprintId: "s14" });
+  // The Backlog: a permanent special "release" doc (see BACKLOG_ID in types)
+  await db.doc("sprints/backlog").set({
+    name: "Backlog",
+    goal: "",
+    startDate: "",
+    endDate: "",
+    status: "backlog",
+    createdBy: uid.admin,
+    createdAt: Timestamp.fromDate(closedStart),
+    closedAt: null,
+    closedBy: null,
+  });
 
   // Tasks
   let key = 1;
@@ -247,6 +259,15 @@ async function main() {
         createdAt: Timestamp.fromDate(addDays(t.createdAt.toDate(), 1)), editedAt: null,
       });
     }
+  }
+  // Backlog: 3 tasks not planned into a release yet
+  for (let i = 0; i < 3; i++) {
+    const t = makeTask(30 + i, "backlog", i === 2 ? "on_hold" : "pending", addDays(activeStart, i));
+    const ref = db.collection("tasks").doc();
+    batch.set(ref, t);
+    batch.set(ref.collection("activity").doc(), {
+      actorId: t.reporterId, action: "created", field: null, oldValue: null, newValue: t.taskKey, createdAt: t.createdAt,
+    });
   }
   await batch.commit();
   await db.doc("counters/tasks").set({ next: key });

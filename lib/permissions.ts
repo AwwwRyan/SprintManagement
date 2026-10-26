@@ -42,6 +42,11 @@ export function canManageSprints(actor: Actor | null): boolean {
   return !!actor?.active && isStaff(actor.role);
 }
 
+/** Moving tasks between releases and the Backlog (QA/Admin; mirrors the task update rule). */
+export function canMoveTasks(actor: Actor | null): boolean {
+  return !!actor?.active && isStaff(actor.role);
+}
+
 export function canCarryForward(actor: Actor | null): boolean {
   return canManageSprints(actor);
 }

@@ -9,17 +9,21 @@ import { createContext, useContext, useMemo } from "react";
 import { orderBy, query } from "firebase/firestore";
 import { col } from "@/lib/firebase/refs";
 import { useLiveQuery } from "@/lib/hooks/use-live";
-import type { AppType, AppUser, Module, Sprint } from "@/types";
+import { BACKLOG_ID, type AppType, type AppUser, type Module, type Sprint } from "@/types";
 
 interface DataState {
   loading: boolean;
   users: AppUser[];
   appTypes: AppType[];
   modules: Module[];
+  /** releases only (the Backlog doc is left out) */
   sprints: Sprint[];
+  /** the Backlog (a special sprint doc); null until it has been set up */
+  backlog: Sprint | null;
   userById: Map<string, AppUser>;
   appTypeById: Map<string, AppType>;
   moduleById: Map<string, Module>;
+  /** releases and the Backlog, for looking up a task's place by its sprintId */
   sprintById: Map<string, Sprint>;
   activeSprint: Sprint | null;
 }
@@ -40,7 +44,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       users: users.data,
       appTypes: appTypes.data,
       modules: modules.data,
-      sprints: sprints.data,
+      sprints: sprints.data.filter((s) => s.id !== BACKLOG_ID),
+      backlog: sprints.data.find((s) => s.id === BACKLOG_ID) ?? null,
       userById: byId(users.data),
       appTypeById: byId(appTypes.data),
       moduleById: byId(modules.data),

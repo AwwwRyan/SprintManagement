@@ -23,11 +23,12 @@ import { db } from "@/lib/firebase/client";
 import { col, ref } from "@/lib/firebase/refs";
 import { buildSprintReport } from "@/lib/metrics";
 import { carrySummary, planCarryForward } from "@/lib/carry-forward";
+import { planTaskMove, type MovePlan } from "@/lib/move-plan";
 import { chunk } from "@/lib/utils";
 import { BATCH_CHUNK_SIZE } from "@/lib/constants";
 import { addActivity } from "./tasks";
 import type { SprintInput } from "@/lib/validation";
-import type { AppType, AppUser, Sprint, Task } from "@/types";
+import { BACKLOG_ID, type AppType, type AppUser, type Sprint, type Task } from "@/types";
 
 export async function createSprint(input: SprintInput, actorId: string): Promise<string> {
   const created = await addDoc(collection(db(), "sprints"), {
@@ -85,27 +86,44 @@ export type CarryTarget = { kind: "existing"; sprintId: string } | { kind: "new"
 export interface CloseSprintArgs {
   sprint: Sprint;
   tasks: Task[];
-  selectedTaskIds: string[];
+  /** unfinished tasks going to the next release */
+  releaseTaskIds: string[];
+  /** unfinished tasks going to the Backlog (never Ready to Release) */
+  backlogTaskIds: string[];
   target: CarryTarget | null;
   users: AppUser[];
   appTypes: AppType[];
   actorId: string;
 }
 
+/** Highest `order` in a release/Backlog (new arrivals go after it). */
+async function lastOrder(sprintId: string): Promise<number> {
+  const last = await getDocs(query(col.tasks(), where("sprintId", "==", sprintId), orderBy("order", "desc"), limit(1)));
+  return Math.max(Date.now(), last.empty ? 0 : last.docs[0].data().order);
+}
+
 /**
- * Close-sprint flow (spec §7):
- *  1. resolve / create the target sprint
+ * Close-release flow (spec §7). Every unfinished task must have a destination: the next
+ * release or the Backlog (owner's rule: nothing is left behind).
+ *  1. check the plan, resolve / create the target release
  *  2. write the report snapshot (before any task moves)
- *  3. move selected unfinished tasks in chunks of 450 writes
- *  4. mark the sprint closed and clear meta/activeSprint
- * The sprint stays active until step 4, so a failure part-way through can simply be retried.
+ *  3. move tasks in chunks of 450 writes
+ *  4. mark the release closed and clear meta/activeSprint
+ * The release stays active until step 4, so a failure part-way through can simply be retried.
  */
 export async function closeSprint(args: CloseSprintArgs): Promise<string> {
-  const { sprint, tasks, selectedTaskIds, target, users, appTypes, actorId } = args;
+  const { sprint, tasks, releaseTaskIds, backlogTaskIds, target, users, appTypes, actorId } = args;
 
-  // 1. Target sprint
+  // 1. Plan check + target release
+  const check = planCarryForward(tasks, releaseTaskIds, backlogTaskIds, 0);
+  if (check.unassigned.length) {
+    throw new SprintRuleError(`Choose where these go first: ${check.unassigned.join(", ")}.`);
+  }
+  if (check.notAllowedInBacklog.length) {
+    throw new SprintRuleError(`Ready to Release tasks can't go to the Backlog: ${check.notAllowedInBacklog.join(", ")}.`);
+  }
   let targetSprint: { id: string; name: string } | null = null;
-  if (selectedTaskIds.length > 0) {
+  if (check.carried.length > 0) {
     if (!target) throw new SprintRuleError("Choose a release to carry tasks into.");
     if (target.kind === "new") {
       const id = await createSprint(target.input, actorId);
@@ -118,6 +136,10 @@ export async function closeSprint(args: CloseSprintArgs): Promise<string> {
       targetSprint = { id: snap.id, name: snap.data().name };
     }
   }
+  if (check.toBacklog.length > 0) {
+    const backlog = await getDoc(ref.sprint(BACKLOG_ID));
+    if (!backlog.exists()) throw new SprintRuleError("The Backlog isn't set up yet. An admin can set it up on the Backlog page.");
+  }
 
   // 2. Report snapshot (skipped if a previous attempt already wrote it)
   const reportRef = doc(db(), "sprintReports", sprint.id);
@@ -126,7 +148,8 @@ export async function closeSprint(args: CloseSprintArgs): Promise<string> {
     const report = buildSprintReport({
       sprint,
       tasks: tasks.map((t) => ({ ...t, createdAtMs: t.createdAt ? t.createdAt.toMillis() : null })),
-      carriedTaskIds: selectedTaskIds,
+      carriedTaskIds: check.carried.map((c) => c.taskId),
+      backlogTaskIds: check.toBacklog.map((c) => c.taskId),
       target: targetSprint,
       users,
       appTypes,
@@ -136,22 +159,25 @@ export async function closeSprint(args: CloseSprintArgs): Promise<string> {
   }
 
   // 3. Move tasks
-  let startOrder = Date.now();
-  if (targetSprint) {
-    const last = await getDocs(
-      query(col.tasks(), where("sprintId", "==", targetSprint.id), orderBy("order", "desc"), limit(1)),
-    );
-    if (!last.empty) startOrder = Math.max(startOrder, last.docs[0].data().order);
-  }
-  const plan = planCarryForward(tasks, selectedTaskIds, startOrder);
+  const plan = planCarryForward(
+    tasks,
+    releaseTaskIds,
+    backlogTaskIds,
+    targetSprint ? await lastOrder(targetSprint.id) : Date.now(),
+    check.toBacklog.length ? await lastOrder(BACKLOG_ID) : Date.now(),
+  );
   const movedAt = Timestamp.now();
+  const moves = [
+    ...plan.carried.map((item) => ({ item, to: targetSprint! })),
+    ...plan.toBacklog.map((item) => ({ item, to: { id: BACKLOG_ID, name: "Backlog" } })),
+  ];
 
   // Each task needs 2 writes (task update + activity), so a chunk holds 450 writes.
-  for (const group of chunk(plan.carried, Math.floor(BATCH_CHUNK_SIZE / 2))) {
+  for (const group of chunk(moves, Math.floor(BATCH_CHUNK_SIZE / 2))) {
     const batch = writeBatch(db());
-    for (const item of group) {
+    for (const { item, to } of group) {
       batch.update(doc(db(), "tasks", item.taskId), {
-        sprintId: targetSprint!.id,
+        sprintId: to.id,
         order: item.newOrder,
         carryOverCount: increment(1),
         sprintHistory: arrayUnion({
@@ -167,7 +193,7 @@ export async function closeSprint(args: CloseSprintArgs): Promise<string> {
         action: "carried_over",
         field: "sprintId",
         oldValue: sprint.name,
-        newValue: targetSprint!.name,
+        newValue: to.name,
       });
     }
     await batch.commit();
@@ -184,4 +210,50 @@ export async function closeSprint(args: CloseSprintArgs): Promise<string> {
   await finalBatch.commit();
 
   return carrySummary(plan, targetSprint?.name ?? null);
+}
+
+/**
+ * QA/Admin: moves tasks to another open release or the Backlog, keeping their key, history,
+ * comments and pictures. Ready to Release / Released tasks are skipped for the Backlog.
+ * Returns the keys that were skipped and why.
+ */
+export async function moveTasks(
+  tasks: Task[],
+  target: Pick<Sprint, "id" | "name">,
+  sprintNames: Map<string, string>,
+  actorId: string,
+): Promise<MovePlan["skipped"]> {
+  const plan = planTaskMove(tasks, target.id, await lastOrder(target.id));
+  const movedAt = Timestamp.now();
+  for (const group of chunk(plan.moving, Math.floor(BATCH_CHUNK_SIZE / 2))) {
+    const batch = writeBatch(db());
+    for (const m of group) {
+      const fromName = sprintNames.get(m.fromSprintId) ?? "another release";
+      batch.update(doc(db(), "tasks", m.taskId), {
+        sprintId: target.id,
+        order: m.newOrder,
+        sprintHistory: arrayUnion({ sprintId: m.fromSprintId, sprintName: fromName, finalStatusInSprint: m.status, movedAt }),
+        updatedAt: serverTimestamp(),
+        updatedBy: actorId,
+      });
+      addActivity(batch, m.taskId, actorId, { action: "moved", field: "sprintId", oldValue: fromName, newValue: target.name });
+    }
+    await batch.commit();
+  }
+  return plan.skipped;
+}
+
+/** Admin: sets up the Backlog once (a permanent special doc; see BACKLOG_ID). */
+export async function setUpBacklog(actorId: string): Promise<void> {
+  await setDoc(doc(db(), "sprints", BACKLOG_ID), {
+    name: "Backlog",
+    goal: "",
+    startDate: "",
+    endDate: "",
+    status: "backlog",
+    createdBy: actorId,
+    createdAt: serverTimestamp(),
+    closedAt: null,
+    closedBy: null,
+  });
 }

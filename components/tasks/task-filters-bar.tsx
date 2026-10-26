@@ -13,6 +13,7 @@ import {
   type TaskFilters,
 } from "@/lib/task-filters";
 import { cn } from "@/lib/utils";
+import { sortSprints } from "@/lib/sprint-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -101,12 +102,19 @@ export function TaskFiltersBar({
   filters,
   onChange,
   hideAssignee,
+  showRelease,
 }: {
   filters: TaskFilters;
   onChange: (f: TaskFilters) => void;
   hideAssignee?: boolean;
+  /** All Tasks: filter by release / Backlog */
+  showRelease?: boolean;
 }) {
-  const { appTypes, modules, users, appTypeById } = useData();
+  const { appTypes, modules, users, appTypeById, sprints, backlog } = useData();
+  const releaseOpts: Option[] = [
+    ...(backlog ? [{ value: backlog.id, label: "Backlog" }] : []),
+    ...sortSprints(sprints).map((s) => ({ value: s.id, label: `${s.name}${s.status === "closed" ? " (closed)" : s.status === "active" ? " (active)" : ""}` })),
+  ];
 
   // Search is debounced into the URL.
   const [q, setQ] = useState(filters.q);
@@ -136,6 +144,14 @@ export function TaskFiltersBar({
           aria-label="Search tasks"
         />
       </div>
+      {showRelease && (
+        <MultiFilter
+          label="Release"
+          options={releaseOpts}
+          selected={filters.sprintId}
+          onChange={(v) => onChange({ ...filters, sprintId: v })}
+        />
+      )}
       <MultiFilter
         label="App Type"
         options={appTypeOptions(appTypes)}

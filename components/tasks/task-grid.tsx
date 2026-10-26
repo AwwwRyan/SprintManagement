@@ -10,7 +10,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Columns3, GripVertical, Paperclip, Plus, RotateCcw } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Columns3, GripVertical, MoveRight, Paperclip, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
@@ -21,10 +21,11 @@ import { planMove } from "@/lib/reorder";
 import { moveColumn, normalizeOrder, shiftColumn } from "@/lib/column-order";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
-import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
-import { AppTypeBadge, CarryBadge, PriorityBadge, StatusBadge, TypeBadge } from "@/components/common/badges";
+import { BACKLOG_ID, PRIORITIES, TASK_STATUSES, TASK_TYPES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
+import { AppTypeBadge, CarryBadge, PriorityBadge, ReleaseChip, StatusBadge, TypeBadge } from "@/components/common/badges";
 import { UserChip } from "@/components/common/user-avatar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -103,7 +104,14 @@ export interface TaskGridProps {
   /** All tasks of the view (unfiltered, so Sr No stays stable). */
   tasks: Task[];
   filters: TaskFilters;
-  sprint: Sprint;
+  /** the release/Backlog this view belongs to; null for All Tasks (rows from many places) */
+  sprint: Sprint | null;
+  /** where each row lives (All Tasks): decides per row whether it can be edited */
+  sprintOf?: (t: Task) => Sprint | undefined;
+  /** adds the Release column (All Tasks) */
+  showRelease?: boolean;
+  /** QA/Admin: tick rows and move them to another release or the Backlog */
+  onMoveTasks?: (tasks: Task[]) => void;
   loading: boolean;
   flashing: Set<string>;
   onOpenTask: (taskKey: string, section?: "attachments") => void;
@@ -128,9 +136,14 @@ export function TaskGrid({
   toolbar,
   emptyState,
   reorderable = false,
+  sprintOf,
+  showRelease = false,
+  onMoveTasks,
 }: TaskGridProps) {
   const { actor } = useCurrentUser();
-  const { appTypes, modules, userById, appTypeById, moduleById } = useData();
+  const { appTypes, modules, userById, appTypeById, moduleById, sprintById } = useData();
+  const selectable = !!onMoveTasks;
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   /* Sr No = position within the whole sprint by `order` (independent of filters/sort). */
   const srNo = useMemo(() => {
@@ -141,11 +154,23 @@ export function TaskGrid({
 
   const cols = useMemo<ColConfig[]>(() => {
     const userName = (id: string | null) => (id ? (userById.get(id)?.name ?? "") : "");
+    const release: ColConfig[] = showRelease
+      ? [
+          {
+            id: "sprintId",
+            label: "Release",
+            width: 150,
+            render: (t) => <ReleaseChip sprint={sprintById.get(t.sprintId)} />,
+            sortValue: (t) => (t.sprintId === BACKLOG_ID ? "~" : (sprintById.get(t.sprintId)?.name ?? "")),
+          },
+        ]
+      : [];
     return [
       {
         id: "srNo",
         label: "Sr No",
-        width: 64,
+        // room for the tick box (QA/Admin) and the drag grip next to the number
+        width: selectable ? 88 : 64,
         sticky: true,
         locked: true,
         opensPanel: true,
@@ -161,6 +186,7 @@ export function TaskGrid({
         render: (t) => <span className="font-mono text-xs font-medium">{t.taskKey}</span>,
         sortValue: (t) => Number(t.taskKey.split("-")[1] ?? 0),
       },
+      ...release,
       {
         id: "appTypeId",
         label: "App Type",
@@ -328,7 +354,8 @@ export function TaskGrid({
         sortValue: (t) => t.carryOverCount,
       },
     ];
-  }, [appTypes, modules, userById, appTypeById, moduleById, srNo]);
+  }, [appTypes, modules, userById, appTypeById, moduleById, srNo, selectable, showRelease, sprintById]);
+
 
   const colById = useMemo(() => new Map(cols.map((c) => [c.id, c])), [cols]);
 
@@ -408,6 +435,17 @@ export function TaskGrid({
   });
 
   const rows = table.getRowModel().rows;
+
+  // Selection (QA/Admin bulk move); ids that left the view (moved away) simply drop out.
+  const selectedTasks = useMemo(() => tasks.filter((t) => selected.has(t.id)), [tasks, selected]);
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const toggleSelected = (id: string, on: boolean) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   const visibleCols = table.getVisibleLeafColumns();
 
   /* Sticky offsets for the pinned left columns. */
@@ -439,7 +477,10 @@ export function TaskGrid({
     });
   }, []);
 
-  const canEdit = useCallback((t: Task) => canEditTask(actor, t, sprint), [actor, sprint]);
+  const canEdit = useCallback(
+    (t: Task) => canEditTask(actor, t, sprintOf ? sprintOf(t) : (sprint ?? undefined)),
+    [actor, sprint, sprintOf],
+  );
 
   const save = useCallback(
     (task: Task, field: EditableTaskField, value: unknown) => {
@@ -509,7 +550,7 @@ export function TaskGrid({
 
   // Manual order only makes sense when rows are shown in that order (Sr No ascending, or unsorted).
   const manualOrder = sorting.length === 0 || (sorting[0].id === "srNo" && !sorting[0].desc);
-  const reorderOn = reorderable && manualOrder && sprint.status !== "closed";
+  const reorderOn = reorderable && manualOrder && !!sprint && sprint.status !== "closed";
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<{ id: string; pos: "before" | "after" } | null>(null);
 
@@ -536,7 +577,7 @@ export function TaskGrid({
 
   const [quickTitle, setQuickTitle] = useState("");
   const [adding, setAdding] = useState(false);
-  const canAdd = canCreateTask(actor, sprint);
+  const canAdd = !!sprint && canCreateTask(actor, sprint);
   const activeAppTypes = appTypes.filter((a) => a.active);
 
   const quickAdd = async () => {
@@ -551,7 +592,7 @@ export function TaskGrid({
     setAdding(true);
     try {
       const created = await createTask(
-        { title, sprintId: sprint.id, appTypeId, type: "task", status: "pending", priority: "medium", ...quickAddDefaults },
+        { title, sprintId: sprint!.id, appTypeId, type: "task", status: "pending", priority: "medium", ...quickAddDefaults },
         actor.uid,
       );
       setQuickTitle("");
@@ -695,6 +736,20 @@ export function TaskGrid({
         </DropdownMenu>
       </div>
 
+      {selectedTasks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm" role="region" aria-label="Selected tasks">
+          <span className="font-medium">
+            {selectedTasks.length} task{selectedTasks.length === 1 ? "" : "s"} selected
+          </span>
+          <Button size="sm" onClick={() => onMoveTasks?.(selectedTasks)}>
+            <MoveRight /> Move to…
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            Clear selection
+          </Button>
+        </div>
+      )}
+
       <div className="relative max-h-[calc(100svh-15rem)] min-h-48 overflow-auto rounded-lg border">
         <table
           ref={tableRef}
@@ -761,21 +816,32 @@ export function TaskGrid({
                           : undefined
                       }
                     >
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-foreground"
-                        onClick={h.column.getToggleSortingHandler()}
-                        tabIndex={-1}
-                      >
-                        {flexRender(h.column.columnDef.header, h.getContext())}
-                        {sorted === "asc" ? (
-                          <ArrowUp className="size-3" />
-                        ) : sorted === "desc" ? (
-                          <ArrowDown className="size-3" />
-                        ) : (
-                          <ArrowUpDown className="size-3 opacity-30" />
-                        )}
-                      </button>
+                      {colId === "srNo" && selectable && (
+                        <Checkbox
+                          className="mr-1.5 align-middle"
+                          checked={allSelected ? true : selectedTasks.length > 0 ? "indeterminate" : false}
+                          onCheckedChange={(v) => setSelected(v ? new Set(rows.map((r) => r.id)) : new Set())}
+                          aria-label="Select all shown tasks"
+                          disabled={rows.length === 0}
+                        />
+                      )}
+                      {
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          onClick={h.column.getToggleSortingHandler()}
+                          tabIndex={-1}
+                        >
+                          {flexRender(h.column.columnDef.header, h.getContext())}
+                          {sorted === "asc" ? (
+                            <ArrowUp className="size-3" />
+                          ) : sorted === "desc" ? (
+                            <ArrowDown className="size-3" />
+                          ) : (
+                            <ArrowUpDown className="size-3 opacity-30" />
+                          )}
+                        </button>
+                      }
                     </th>
                   );
                 })}
@@ -863,6 +929,15 @@ export function TaskGrid({
                           )}
                           style={{ width: cfg.width, minWidth: cfg.width, maxWidth: cfg.width, left }}
                         >
+                          {cfg.id === "srNo" && selectable && !isEditing && (
+                            <Checkbox
+                              className="float-left mt-0.5 mr-1.5"
+                              checked={selected.has(task.id)}
+                              onCheckedChange={(v) => toggleSelected(task.id, !!v)}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Select ${task.taskKey}`}
+                            />
+                          )}
                           {isEditing ? (
                             renderEditor(task, cfg, r, c)
                           ) : cfg.id === "srNo" && reorderOn && editable ? (

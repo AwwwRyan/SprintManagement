@@ -9,7 +9,7 @@ import {
   TASK_TYPE_COLORS,
   TASK_TYPE_LABELS,
 } from "@/lib/constants";
-import type { AppType, Priority, SprintStatus, TaskStatus, TaskType } from "@/types";
+import type { AppType, Priority, Sprint, SprintStatus, TaskStatus, TaskType } from "@/types";
 
 const base = "inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium";
 
@@ -25,7 +25,7 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   return <span className={cn(base, PRIORITY_COLORS[priority])}>{PRIORITY_LABELS[priority]}</span>;
 }
 
-export function SprintStatusBadge({ status }: { status: SprintStatus }) {
+export function SprintStatusBadge({ status }: { status: SprintStatus | "backlog" }) {
   return <span className={cn(base, SPRINT_STATUS_COLORS[status])}>{SPRINT_STATUS_LABELS[status]}</span>;
 }
 
@@ -52,6 +52,17 @@ export function CarryBadge({ count }: { count: number }) {
       title={`Carried over ${count} time${count === 1 ? "" : "s"}`}
     >
       ↻ {count}
+    </span>
+  );
+}
+
+/** Where a task lives: a release name, or "Backlog" (amber). Closed releases are muted. */
+export function ReleaseChip({ sprint }: { sprint: Pick<Sprint, "name" | "status"> | undefined }) {
+  if (!sprint) return <span className="text-xs text-muted-foreground">Unknown</span>;
+  if (sprint.status === "backlog") return <span className={cn(base, SPRINT_STATUS_COLORS.backlog)}>Backlog</span>;
+  return (
+    <span className={cn("truncate text-sm", sprint.status === "closed" && "text-muted-foreground")} title={sprint.name}>
+      {sprint.name}
     </span>
   );
 }

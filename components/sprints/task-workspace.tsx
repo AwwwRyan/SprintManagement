@@ -4,7 +4,9 @@ import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ClipboardList, Plus } from "lucide-react";
 import { useCurrentUser } from "@/components/providers/auth-provider";
-import { canCreateTask } from "@/lib/permissions";
+import { canCreateTask, canMoveTasks } from "@/lib/permissions";
+import { useData } from "@/components/providers/data-provider";
+import { MoveTasksDialog } from "@/components/tasks/move-tasks-dialog";
 import { hasActiveFilters, EMPTY_FILTERS } from "@/lib/task-filters";
 import { useTaskByKey, type LiveTasks } from "@/lib/hooks/use-tasks";
 import { usePresence } from "@/lib/hooks/use-presence";
@@ -15,11 +17,11 @@ import { TaskPanel } from "@/components/tasks/task-panel";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { TaskFiltersBar, useTaskFilters } from "@/components/tasks/task-filters-bar";
 import { PresenceAvatars } from "./presence-avatars";
-import type { Sprint } from "@/types";
+import type { Sprint, Task } from "@/types";
 
 /**
- * Filters + task table + side panel for one sprint. The open task lives in the URL (?task=TSK-142)
- * so it can be linked; filters live in the URL too.
+ * Filters + task table + side panel for a release, the Backlog, My Tasks or All Tasks. The open
+ * task lives in the URL (?task=TSK-142) so it can be linked; filters live in the URL too.
  */
 export function TaskWorkspace({
   sprint,
@@ -27,9 +29,10 @@ export function TaskWorkspace({
   mode,
   header,
 }: {
-  sprint: Sprint;
+  /** the release or Backlog shown; null for All Tasks */
+  sprint: Sprint | null;
   live: LiveTasks;
-  mode: "sprint" | "my-tasks";
+  mode: "sprint" | "my-tasks" | "backlog" | "all";
   /** Rendered above the table; receives the presence avatars for the header. */
   header: (presence: React.ReactNode) => React.ReactNode;
 }) {
@@ -39,6 +42,9 @@ export function TaskWorkspace({
   const pathname = usePathname();
   const [filters, setFilters] = useTaskFilters();
   const [newOpen, setNewOpen] = useState(false);
+  const [moving, setMoving] = useState<Task[] | null>(null);
+  const { sprintById } = useData();
+  const sprintOf = useCallback((t: Task) => sprintById.get(t.sprintId), [sprintById]);
 
   const openKey = params.get("task");
   const section = params.get("section") === "attachments" ? "attachments" : undefined;
@@ -61,10 +67,11 @@ export function TaskWorkspace({
   const byKey = useTaskByKey(openKey && !inList && !live.loading ? openKey : null);
   const openTask = inList ?? byKey.data[0] ?? null;
 
-  const viewers = usePresence(sprint.id, profile, openTask?.id ?? null);
+  const viewers = usePresence(sprint?.id ?? "all-tasks", profile, openTask?.id ?? null);
   const taskViewers = openTask ? viewers.filter((v) => v.viewingTaskId === openTask.id) : [];
 
-  const canAdd = canCreateTask(actor, sprint);
+  const canAdd = !!sprint && canCreateTask(actor, sprint);
+  const canMove = canMoveTasks(actor) && mode !== "my-tasks";
   const filtered = hasActiveFilters(filters);
 
   return (
@@ -74,15 +81,18 @@ export function TaskWorkspace({
         tasks={live.tasks}
         filters={filters}
         sprint={sprint}
+        sprintOf={mode === "all" ? sprintOf : undefined}
+        showRelease={mode === "all"}
+        onMoveTasks={canMove ? setMoving : undefined}
         loading={live.loading}
         flashing={live.flashing}
         onOpenTask={(key, sec) => setTaskParam(key, sec)}
         storageKey={mode}
-        reorderable={mode === "sprint"}
+        reorderable={mode === "sprint" || mode === "backlog"}
         quickAddDefaults={mode === "my-tasks" ? { assigneeIds: [actor.uid] } : undefined}
         toolbar={
           <>
-            <TaskFiltersBar filters={filters} onChange={setFilters} hideAssignee={mode === "my-tasks"} />
+            <TaskFiltersBar filters={filters} onChange={setFilters} hideAssignee={mode === "my-tasks"} showRelease={mode === "all"} />
             {canAdd && (
               <Button size="sm" onClick={() => setNewOpen(true)} className="ml-auto">
                 <Plus /> New Task
@@ -104,7 +114,15 @@ export function TaskWorkspace({
           ) : (
             <EmptyState
               icon={ClipboardList}
-              title={mode === "my-tasks" ? "Nothing assigned to you" : "No tasks in this release yet"}
+              title={
+                mode === "my-tasks"
+                  ? "Nothing assigned to you"
+                  : mode === "backlog"
+                    ? "The Backlog is empty"
+                    : mode === "all"
+                      ? "No tasks yet"
+                      : "No tasks in this release yet"
+              }
               description={canAdd ? "Use the quick-add row below or the New Task button." : undefined}
             />
           )
@@ -123,13 +141,16 @@ export function TaskWorkspace({
         />
       )}
 
-      <NewTaskDialog
-        open={newOpen}
-        onOpenChange={setNewOpen}
-        sprintId={sprint.id}
-        defaultAssigneeId={mode === "my-tasks" ? actor.uid : null}
-        onCreated={(key) => setTaskParam(key)}
-      />
+      {sprint && (
+        <NewTaskDialog
+          open={newOpen}
+          onOpenChange={setNewOpen}
+          sprintId={sprint.id}
+          defaultAssigneeId={mode === "my-tasks" ? actor.uid : null}
+          onCreated={(key) => setTaskParam(key)}
+        />
+      )}
+      <MoveTasksDialog tasks={moving} onClose={() => setMoving(null)} />
     </>
   );
 }

@@ -83,6 +83,11 @@ export function useSprintTasks(sprintId: string | null, myUid: string): LiveTask
   );
 }
 
+/** Every task in every release and the Backlog (All Tasks page). Reads all tasks: mind the Spark quota. */
+export function useAllTasks(myUid: string, enabled = true): LiveTasks {
+  return useLiveTasks(enabled ? "all-tasks" : null, () => query(col.tasks(), orderBy("order")), myUid);
+}
+
 export function useMyTasks(sprintId: string | null, myUid: string): LiveTasks {
   return useLiveTasks(
     sprintId ? `my-tasks:${sprintId}:${myUid}` : null,

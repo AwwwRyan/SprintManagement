@@ -20,6 +20,8 @@ export interface TaskFilters {
   assigneeId: string[];
   status: TaskStatus[];
   priority: Priority[];
+  /** release / Backlog ids (All Tasks) */
+  sprintId: string[];
   q: string;
   /** which date (created / due / release) and an inclusive range; null = no date filter */
   date: DateFilter | null;
@@ -32,11 +34,12 @@ export const EMPTY_FILTERS: TaskFilters = {
   assigneeId: [],
   status: [],
   priority: [],
+  sprintId: [],
   q: "",
   date: null,
 };
 
-const LIST_KEYS = ["appTypeId", "type", "moduleId", "assigneeId", "status", "priority"] as const;
+const LIST_KEYS = ["appTypeId", "type", "moduleId", "assigneeId", "status", "priority", "sprintId"] as const;
 type ListKey = (typeof LIST_KEYS)[number];
 
 /** URL param names (short, readable in links). */
@@ -47,6 +50,7 @@ const PARAM: Record<ListKey | "q", string> = {
   assigneeId: "assignee",
   status: "status",
   priority: "priority",
+  sprintId: "release",
   q: "q",
 };
 
@@ -71,6 +75,7 @@ export function parseFilters(params: ParamsLike): TaskFilters {
     assigneeId: list("assigneeId"),
     status: list("status").filter(oneOf(TASK_STATUSES)),
     priority: list("priority").filter(oneOf(PRIORITIES)),
+    sprintId: list("sprintId"),
     q: params.get(PARAM.q) ?? "",
     date: parseDate(params),
   };
@@ -114,7 +119,7 @@ export function hasActiveFilters(f: TaskFilters): boolean {
 
 type FilterableTask = Pick<
   Task,
-  "appTypeId" | "type" | "moduleId" | "assigneeIds" | "status" | "priority" | "title" | "descriptionText" | "taskKey"
+  "appTypeId" | "type" | "moduleId" | "assigneeIds" | "status" | "priority" | "title" | "descriptionText" | "taskKey" | "sprintId"
 > & { remarks?: string } & DatedTask;
 
 export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilters): T[] {
@@ -129,6 +134,7 @@ export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilter
     }
     if (f.status.length && !f.status.includes(t.status)) return false;
     if (f.priority.length && !f.priority.includes(t.priority)) return false;
+    if (f.sprintId.length && !f.sprintId.includes(t.sprintId)) return false;
     if (!matchesDate(t, f.date)) return false;
     if (q) {
       const hay = `${t.taskKey} ${t.title} ${t.descriptionText} ${t.remarks ?? ""}`.toLowerCase();

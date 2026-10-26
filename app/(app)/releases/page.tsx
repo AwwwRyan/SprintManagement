@@ -17,7 +17,8 @@ import { SprintStatusBadge } from "@/components/common/badges";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { SprintFormDialog } from "@/components/sprints/sprint-form-dialog";
-import { isComplete, isExcluded } from "@/lib/task-model";
+import { completionPct } from "@/lib/task-model";
+import type { TaskStatus } from "@/types";
 
 export default function SprintsPage() {
   const { actor } = useCurrentUser();
@@ -31,14 +32,12 @@ export default function SprintsPage() {
   const reports = useReports();
 
   const counts = useMemo(() => {
-    const m = new Map<string, { total: number; done: number }>();
-    for (const t of liveTasks.data) {
-      const c = m.get(t.sprintId) ?? { total: 0, done: 0 };
-      if (!isExcluded(t.status)) c.total += 1; // closed / duplicate don't count
-      if (isComplete(t.status)) c.done += 1;
-      m.set(t.sprintId, c);
-    }
-    for (const r of reports.data) m.set(r.sprintId, { total: r.total, done: r.done });
+    // total = every task in the release; % = (Ready to Release + Released) / (all - Closed - Duplicate)
+    const statuses = new Map<string, TaskStatus[]>();
+    for (const t of liveTasks.data) statuses.set(t.sprintId, [...(statuses.get(t.sprintId) ?? []), t.status]);
+    const m = new Map<string, { total: number; pct: number }>();
+    for (const [id, list] of statuses) m.set(id, { total: list.length, pct: completionPct(list) });
+    for (const r of reports.data) m.set(r.sprintId, { total: r.total, pct: r.completionPct });
     return m;
   }, [liveTasks.data, reports.data]);
 
@@ -82,7 +81,7 @@ export default function SprintsPage() {
         <ul className="grid gap-2">
           {ordered.map((s) => {
             const c = counts.get(s.id);
-            const pct = c && c.total ? Math.round((c.done / c.total) * 100) : 0;
+            const pct = c?.pct ?? 0;
             return (
               <li key={s.id}>
                 <Link
@@ -111,7 +110,7 @@ export default function SprintsPage() {
                       <span className="text-muted-foreground">0 tasks</span>
                     )}
                   </div>
-                  <div className="flex w-44 items-center gap-2">
+                  <div className="flex w-44 items-center gap-2" title="Ready to Release + Released; Closed and Duplicate tasks are left out of the %">
                     <Progress value={pct} className="h-1.5" aria-label={`${pct}% complete`} />
                     <span className="w-10 text-right text-xs tabular-nums">{pct}%</span>
                   </div>

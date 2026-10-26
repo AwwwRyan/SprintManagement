@@ -11,7 +11,7 @@ export function suggestSprintName(sprints: Pick<Sprint, "name">[]): string {
 
 /** Sorts sprints: active first, then planned (soonest first), then closed (most recent first). */
 export function sortSprints<T extends Pick<Sprint, "status" | "startDate">>(sprints: T[]): T[] {
-  const rank = { active: 0, planned: 1, closed: 2 } as const;
+  const rank = { active: 0, planned: 1, closed: 2, backlog: 3 } as const;
   return [...sprints].sort((a, b) => {
     if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
     return a.status === "planned" ? a.startDate.localeCompare(b.startDate) : b.startDate.localeCompare(a.startDate);

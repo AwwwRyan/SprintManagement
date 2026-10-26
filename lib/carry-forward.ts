@@ -1,4 +1,5 @@
-/** Pure planning for the close-sprint / carry-forward flow (spec §7). */
+/** Pure planning for the close-release flow (spec §7). */
+import { canGoToBacklog } from "@/lib/move-plan";
 import { isFinished } from "@/lib/task-model";
 import type { Task } from "@/types";
 
@@ -13,41 +14,52 @@ export interface CarryPlanItem {
 export interface CarryPlan {
   /** Released / Closed / Duplicate: stay in the closing release. */
   completed: number;
+  /** to the next release */
   carried: CarryPlanItem[];
-  leftIncomplete: number;
+  /** to the Backlog */
+  toBacklog: CarryPlanItem[];
+  /** unfinished tasks with no destination; closing is refused while there are any */
+  unassigned: string[];
+  /** Ready to Release / Released tasks someone tried to send to the Backlog */
+  notAllowedInBacklog: string[];
 }
 
 /**
- * Decides which tasks move. Anything not Released / Closed / Duplicate can be carried
- * (including Done = tested but not live yet); selected ids of finished tasks are ignored. Carried tasks are appended after `startOrder`, keeping their
- * relative order from the closing sprint.
+ * Every unfinished task (anything not Released / Closed / Duplicate, including Ready to Release)
+ * must go either to the next release or to the Backlog. Ready to Release tasks can only go to a
+ * release. Moved tasks are appended after the destination's last order, keeping their order.
  */
 export function planCarryForward(
   tasks: Pick<Task, "id" | "taskKey" | "status" | "order" | "carryOverCount">[],
-  selectedIds: Iterable<string>,
+  releaseIds: Iterable<string>,
+  backlogIds: Iterable<string>,
   startOrder: number,
+  backlogStartOrder: number = startOrder,
 ): CarryPlan {
-  const selected = new Set(selectedIds);
+  const toRelease = new Set(releaseIds);
+  const toBacklogSet = new Set(backlogIds);
   const unfinished = tasks.filter((t) => !isFinished(t.status)).sort((a, b) => a.order - b.order);
-  const carried = unfinished
-    .filter((t) => selected.has(t.id))
-    .map((t, i) => ({
-      taskId: t.id,
-      taskKey: t.taskKey,
-      finalStatusInSprint: t.status,
-      newOrder: startOrder + i + 1,
-      newCarryOverCount: (t.carryOverCount ?? 0) + 1,
-    }));
+  const item = (t: (typeof unfinished)[number], order: number): CarryPlanItem => ({
+    taskId: t.id,
+    taskKey: t.taskKey,
+    finalStatusInSprint: t.status,
+    newOrder: order,
+    newCarryOverCount: (t.carryOverCount ?? 0) + 1,
+  });
+  const carried = unfinished.filter((t) => toRelease.has(t.id)).map((t, i) => item(t, startOrder + i + 1));
+  const backlogged = unfinished.filter((t) => !toRelease.has(t.id) && toBacklogSet.has(t.id));
   return {
     completed: tasks.length - unfinished.length,
     carried,
-    leftIncomplete: unfinished.length - carried.length,
+    toBacklog: backlogged.filter((t) => canGoToBacklog(t.status)).map((t, i) => item(t, backlogStartOrder + i + 1)),
+    unassigned: unfinished.filter((t) => !toRelease.has(t.id) && !toBacklogSet.has(t.id)).map((t) => t.taskKey),
+    notAllowedInBacklog: backlogged.filter((t) => !canGoToBacklog(t.status)).map((t) => t.taskKey),
   };
 }
 
-export function carrySummary(plan: CarryPlan, targetName: string | null): string {
+export function carrySummary(plan: Pick<CarryPlan, "completed" | "carried" | "toBacklog">, targetName: string | null): string {
   const parts = [`${plan.completed} finished`];
   if (plan.carried.length) parts.push(`${plan.carried.length} carried to ${targetName ?? "the next release"}`);
-  parts.push(`${plan.leftIncomplete} left incomplete`);
+  if (plan.toBacklog.length) parts.push(`${plan.toBacklog.length} moved to the Backlog`);
   return parts.join(", ") + ".";
 }

@@ -201,6 +201,8 @@ export interface ReportInput {
   /** Every task in the sprint at close time (before carry-forward). */
   tasks: (MetricTask & Pick<Task, "id" | "taskKey" | "title"> & { createdAtMs: number | null })[];
   carriedTaskIds: string[];
+  /** tasks sent to the Backlog at close */
+  backlogTaskIds?: string[];
   target: { id: string; name: string } | null;
   users: Pick<AppUser, "id" | "name">[];
   appTypes: Pick<AppType, "id" | "name" | "color">[];
@@ -212,6 +214,7 @@ export type ReportSnapshot = Omit<SprintReport, "id" | "createdBy" | "createdAt"
 /** Builds the immutable report saved to sprintReports/{sprintId}. */
 export function buildSprintReport(input: ReportInput): ReportSnapshot {
   const { sprint, tasks, carriedTaskIds, target, users, appTypes, closedAtMs } = input;
+  const backlogged = new Set(input.backlogTaskIds ?? []);
   const metrics = computeSprintMetrics(tasks, users, appTypes);
   const carried = new Set(carriedTaskIds);
 
@@ -229,7 +232,8 @@ export function buildSprintReport(input: ReportInput): ReportSnapshot {
   const carriedOver = unfinished
     .filter((t) => carried.has(t.id))
     .map((t) => ({ ...ref(t), targetSprintId: target?.id ?? "", targetSprintName: target?.name ?? "" }));
-  const leftIncomplete = unfinished.filter((t) => !carried.has(t.id)).map(ref);
+  const movedToBacklog = unfinished.filter((t) => !carried.has(t.id) && backlogged.has(t.id)).map(ref);
+  const leftIncomplete = unfinished.filter((t) => !carried.has(t.id) && !backlogged.has(t.id)).map(ref);
 
   const startMs = new Date(`${sprint.startDate}T00:00:00`).getTime();
   const bugs = tasks.filter((t) => t.type === "bug");
@@ -248,6 +252,7 @@ export function buildSprintReport(input: ReportInput): ReportSnapshot {
     bugsOpened,
     bugsFixed,
     carriedOver,
+    movedToBacklog,
     leftIncomplete,
   };
 }
