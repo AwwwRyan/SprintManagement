@@ -256,6 +256,7 @@ test("suggestion box: anyone shares one with a picture; QA adds it to a release 
   await qa.page.getByRole("menuitem", { name: "Add to a release…" }).click();
   const add = qa.page.getByRole("dialog", { name: "Add to a release" });
   await expect(add.getByRole("combobox", { name: "Release" })).toContainText("Release 14 (active)");
+  await add.screenshot({ path: "test-results/add-to-release.png" });
   await add.getByRole("button", { name: "Add to release" }).click();
   await expect(qa.page.getByText(/Added to Release 14 as TSK-\d+/)).toBeVisible({ timeout: 30_000 });
   await expect(card(qa.page)).toContainText(/Added to Release 14 · TSK-\d+/);
@@ -314,9 +315,9 @@ test("side panel: comment + bug fields", async ({ page }) => {
   await expect(panel).toBeVisible();
   await expect(panel.getByText("Steps to reproduce")).toBeVisible(); // TSK-9 is a bug
 
-  await panel.getByLabel("New comment").fill("Reproduced on staging\nsecond line");
+  await panel.getByLabel("New comment").fill("QA comment: seen again today\nsecond line"); // distinct from the Remarks flow's text
   await panel.getByRole("button", { name: "Comment" }).click();
-  await expect(panel.getByText("Reproduced on staging")).toBeVisible();
+  await expect(panel.getByText("QA comment: seen again today")).toBeVisible();
 
   // shareable URL
   await expect(page).toHaveURL(/task=TSK-9/);
@@ -345,7 +346,7 @@ test("attachments: upload via picker shows a thumbnail and bumps the count", asy
 
 test("filters persist in the URL", async ({ page }) => {
   await login(page, "qa1@example.com");
-  await page.getByRole("button", { name: /^Type/ }).first().click(); // toolbar filter (header sort button comes later)
+  await page.getByRole("button", { name: /^Category/ }).first().click(); // toolbar filter (header sort button comes later)
   await page.getByRole("menuitemcheckbox", { name: "Bug" }).click();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/type=bug/);
@@ -353,6 +354,47 @@ test("filters persist in the URL", async ({ page }) => {
   await expect(page.getByText(/^\d+ of \d+ tasks/)).toBeVisible(); // the total varies with earlier flows
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).not.toHaveURL(/type=bug/);
+});
+
+test("date filter: pick which date and a range, in the grid (kept in the URL) and on the dashboard", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "qa2@example.com");
+  const footer = page.getByText(/^\d+ (of \d+ )?tasks/);
+  await expect(row(page, "TSK-9")).toBeVisible(); // grid loaded (the footer says "0 tasks" while loading)
+  const total = Number((await footer.textContent())!.match(/^(\d+)/)![1]);
+
+  await page.getByRole("button", { name: "Filter by date" }).click();
+  await expect(page.getByRole("radio", { name: "Due date" })).toHaveAttribute("aria-checked", "true");
+  await page.getByLabel("From", { exact: true }).fill("2000-01-01");
+  await page.getByLabel("To", { exact: true }).fill("2100-12-31");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page).toHaveURL(/date=due&from=2000-01-01&to=2100-12-31/);
+  // only tasks that have a due date are left (the seed gives every 4th task one)
+  await expect(footer).toHaveText(new RegExp(`^\\d+ of ${total} tasks`));
+  const shown = Number((await footer.textContent())!.match(/^(\d+)/)![1]);
+  expect(shown).toBeGreaterThan(0);
+  expect(shown).toBeLessThan(total);
+
+  // switching to Created keeps the range and applies it to the other date
+  await page.getByRole("button", { name: /Date filter: Due date/ }).click();
+  await page.getByRole("radio", { name: "Created" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/date=created/);
+  await expect(footer).toHaveText(new RegExp(`^${total} tasks`)); // every task has a created date, so nothing is hidden
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Date filter: Created/ })).toBeVisible();
+  await page.getByRole("button", { name: "Clear date filter" }).click();
+  await expect(page).not.toHaveURL(/date=/);
+
+  // dashboard
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: "Filter by date" }).click();
+  await expect(page.getByRole("radio", { name: "Created" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Last 7 days" }).click();
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("button", { name: "Date filter: Created: Last 7 days" })).toBeVisible();
+  await expect(page.getByText("Release progress")).toBeVisible();
 });
 
 test("dashboard renders live metrics", async ({ page }) => {

@@ -59,6 +59,15 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Date filter (2026-10-26)
+- Task grid (Releases + My Tasks) and Dashboard get a **Date** filter: pick which date (Created / Due date / Release date), then a quick pick (Today, This week, Next 7 days, Last 7 days, This month, Last month) or a From/To range, inclusive. Weeks start Monday.
+- Tasks without the chosen date are hidden while the filter is on (said in the popover).
+- Grid: kept in the URL like the other filters (`?date=due&from=…&to=…`). Dashboard: page state, default date "Created". Logic in `lib/date-filter.ts`.
+- The toolbar "Type" filter was renamed **Category** to match the column.
+
+## App name (2026-10-26)
+- The app is called **Release Management** (sidebar, sign-in page, browser tab, link preview, Excel export). The mark is **RM**. `lib/site.ts` holds the name.
+
 ## Suggestion box (2026-10-26)
 - **Suggestions** in the main sidebar for every role (not under Admin). **Everyone sees all suggestions** (owner's choice). No votes and no anonymous option.
 - Kept simple for ages 20 to 60: one required question ("What's your suggestion?"), four big "What is it about?" buttons (💡 New idea / 🐞 Something's not working / 🎨 Looks or ease of use / 💬 Other), optional details, up to 5 pictures by click, drag or Ctrl+V. Plain-word statuses.

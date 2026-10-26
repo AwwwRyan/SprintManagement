@@ -7,7 +7,7 @@ Living context for anyone (human or AI) working on this repo. **Keep it current.
 - Firebase setup guide: `docs/FIREBASE_SETUP.md` · general docs: `README.md`
 
 ## What it is
-> **Naming:** the UI calls sprints **Releases** (routes `/releases/…`; old `/sprints/…` links redirect). Code, types and Firestore still say `sprint`. Keep it that way: user-facing text says "release", identifiers say "sprint".
+> **App name:** "Release Management" (mark "RM"; `lib/site.ts`). **Naming:** the UI calls sprints **Releases** (routes `/releases/…`; old `/sprints/…` links redirect). Code, types and Firestore still say `sprint`. Keep it that way: user-facing text says "release", identifiers say "sprint".
 
 Internal real-time sprint task manager for a company with 3 products. QA creates sprints and tasks. Devs and QA edit tasks in a live spreadsheet-like grid. Closing a sprint carries unfinished tasks forward and snapshots a report. Roles: admin / qa / developer.
 
@@ -61,10 +61,10 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15). TSK-1…6 live in closed Sprint 13. The next key after seeding is TSK-32.
 
 ## Testing status (last full run: 2026-10-26)
-- Unit: 105 tests in 12 files, all passing.
+- Unit: 112 tests in 13 files, all passing.
 - Rules: 74 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 27 Playwright flows, all passing (see the README for the list).
+- E2E: 28 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas
