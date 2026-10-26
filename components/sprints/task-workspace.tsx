@@ -28,11 +28,17 @@ export function TaskWorkspace({
   live,
   mode,
   header,
+  rowNumbers,
+  belowGrid,
 }: {
   /** the release or Backlog shown; null for All Tasks */
   sprint: Sprint | null;
   live: LiveTasks;
   mode: "sprint" | "my-tasks" | "backlog" | "all";
+  /** All Tasks: Sr No per task across pages */
+  rowNumbers?: Map<string, number>;
+  /** rendered under the table (All Tasks: page controls) */
+  belowGrid?: React.ReactNode;
   /** Rendered above the table; receives the presence avatars for the header. */
   header: (presence: React.ReactNode) => React.ReactNode;
 }) {
@@ -83,6 +89,7 @@ export function TaskWorkspace({
         sprint={sprint}
         sprintOf={mode === "all" ? sprintOf : undefined}
         showRelease={mode === "all"}
+        rowNumbers={rowNumbers}
         onMoveTasks={canMove ? setMoving : undefined}
         loading={live.loading}
         flashing={live.flashing}
@@ -128,6 +135,7 @@ export function TaskWorkspace({
           )
         }
       />
+      {belowGrid}
       {live.error && <p className="mt-2 text-sm text-destructive">Couldn&apos;t load tasks: {live.error}</p>}
 
       {openKey && (

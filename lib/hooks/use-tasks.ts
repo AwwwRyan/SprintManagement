@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { onSnapshot, orderBy, query, where, type Query } from "firebase/firestore";
+import {
+  documentId,
+  getCountFromServer,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  startAfter,
+  Timestamp,
+  where,
+  type Query,
+  type QueryConstraint,
+} from "firebase/firestore";
+import { ALL_TASKS_PAGE_SIZE, pageQueryKey, type ServerFilters } from "@/lib/task-page";
 import { col, ref } from "@/lib/firebase/refs";
 import { useLiveDoc, useLiveQuery } from "./use-live";
 import { errorMessage } from "@/lib/utils";
@@ -83,9 +96,60 @@ export function useSprintTasks(sprintId: string | null, myUid: string): LiveTask
   );
 }
 
-/** Every task in every release and the Backlog (All Tasks page). Reads all tasks: mind the Spark quota. */
-export function useAllTasks(myUid: string, enabled = true): LiveTasks {
-  return useLiveTasks(enabled ? "all-tasks" : null, () => query(col.tasks(), orderBy("order")), myUid);
+/** Release / Status / Category "in" filters for a tasks query. */
+function serverWheres(f: ServerFilters): QueryConstraint[] {
+  return [
+    ...(f.sprintIds.length ? [where("sprintId", "in", f.sprintIds)] : []),
+    ...(f.statuses.length ? [where("status", "in", f.statuses)] : []),
+    ...(f.types.length ? [where("type", "in", f.types)] : []),
+  ];
+}
+
+export interface PageCursor {
+  createdAtMs: number;
+  id: string;
+}
+
+/**
+ * All Tasks: one page of 100 (newest first), live. Reads only that page (Spark quota).
+ * `cursor` = the last task of the previous page.
+ */
+export function useTaskPage(f: ServerFilters, cursor: PageCursor | null, myUid: string, enabled = true): LiveTasks {
+  return useLiveTasks(
+    enabled ? pageQueryKey(f, cursor) : null,
+    () =>
+      query(
+        col.tasks(),
+        ...serverWheres(f),
+        orderBy("createdAt", "desc"),
+        orderBy(documentId(), "desc"),
+        ...(cursor ? [startAfter(Timestamp.fromMillis(cursor.createdAtMs), cursor.id)] : []),
+        limit(ALL_TASKS_PAGE_SIZE),
+      ),
+    myUid,
+  );
+}
+
+/** How many tasks match the database filters (an aggregate: about 1 read per 1000 tasks). */
+export function useTaskCount(f: ServerFilters, refreshKey: unknown): number | null {
+  const [state, setState] = useState<{ key: string; count: number } | null>(null);
+  const key = pageQueryKey(f, null);
+  useEffect(() => {
+    let alive = true;
+    getCountFromServer(query(col.tasks(), ...serverWheres(f)))
+      .then((snap) => alive && setState({ key, count: snap.data().count }))
+      .catch(() => alive && setState(null));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` covers `f`
+  }, [key, refreshKey]);
+  return state?.key === key ? state.count : null;
+}
+
+/** A task by its number, anywhere (All Tasks search). */
+export function useTaskByKeyLive(taskKey: string | null, myUid: string): LiveTasks {
+  return useLiveTasks(taskKey ? `task-number:${taskKey}` : null, () => query(col.tasks(), where("taskKey", "==", taskKey)), myUid);
 }
 
 export function useMyTasks(sprintId: string | null, myUid: string): LiveTasks {

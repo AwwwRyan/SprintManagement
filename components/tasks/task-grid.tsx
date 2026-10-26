@@ -112,6 +112,8 @@ export interface TaskGridProps {
   showRelease?: boolean;
   /** QA/Admin: tick rows and move them to another release or the Backlog */
   onMoveTasks?: (tasks: Task[]) => void;
+  /** Sr No per task when the view isn't a whole release (All Tasks pages: 1-100, 101-200, ...) */
+  rowNumbers?: Map<string, number>;
   loading: boolean;
   flashing: Set<string>;
   onOpenTask: (taskKey: string, section?: "attachments") => void;
@@ -139,6 +141,7 @@ export function TaskGrid({
   sprintOf,
   showRelease = false,
   onMoveTasks,
+  rowNumbers,
 }: TaskGridProps) {
   const { actor } = useCurrentUser();
   const { appTypes, modules, userById, appTypeById, moduleById, sprintById } = useData();
@@ -147,10 +150,11 @@ export function TaskGrid({
 
   /* Sr No = position within the whole sprint by `order` (independent of filters/sort). */
   const srNo = useMemo(() => {
+    if (rowNumbers) return rowNumbers;
     const m = new Map<string, number>();
     [...tasks].sort((a, b) => a.order - b.order).forEach((t, i) => m.set(t.id, i + 1));
     return m;
-  }, [tasks]);
+  }, [tasks, rowNumbers]);
 
   const cols = useMemo<ColConfig[]>(() => {
     const userName = (id: string | null) => (id ? (userById.get(id)?.name ?? "") : "");
@@ -816,16 +820,15 @@ export function TaskGrid({
                           : undefined
                       }
                     >
-                      {colId === "srNo" && selectable && (
-                        <Checkbox
-                          className="mr-1.5 align-middle"
-                          checked={allSelected ? true : selectedTasks.length > 0 ? "indeterminate" : false}
-                          onCheckedChange={(v) => setSelected(v ? new Set(rows.map((r) => r.id)) : new Set())}
-                          aria-label="Select all shown tasks"
-                          disabled={rows.length === 0}
-                        />
-                      )}
-                      {
+                      <span className="inline-flex items-center gap-1.5">
+                        {colId === "srNo" && selectable && (
+                          <Checkbox
+                            checked={allSelected ? true : selectedTasks.length > 0 ? "indeterminate" : false}
+                            onCheckedChange={(v) => setSelected(v ? new Set(rows.map((r) => r.id)) : new Set())}
+                            aria-label="Select all shown tasks"
+                            disabled={rows.length === 0}
+                          />
+                        )}
                         <button
                           type="button"
                           className="inline-flex items-center gap-1 hover:text-foreground"
@@ -841,7 +844,7 @@ export function TaskGrid({
                             <ArrowUpDown className="size-3 opacity-30" />
                           )}
                         </button>
-                      }
+                      </span>
                     </th>
                   );
                 })}
