@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 export const size = { width: 64, height: 64 };
 export const contentType = "image/png";
 
-/** Favicon: the "RT" mark from the sidebar. */
+/** Favicon: the "RM" mark from the sidebar. */
 export default function Icon() {
   return new ImageResponse(
     (
@@ -22,7 +22,7 @@ export default function Icon() {
           letterSpacing: -1,
         }}
       >
-        RT
+        RM
       </div>
     ),
     size,

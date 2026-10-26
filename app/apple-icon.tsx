@@ -21,7 +21,7 @@ export default function AppleIcon() {
           letterSpacing: -3,
         }}
       >
-        RT
+        RM
       </div>
     ),
     size,

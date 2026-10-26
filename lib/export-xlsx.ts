@@ -16,7 +16,7 @@ export function reportFileName(r: RangeReport, appName: string | null): string {
 export async function downloadRangeReport(r: RangeReport, fileName: string): Promise<void> {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Release Task Manager";
+  wb.creator = "Release Management";
   wb.created = new Date();
 
   const header = (ws: import("exceljs").Worksheet) => {

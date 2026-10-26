@@ -1,6 +1,6 @@
 /** Site identity used by metadata, icons and the link-preview image. */
-export const SITE_NAME = "Release Task Manager";
-export const SITE_SHORT_NAME = "Release Tasks";
+export const SITE_NAME = "Release Management";
+export const SITE_SHORT_NAME = "Release Management";
 export const SITE_DESCRIPTION =
   "Plan releases, track bugs, improvements and tasks in a live shared grid, and see release progress at a glance.";
 

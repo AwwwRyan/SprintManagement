@@ -44,7 +44,7 @@ export default function OpengraphImage() {
               fontWeight: 700,
             }}
           >
-            RT
+            RM
           </div>
           <div style={{ fontSize: 30, color: "#a1a1aa" }}>Internal tool</div>
         </div>

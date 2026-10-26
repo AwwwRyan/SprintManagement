@@ -134,9 +134,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className={cn("flex h-12 items-center gap-2 border-b px-3", collapsed && "md:justify-center md:px-0")}>
           <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-            RT
+            RM
           </div>
-          <span className={cn("truncate text-sm font-semibold", collapsed && "md:hidden")}>Release Tasks</span>
+          <span className={cn("truncate text-sm font-semibold", collapsed && "md:hidden")}>Release Management</span>
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
           {MAIN_NAV.map(renderItem)}
