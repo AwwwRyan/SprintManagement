@@ -42,3 +42,16 @@ export async function fetchRangeData(fromMs: number, toMs: number): Promise<{ ta
 
   return { tasks, changes };
 }
+
+/** Status changes since `fromMs` (dashboard trend). Cost: one read per status change in the period. */
+export async function fetchStatusChangesSince(fromMs: number): Promise<StatusChange[]> {
+  const snap = await getDocs(
+    query(collectionGroup(db(), "activity"), where("field", "==", "status"), where("createdAt", ">=", Timestamp.fromMillis(fromMs))),
+  );
+  return snap.docs
+    .filter((d) => d.ref.parent.parent?.parent.id === "tasks")
+    .map((d) => {
+      const a = d.data() as { actorId: string; oldValue: string | null; newValue: string | null; createdAt: Timestamp | null };
+      return { taskId: d.ref.parent.parent!.id, atMs: a.createdAt ? a.createdAt.toMillis() : 0, actorId: a.actorId, from: a.oldValue, to: a.newValue };
+    });
+}

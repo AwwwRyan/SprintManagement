@@ -59,11 +59,11 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 ## Seed data (emulators)
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15). TSK-1…6 live in closed Sprint 13. The next key after seeding is TSK-32.
 
-## Testing status (last full run: 2026-10-22)
-- Unit: 85 tests in 9 files, all passing.
+## Testing status (last full run: 2026-10-26; E2E: dashboard flows re-run)
+- Unit: 94 tests in 10 files, all passing.
 - Rules: 66 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 23 Playwright flows, all passing (see the README for the list).
+- E2E: 24 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas

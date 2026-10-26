@@ -59,6 +59,11 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Dashboard: per-category breakdown (2026-10-26)
+- Category filter (All / Bug / Improvement / Task) next to the App Type filter. It narrows the progress card and the summary charts. The breakdown card follows the App Type filter only, and shows just one category when one is picked.
+- "Bugs, improvements and tasks in detail" tabs, from the already-loaded release tasks (**no extra reads**). Each shows open / testing (Dev Done + Testing) / Ready to Release / Released, critical-high open, average age of open items, the stage bar, App Type and priority tables, open/testing/ready/released per person (shared items count for each assignee), and the 5 oldest open items (link to the task). Logic: `lib/category-breakdown.ts`.
+- **Weekly trend loads on click** (Spark read quota): one collection-group read per status change in the last 8 weeks. Reported = created that week, excluding Excel imports. Fixed = moved from an open status to Ready to Release or Released (Ready → Released isn't counted twice). Scope: tasks in the current release.
+
 ## Excel sync (2026-10-22)
 - A newer copy of the Excel list is applied with `scripts/sync-xlsx.ts <baseline> <new>` (preview by default, `--apply` writes); `scripts/diff-xlsx.ts` is the read-only diff. The baseline is the last applied file in git-ignored `import/`.
 - **3-way:** only what changed in Excel since the baseline is applied. If the app value no longer matches the baseline (someone edited it in the app), the field is reported as a conflict and left alone.

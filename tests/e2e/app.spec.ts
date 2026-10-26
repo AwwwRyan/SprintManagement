@@ -258,6 +258,29 @@ test("dashboard renders live metrics", async ({ page }) => {
   await expect(page.getByText("Tasks by status")).toBeVisible();
 });
 
+test("dashboard: bugs / improvements / tasks breakdown, weekly trend and category filter", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "qa1@example.com");
+  await page.goto("/dashboard");
+  const card = page.getByText("Bugs, improvements and tasks in detail").locator("xpath=ancestor::*[@data-slot='card'][1]");
+  await expect(card.getByRole("tab", { name: /Bugs/ })).toHaveAttribute("aria-selected", "true");
+  await expect(card.getByText("By App Type")).toBeVisible();
+  await expect(card.getByText("Oldest open bugs")).toBeVisible();
+  await expect(card.getByLabel("Bugs by stage")).toBeVisible();
+
+  await card.getByRole("tab", { name: /Improvements/ }).click();
+  await expect(card.getByText("Oldest open improvements")).toBeVisible();
+  await card.getByRole("button", { name: /Show weekly trend/ }).click();
+  await expect(card.getByText(/Last 8 weeks, this release: \d+ reported, \d+ fixed/)).toBeVisible({ timeout: 30_000 });
+  await card.screenshot({ path: "test-results/dashboard-breakdown.png" });
+
+  // category filter narrows the whole dashboard to one category
+  await page.getByLabel("Filter dashboard by category").click();
+  await page.getByRole("option", { name: "Bug", exact: true }).click();
+  await expect(page.getByText("Bugs in detail")).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Improvements/ })).toHaveCount(0);
+});
+
 test("dashboard: detailed progress card, and admin exports a date-range Excel report", async ({ page }) => {
   test.setTimeout(120_000);
   await login(page, "admin@example.com");

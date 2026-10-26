@@ -17,6 +17,9 @@ import { PageHeader } from "@/components/common/page-header";
 import { MetricsView, StatTile } from "@/components/dashboard/metrics-view";
 import { ProgressCard } from "@/components/dashboard/progress-card";
 import { ExportReportDialog } from "@/components/dashboard/export-report-dialog";
+import { CategoryBreakdownCard } from "@/components/dashboard/category-breakdown";
+import { TASK_TYPE_LABELS } from "@/lib/constants";
+import { TASK_TYPES, type TaskType } from "@/types";
 
 const ALL = "__all__";
 
@@ -25,13 +28,16 @@ export default function DashboardPage() {
   const { activeSprint, appTypes, users, loading } = useData();
   const live = useSprintTasks(activeSprint?.id ?? null, actor.uid);
   const [appTypeId, setAppTypeId] = useState(ALL);
+  const [category, setCategory] = useState<TaskType | typeof ALL>(ALL);
   const [exportOpen, setExportOpen] = useState(false);
   const isAdmin = canManageUsers(actor);
 
-  const tasks = useMemo(
+  // App Type filter applies everywhere; the category filter also narrows the summary cards.
+  const appTasks = useMemo(
     () => (appTypeId === ALL ? live.tasks : live.tasks.filter((t) => t.appTypeId === appTypeId)),
     [live.tasks, appTypeId],
   );
+  const tasks = useMemo(() => (category === ALL ? appTasks : appTasks.filter((t) => t.type === category)), [appTasks, category]);
   const metrics = useMemo(() => computeSprintMetrics(tasks, users, appTypes), [tasks, users, appTypes]);
   const progress = useMemo(() => (activeSprint ? sprintProgress(tasks, activeSprint) : null), [tasks, activeSprint]);
 
@@ -79,6 +85,19 @@ export default function DashboardPage() {
         }
         actions={
           <>
+            <Select value={category} onValueChange={(v) => setCategory(v as TaskType | typeof ALL)}>
+              <SelectTrigger className="w-44" aria-label="Filter dashboard by category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value={ALL}>All categories</SelectItem>
+                {TASK_TYPES.map((ty) => (
+                  <SelectItem key={ty} value={ty}>
+                    {TASK_TYPE_LABELS[ty]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={appTypeId} onValueChange={setAppTypeId}>
               <SelectTrigger className="w-48" aria-label="Filter dashboard by App Type">
                 <SelectValue />
@@ -115,6 +134,7 @@ export default function DashboardPage() {
               />
             </div>
           </div>
+          <CategoryBreakdownCard tasks={appTasks} sprint={activeSprint} only={category === ALL ? null : category} />
           <MetricsView metrics={metrics} />
         </div>
       )}

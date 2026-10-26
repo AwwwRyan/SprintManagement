@@ -43,6 +43,40 @@ function Flag({ icon: Icon, label, value, tone }: { icon: typeof AlertTriangle; 
   );
 }
 
+/** Segmented bar + legend of tasks per workflow stage (also used per category). */
+export function StageBar({ stages, total, legendLabel = "Progress legend" }: { stages: SprintProgress["stages"]; total: number; legendLabel?: string }) {
+  return (
+    <div>
+      <div
+        className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted"
+        role="img"
+        aria-label={stages.map((s) => `${STAGE_META[s.key].label} ${s.count}`).join(", ")}
+      >
+        {stages
+          .filter((s) => s.count > 0)
+          .map((s) => (
+            <div
+              key={s.key}
+              className={cn("h-full first:rounded-l-full last:rounded-r-full", STAGE_META[s.key].bar)}
+              style={{ width: `${(s.count / Math.max(1, total)) * 100}%` }}
+              title={`${STAGE_META[s.key].label}: ${s.count} (${s.pct}%)`}
+            />
+          ))}
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs" aria-label={legendLabel}>
+        {stages.map((s) => (
+          <li key={s.key} className="flex items-center gap-1.5">
+            <span className={cn("size-2.5 rounded-sm", STAGE_META[s.key].dot)} aria-hidden />
+            <span>{STAGE_META[s.key].label}</span>
+            <span className="font-semibold tabular-nums">{s.count}</span>
+            <span className="text-muted-foreground tabular-nums">({s.pct}%)</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Detailed sprint progress: stage breakdown, time used vs work done, and warning counts. */
 export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress; sprint: Sprint }) {
   const done = p.stages[0].count + p.stages[1].count; // released + done
@@ -63,34 +97,7 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
         </div>
 
         {/* Work: segmented by stage */}
-        <div>
-          <div
-            className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted"
-            role="img"
-            aria-label={p.stages.map((s) => `${STAGE_META[s.key].label} ${s.count}`).join(", ")}
-          >
-            {p.stages
-              .filter((s) => s.count > 0)
-              .map((s) => (
-                <div
-                  key={s.key}
-                  className={cn("h-full first:rounded-l-full last:rounded-r-full", STAGE_META[s.key].bar)}
-                  style={{ width: `${(s.count / Math.max(1, p.total)) * 100}%` }}
-                  title={`${STAGE_META[s.key].label}: ${s.count} (${s.pct}%)`}
-                />
-              ))}
-          </div>
-          <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs" aria-label="Progress legend">
-            {p.stages.map((s) => (
-              <li key={s.key} className="flex items-center gap-1.5">
-                <span className={cn("size-2.5 rounded-sm", STAGE_META[s.key].dot)} aria-hidden />
-                <span>{STAGE_META[s.key].label}</span>
-                <span className="font-semibold tabular-nums">{s.count}</span>
-                <span className="text-muted-foreground tabular-nums">({s.pct}%)</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <StageBar stages={p.stages} total={p.total} />
 
         {/* Time: how much of the sprint has elapsed */}
         <div>
