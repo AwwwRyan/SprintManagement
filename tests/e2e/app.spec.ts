@@ -55,7 +55,9 @@ test("login lands on the active release with its tasks", async ({ page }) => {
   await login(page, "dev1@example.com");
   await expect(page.getByRole("heading", { name: "Release 14" })).toBeVisible();
   await expect(page.getByRole("grid", { name: "Tasks" })).toBeVisible();
-  await expect(page.getByText("25 tasks")).toBeVisible();
+  // the header and the grid agree on the count
+  await expect(page.getByText(/^25 tasks · \d+% complete$/)).toBeVisible();
+  await expect(page.getByText(/^25 tasks · Arrow keys/)).toBeVisible();
   // carried-over tasks show the badge
   await expect(page.getByTitle("Carried over 1 time").first()).toBeVisible();
 });
@@ -272,6 +274,71 @@ test("suggestion box: anyone shares one with a picture; QA adds it to a release 
   await dev.ctx.close();
 });
 
+test("Backlog and All Tasks: QA moves tasks between a release and the Backlog; counts stay per release", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const qa = await newSession(browser, "qa2@example.com");
+  const page = qa.page;
+  const footer = page.getByText(/^\d+ (of \d+ )?tasks · Arrow keys/);
+  await expect(row(page, "TSK-11")).toBeVisible();
+  const releaseTotal = Number((await footer.textContent())!.match(/^(\d+)/)![1]);
+
+  // tick two tasks in the release and move them to the Backlog
+  await row(page, "TSK-11").getByRole("checkbox", { name: "Select TSK-11" }).check();
+  await row(page, "TSK-12").getByRole("checkbox", { name: "Select TSK-12" }).check(); // TSK-13 is Ready to Release: not allowed
+  await expect(page.getByRole("region", { name: "Selected tasks" })).toContainText("2 tasks selected");
+  await page.getByRole("button", { name: "Move to…" }).click();
+  const move = page.getByRole("dialog", { name: "Move 2 tasks to…" });
+  await move.getByRole("radio", { name: /Backlog/ }).click();
+  await move.getByRole("button", { name: "Move 2 tasks" }).click();
+  await expect(page.getByText("Moved 2 tasks to Backlog")).toBeVisible({ timeout: 30_000 });
+  await expect(row(page, "TSK-11")).toHaveCount(0);
+  await expect(footer).toHaveText(new RegExp(`^${releaseTotal - 2} tasks`)); // the release count only counts its own tasks
+
+  // Backlog page lists them (+ the 3 seeded); move one back from the task panel
+  await page.getByRole("link", { name: "Backlog" }).click();
+  await expect(page.getByRole("heading", { name: "Backlog" })).toBeVisible({ timeout: 90_000 });
+  await expect(row(page, "TSK-11")).toBeVisible();
+  await expect(footer).toHaveText(/^5 tasks/);
+  await row(page, "TSK-11").locator("td").nth(COL.srNo + 0).getByText(/^\d+$/).click();
+  await page.getByRole("button", { name: "Move to…" }).click();
+  await page.getByRole("dialog", { name: "Move TSK-11 to…" }).getByRole("radio", { name: /Release 14/ }).click();
+  await page.getByRole("button", { name: "Move 1 task" }).click();
+  await expect(page.getByText("Moved 1 task to Release 14")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("dialog", { name: /TSK-11/ }).getByText(/moved this task from Backlog to Release 14/)).toHaveCount(0); // activity tab not open
+  await page.getByRole("button", { name: "Close panel" }).click();
+  await expect(row(page, "TSK-11")).toHaveCount(0);
+
+  // All Tasks: everything, with a Release column and filter
+  await page.getByRole("link", { name: "All Tasks" }).click();
+  await expect(page.getByRole("heading", { name: "All Tasks" })).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByRole("columnheader", { name: "Release", exact: true })).toBeVisible();
+  await expect(row(page, "TSK-1")).toBeVisible(); // a task from the closed Release 13
+  await page.getByRole("button", { name: /^Release/ }).first().click();
+  await page.getByRole("menuitemcheckbox", { name: "Backlog" }).click();
+  await page.keyboard.press("Escape");
+  await expect(footer).toHaveText(/^4 of \d+ tasks/);
+
+  // a developer sees no tick boxes / Move
+  const dev = await newSession(browser, "dev1@example.com");
+  await expect(dev.page.getByRole("checkbox", { name: /^Select TSK-/ })).toHaveCount(0);
+  await dev.ctx.close();
+  await qa.ctx.close();
+});
+
+test("dashboard: pick any release; numbers only cover that release", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "qa1@example.com");
+  await page.goto("/dashboard");
+  const picker = page.getByRole("combobox", { name: "Release shown on the dashboard" });
+  await expect(picker).toContainText("Release 14", { timeout: 60_000 });
+  await picker.click();
+  const options = page.getByRole("option");
+  await expect(options.first()).toContainText("Release 14 (active)"); // the active one first
+  await page.getByRole("option", { name: /Release 13/ }).click();
+  await expect(page.getByText(/closed: carried-over tasks have moved on/)).toBeVisible();
+  await expect(page.getByText(/^\d+ tasks in this release/).or(page.getByText(/\d+ tasks in this release/)).first()).toBeVisible();
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task
@@ -359,7 +426,7 @@ test("filters persist in the URL", async ({ page }) => {
 test("date filter: pick which date and a range, in the grid (kept in the URL) and on the dashboard", async ({ page }) => {
   test.setTimeout(120_000);
   await login(page, "qa2@example.com");
-  const footer = page.getByText(/^\d+ (of \d+ )?tasks/);
+  const footer = page.getByText(/^\d+ (of \d+ )?tasks · Arrow keys/);
   await expect(row(page, "TSK-9")).toBeVisible(); // grid loaded (the footer says "0 tasks" while loading)
   const total = Number((await footer.textContent())!.match(/^(\d+)/)![1]);
 
@@ -516,15 +583,18 @@ test("starting a second release while one is active is blocked", async ({ page }
   await expect(page.getByText(/already active/)).toBeVisible();
 });
 
-test("close release carries tasks forward and produces a report", async ({ page }) => {
+test("close release: every unfinished task goes to the next release or the Backlog; report", async ({ page }) => {
   await login(page, "qa1@example.com");
   await page.getByRole("button", { name: "Close release" }).click();
   const dialog = page.getByRole("dialog", { name: "Close Release 14" });
   await expect(dialog).toBeVisible();
-  // leave TSK-10 behind
-  await dialog.getByRole("checkbox", { name: "Carry TSK-10" }).click();
+  // Ready to Release tasks can't be sent to the Backlog
+  await expect(dialog.getByRole("radio", { name: /: Backlog$/ }).and(dialog.locator("[disabled]")).first()).toBeVisible();
+  // send TSK-10 to the Backlog, everything else to the next release
+  await dialog.getByRole("radio", { name: "TSK-10: Backlog" }).click();
+  await expect(dialog.getByText(/\d+ to next release · 1 to Backlog/)).toBeVisible();
   await dialog.getByRole("button", { name: "Close release" }).click();
-  await expect(page.getByText(/finished, \d+ carried to Release 15, 1 left incomplete/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/finished, \d+ carried to Release 15, 1 moved to the Backlog/)).toBeVisible({ timeout: 30_000 });
 
   // closed sprint is read-only and has a report
   await expect(page.getByRole("link", { name: "View report" })).toBeVisible();
@@ -532,10 +602,13 @@ test("close release carries tasks forward and produces a report", async ({ page 
   await page.getByRole("link", { name: "View report" }).click();
   await page.waitForURL(/\/report/);
   await expect(page.getByText("Release 14: Release report")).toBeVisible({ timeout: 120_000 }); // first visit compiles the route in dev
-  await expect(page.getByText(/Left incomplete \(1\)/)).toBeVisible();
+  await expect(page.getByText(/Moved to the Backlog \(1\)/)).toBeVisible();
+  await expect(page.getByText(/Left incomplete/)).toHaveCount(0);
 
-  // carried tasks keep their key in the next sprint
+  // carried tasks keep their key in the next release; TSK-10 waits in the Backlog
   await page.goto("/releases/s15");
   await expect(row(page, "TSK-9")).toBeVisible();
   await expect(row(page, "TSK-10")).toHaveCount(0);
+  await page.goto("/backlog");
+  await expect(row(page, "TSK-10")).toBeVisible({ timeout: 60_000 });
 });

@@ -628,3 +628,70 @@ describe("suggestions", () => {
     );
   });
 });
+
+describe("backlog", () => {
+  const backlogDoc = (uid: string) => ({
+    name: "Backlog",
+    goal: "",
+    startDate: "",
+    endDate: "",
+    status: "backlog",
+    createdBy: uid,
+    createdAt: serverTimestamp(),
+    closedAt: null,
+    closedBy: null,
+  });
+  const seedBacklog = () =>
+    env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore() as unknown as Firestore;
+      await setDoc(doc(db, "sprints", "backlog"), { ...backlogDoc(UIDS.admin), createdAt: Timestamp.now() });
+      await setDoc(doc(db, "tasks", "t-back"), baseTask({ taskKey: "TSK-8", sprintId: "backlog", assigneeIds: [] }));
+    });
+  const move = (who: "admin" | "qa" | "dev", taskId: string, sprintId: string, extra: Record<string, unknown> = {}) =>
+    updateDoc(doc(fsOf(as(env, who)), "tasks", taskId), { sprintId, updatedBy: UIDS[who], updatedAt: serverTimestamp(), ...extra });
+
+  it("only an admin sets up the Backlog doc, and nobody edits it afterwards", async () => {
+    await assertFails(setDoc(doc(fsOf(as(env, "qa")), "sprints", "backlog"), backlogDoc(UIDS.qa)));
+    await assertFails(setDoc(doc(fsOf(as(env, "admin")), "sprints", "backlog"), { ...backlogDoc(UIDS.admin), name: "Other" }));
+    await assertSucceeds(setDoc(doc(fsOf(as(env, "admin")), "sprints", "backlog"), backlogDoc(UIDS.admin)));
+    await assertFails(updateDoc(doc(fsOf(as(env, "admin")), "sprints", "backlog"), { name: "Renamed" }));
+    await assertFails(updateDoc(doc(fsOf(as(env, "admin")), "sprints", "backlog"), { status: "active" }));
+  });
+  it("a normal release can't take the Backlog's id", async () => {
+    await assertFails(
+      setDoc(doc(fsOf(as(env, "qa")), "sprints", "backlog"), {
+        name: "Sneaky",
+        goal: "",
+        startDate: "2026-01-01",
+        endDate: "2026-01-14",
+        status: "planned",
+        createdBy: UIDS.qa,
+        createdAt: serverTimestamp(),
+        closedAt: null,
+        closedBy: null,
+      }),
+    );
+  });
+  it("everyone edits Backlog tasks", async () => {
+    await seedBacklog();
+    await assertSucceeds(updateDoc(doc(fsOf(as(env, "dev2")), "tasks", "t-back"), { title: "Edited in backlog", updatedBy: UIDS.dev2, updatedAt: serverTimestamp() }));
+  });
+  it("QA/Admin move tasks between a release and the Backlog; developers can't", async () => {
+    await seedBacklog();
+    await assertFails(move("dev", "t-dev", "backlog"));
+    await assertSucceeds(move("qa", "t-dev", "backlog"));
+    await assertSucceeds(move("admin", "t-back", "s-active"));
+  });
+  it("Ready to Release and Released tasks never go to the Backlog", async () => {
+    await seedBacklog();
+    await assertFails(move("qa", "t-dev", "backlog", { status: "done" }));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore() as unknown as Firestore, "tasks", "t-dev"), { status: "released" });
+    });
+    await assertFails(move("admin", "t-dev", "backlog"));
+  });
+  it("tasks can't be moved into a closed release", async () => {
+    await seedBacklog();
+    await assertFails(move("admin", "t-back", "s-closed"));
+  });
+});

@@ -123,22 +123,28 @@ describe("planCarryForward", () => {
     task({ id: "e", status: "duplicate", order: 5 }),
   ];
 
-  it("carries only selected unfinished tasks, keeping status and relative order", () => {
-    const plan = planCarryForward(tasks, ["a", "b", "c"], 1000);
-    expect(plan.carried.map((c) => c.taskId)).toEqual(["c", "b"]);
+  it("splits unfinished tasks between the next release and the Backlog, keeping order", () => {
+    const plan = planCarryForward(tasks, ["a", "b", "c"], ["d"], 1000, 5000);
+    expect(plan.carried.map((c) => c.taskId)).toEqual(["c", "b"]); // "a" is Released: ignored
     expect(plan.carried.map((c) => c.newOrder)).toEqual([1001, 1002]);
-    expect(plan.carried.find((c) => c.taskId === "b")).toMatchObject({
-      finalStatusInSprint: "in_progress",
-      newCarryOverCount: 2,
-    });
+    expect(plan.carried.find((c) => c.taskId === "b")).toMatchObject({ finalStatusInSprint: "in_progress", newCarryOverCount: 2 });
+    expect(plan.toBacklog.map((c) => [c.taskId, c.newOrder])).toEqual([["d", 5001]]);
     expect(plan.completed).toBe(2);
-    expect(plan.leftIncomplete).toBe(1);
+    expect(plan.unassigned).toEqual([]);
+  });
+
+  it("reports unfinished tasks without a destination, and Ready to Release sent to the Backlog", () => {
+    expect(planCarryForward(tasks, ["b"], [], 0).unassigned).toHaveLength(2); // c and d have no destination
+    const bad = planCarryForward(tasks, ["b", "d"], ["c"], 0);
+    expect(bad.notAllowedInBacklog).toHaveLength(1);
+    expect(bad.toBacklog).toHaveLength(0);
   });
 
   it("produces the success summary", () => {
-    const plan = planCarryForward(tasks, ["b", "c"], 0);
-    expect(carrySummary(plan, "Sprint 15")).toBe("2 finished, 2 carried to Sprint 15, 1 left incomplete.");
-    expect(carrySummary(planCarryForward(tasks, [], 0), null)).toBe("2 finished, 3 left incomplete.");
+    expect(carrySummary(planCarryForward(tasks, ["b", "c"], ["d"], 0), "Release 15")).toBe(
+      "2 finished, 2 carried to Release 15, 1 moved to the Backlog.",
+    );
+    expect(carrySummary(planCarryForward(tasks, ["b", "c", "d"], [], 0), null)).toBe("2 finished, 3 carried to the next release.");
   });
 });
 

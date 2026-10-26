@@ -59,6 +59,18 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Backlog, All Tasks, moving tasks (2026-10-26)
+- A task lives in exactly one place: a release or the **Backlog**. The Backlog is one permanent special doc `sprints/backlog` (status "backlog", `BACKLOG_ID`), so tasks, comments, pictures, rules, links and the grid work there unchanged. `useData()` leaves it out of `sprints` (release lists and pickers) and exposes it as `backlog`; `sprintById` includes it. An admin sets it up once with the button on the Backlog page (rules allow only that exact doc, never edited).
+- **Backlog page**: like a release (anyone edits and adds tasks; reorder by drag). **All Tasks page**: every task in every release and the Backlog, with a Release column and filter; each row is editable only if its release is open. It reads every task, so mind the Spark read quota as the list grows.
+- **Move to… (QA/Admin)**: from the task panel, or tick rows (box in the Sr No cell) and use the "N selected · Move to…" bar. Destinations are open releases and the Backlog. Key, comments, pictures and history move with the task; a `sprintHistory` entry and a "moved" activity entry are written.
+- **Ready to Release and Released tasks never go to the Backlog** (owner's rule; enforced in the rules too).
+- **Closing a release**: every unfinished task must get a destination, next release or Backlog (Ready to Release: release only). Nothing is left behind any more. "Send all" buttons exist for both. The report lists "Moved to the Backlog"; older reports still show "Left incomplete".
+- Suggestions can also be added to the Backlog.
+
+## Counts (2026-10-26)
+- A release's task count is now **every task in it**. Completion % is shown separately: (Ready to Release + Released) / (all − Closed − Duplicate). Before, the list showed the % denominator as the count (e.g. 267 vs 293 in the grid).
+- Dashboard: release picker (active first, then planned, then closed). Every number covers only the chosen release (not the Backlog or other releases). "Open tasks" no longer counts Closed/Duplicate as open.
+
 ## Date filter (2026-10-26)
 - Task grid (Releases + My Tasks) and Dashboard get a **Date** filter: pick which date (Created / Due date / Release date), then a quick pick (Today, This week, Next 7 days, Last 7 days, This month, Last month) or a From/To range, inclusive. Weeks start Monday.
 - Tasks without the chosen date are hidden while the filter is on (said in the popover).
