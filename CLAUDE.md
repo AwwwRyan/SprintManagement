@@ -61,9 +61,9 @@ Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Ty
 
 ## Testing status (last full run: 2026-10-26)
 - Unit: 100 tests in 11 files, all passing.
-- Rules: 66 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
+- Rules: 67 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 25 Playwright flows, all passing (see the README for the list).
+- E2E: 26 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas
@@ -94,6 +94,7 @@ All 12 build phases from the spec are implemented and verified locally against t
 - [x] Remarks column (`tasks.remarks`), editable by everyone; 97 Excel remarks backfilled from the import comments (2026-10-13).
 - [x] Excel bug list imported: 256 tasks TSK-1…256 in the active sprint "Release 1 (imported from Excel)" (renamed from "Sprint 1 …") (see DECISIONS.md "Excel import"). Source file in git-ignored `import/`. Don't re-run the import.
 - [x] Extra accounts (no invites): Mishal (developer), Nikita (QA, QA Engineer), Ashis (developer, no designation).
+- [x] Bala (md@) and Badri (badriparam@) added as **admins**, no designation, no invites (2026-10-26); also in `team.json`.
 - [x] Team accounts created WITHOUT emails (2026-10-12): Sudharsan (CTO) and Sreevani (Senior QA) are **admins** with Aryan; Prithika and Hariharan are QA; Sameeh and Nagma are developers (emails in git-ignored `team.json`). Nobody but Aryan can sign in yet.
 - [x] Workflow refactor (Category, statuses, single Priority, multiple assignees) + drag-and-drop order: pushed, rules + `assigneeIds` index deployed, live data migrated with `scripts/migrate-workflow.ts` (re-running it previews 0 changes) (2026-10-22). The old `tasks(sprintId, assigneeId, order)` index can be removed with `firebase deploy --only firestore:indexes --force`.
 - [x] Excel sync (2026-10-22): the newer "Medicpassport Bug list Aug 2026.xlsx" applied with `scripts/sync-xlsx.ts`: 65 tasks updated, 38 new (TSK-260…297), QA owners → Hariharan. `import/Medicpassport Bug list Aug 2026.xlsx` is now the baseline for the next sync (the first one is kept as "… (imported 2026-10-12).xlsx").
