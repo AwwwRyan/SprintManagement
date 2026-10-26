@@ -19,7 +19,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   on_hold: "On Hold",
   dev_done: "Dev Done",
   testing: "Testing in Progress",
-  done: "Done",
+  done: "Ready to Release",
   released: "Released",
   closed: "Closed",
   duplicate: "Duplicate",

@@ -7,7 +7,7 @@ export const contentType = "image/png";
 
 const STAGES = [
   { label: "Released", share: 34, color: "#059669" },
-  { label: "Done", share: 18, color: "#34d399" },
+  { label: "Ready to release", share: 18, color: "#34d399" },
   { label: "Testing", share: 16, color: "#a855f7" },
   { label: "In progress", share: 20, color: "#3b82f6" },
   { label: "Pending", share: 12, color: "#52525b" },

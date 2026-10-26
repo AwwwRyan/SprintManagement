@@ -51,7 +51,7 @@ Admin → Users → Add user defaults to **"Email them a link to set their own p
 Decided with the owner:
 - **Category** (was "Type"): Bug, Improvement, Task. Old values map requirement → Task, enhancement → Improvement.
 - **Statuses**: Pending, In Progress, On Hold, Dev Done, Testing in Progress, Done, Released, Closed, Duplicate. Blocked and Reopened are gone (blocked → On Hold, reopened → In Progress; todo → Pending, ready_for_qa → Dev Done, qa_testing → Testing in Progress).
-- **Done = testing finished but not live yet.** Done tasks still carry into the next release. Only Released, Closed and Duplicate are "finished" (`lib/task-model.ts`).
+- **Done = testing finished but not live yet.** Shown as **"Ready to Release"** since 2026-10-26 (label only; the stored value is still `done`). Done tasks still carry into the next release. Only Released, Closed and Duplicate are "finished" (`lib/task-model.ts`).
 - **Completion % = (Done + Released) ÷ (all − Closed − Duplicate).** Closed and Duplicate drop out of the total.
 - **One Priority** (Critical / High / Medium / Low). Severity was removed; the dashboard shows open bugs by priority.
 - **Multiple assignees** (`assigneeIds`, max 20). In person breakdowns each assignee gets the task's full hours (not split). My Tasks uses `array-contains`. The cell editor saves once when the picker closes, so one write and one activity entry.

@@ -135,7 +135,7 @@ test("statuses include On Hold, Released and Duplicate; the old Description colu
   await expect(page.getByRole("columnheader", { name: "Severity" })).toHaveCount(0);
   const status = row(page, "TSK-11").locator("td").nth(COL.status);
   await status.click();
-  for (const name of ["Pending", "On Hold", "Dev Done", "Testing in Progress", "Released", "Closed", "Duplicate"]) {
+  for (const name of ["Pending", "On Hold", "Dev Done", "Testing in Progress", "Ready to Release", "Released", "Closed", "Duplicate"]) {
     await expect(page.getByRole("option", { name, exact: true })).toBeVisible();
   }
   await page.getByRole("option", { name: "On Hold", exact: true }).click();

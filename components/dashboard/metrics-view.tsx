@@ -135,7 +135,7 @@ export function MetricsView({ metrics }: { metrics: SprintMetrics }) {
               <tr>
                 <th className="pb-2 text-left font-medium">App Type</th>
                 <th className="pb-2 text-right font-medium">Tasks</th>
-                <th className="pb-2 text-right font-medium">Done</th>
+                <th className="pb-2 text-right font-medium">Completed</th>
                 <th className="w-40 pb-2 pl-4 text-left font-medium">Completion</th>
               </tr>
             </thead>
@@ -191,7 +191,7 @@ export function MetricsView({ metrics }: { metrics: SprintMetrics }) {
                 <tr>
                   <th className="pb-2 text-left font-medium">Assignee</th>
                   <th className="pb-2 text-right font-medium">Assigned</th>
-                  <th className="pb-2 text-right font-medium">Done</th>
+                  <th className="pb-2 text-right font-medium">Completed</th>
                   <th className="pb-2 text-right font-medium">Estimated (h)</th>
                   <th className="pb-2 text-right font-medium">Actual (h)</th>
                 </tr>

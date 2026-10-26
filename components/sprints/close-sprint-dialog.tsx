@@ -111,7 +111,7 @@ export function CloseSprintDialog({
         <DialogHeader>
           <DialogTitle>Close {sprint.name}</DialogTitle>
           <DialogDescription>
-            {doneCount} of {tasks.length} tasks are released, closed or duplicate. Done (tested, not yet released) tasks
+            {doneCount} of {tasks.length} tasks are released, closed or duplicate. &ldquo;Ready to Release&rdquo; tasks
             count as unfinished. Choose which unfinished tasks to carry into the next release.
             Their status, comments, attachments and history move with them.
           </DialogDescription>

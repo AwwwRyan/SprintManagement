@@ -9,7 +9,7 @@ import type { Sprint } from "@/types";
 
 const STAGE_META: Record<ProgressStage, { label: string; bar: string; dot: string }> = {
   released: { label: "Released", bar: "bg-emerald-600", dot: "bg-emerald-600" },
-  done: { label: "Done (tested)", bar: "bg-emerald-400", dot: "bg-emerald-400" },
+  done: { label: "Ready to release", bar: "bg-emerald-400", dot: "bg-emerald-400" },
   qa: { label: "Dev done / testing", bar: "bg-purple-500", dot: "bg-purple-500" },
   inProgress: { label: "In progress", bar: "bg-blue-500", dot: "bg-blue-500" },
   pending: { label: "Pending", bar: "bg-slate-300 dark:bg-slate-600", dot: "bg-slate-400" },
