@@ -102,12 +102,13 @@ export function AddToReleaseDialog({ suggestion: s, onClose }: { suggestion: Sug
             <Field label="Task" htmlFor="atr-title">
               <Input id="atr-title" value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
             </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
+            {/* App Type names are long ("DOCTOR Doctor App"), so it gets its own row */}
+            <Field label="App Type">
+              <PropSelect label="App Type" value={appTypeId} options={appTypeOptions(appTypes)} onChange={setAppTypeId} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Category">
                 <PropSelect label="Category" value={type} options={typeOptions} onChange={(v) => v && setType(v as TaskType)} />
-              </Field>
-              <Field label="App Type">
-                <PropSelect label="App Type" value={appTypeId} options={appTypeOptions(appTypes)} onChange={setAppTypeId} />
               </Field>
               <Field label="Priority">
                 <PropSelect label="Priority" value={priority} options={priorityOptions} onChange={(v) => v && setPriority(v as Priority)} />
