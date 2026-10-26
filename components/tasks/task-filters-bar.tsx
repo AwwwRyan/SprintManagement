@@ -31,6 +31,7 @@ import {
   userOptions,
   type Option,
 } from "./options";
+import { DateFilterControl } from "./date-filter-control";
 
 /** URL query string <-> filter state. Other params (e.g. ?task=) are preserved. */
 export function useTaskFilters(): [TaskFilters, (next: TaskFilters) => void] {
@@ -142,7 +143,7 @@ export function TaskFiltersBar({
         onChange={(v) => onChange({ ...filters, appTypeId: v })}
       />
       <MultiFilter
-        label="Type"
+        label="Category"
         options={typeOptions}
         selected={filters.type}
         onChange={(v) => onChange({ ...filters, type: v as TaskFilters["type"] })}
@@ -173,6 +174,7 @@ export function TaskFiltersBar({
         selected={filters.priority}
         onChange={(v) => onChange({ ...filters, priority: v as TaskFilters["priority"] })}
       />
+      <DateFilterControl value={filters.date} onChange={(date) => onChange({ ...filters, date })} />
       {hasActiveFilters(filters) && (
         <Button variant="ghost" size="sm" onClick={() => onChange(EMPTY_FILTERS)}>
           <X /> Clear filters

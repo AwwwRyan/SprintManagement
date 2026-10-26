@@ -1,4 +1,5 @@
 /** Task table filters: URL <-> state, and the pure filter/search function. */
+import { DATE_FIELDS, matchesDate, type DatedTask, type DateFilter } from "@/lib/date-filter";
 import {
   PRIORITIES,
   TASK_STATUSES,
@@ -20,6 +21,8 @@ export interface TaskFilters {
   status: TaskStatus[];
   priority: Priority[];
   q: string;
+  /** which date (created / due / release) and an inclusive range; null = no date filter */
+  date: DateFilter | null;
 }
 
 export const EMPTY_FILTERS: TaskFilters = {
@@ -30,6 +33,7 @@ export const EMPTY_FILTERS: TaskFilters = {
   status: [],
   priority: [],
   q: "",
+  date: null,
 };
 
 const LIST_KEYS = ["appTypeId", "type", "moduleId", "assigneeId", "status", "priority"] as const;
@@ -68,7 +72,21 @@ export function parseFilters(params: ParamsLike): TaskFilters {
     status: list("status").filter(oneOf(TASK_STATUSES)),
     priority: list("priority").filter(oneOf(PRIORITIES)),
     q: params.get(PARAM.q) ?? "",
+    date: parseDate(params),
   };
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** ?date=due&from=2026-10-01&to=2026-10-31 (either end may be missing). */
+function parseDate(params: ParamsLike): DateFilter | null {
+  const field = params.get("date");
+  if (!field || !(DATE_FIELDS as readonly string[]).includes(field)) return null;
+  const from = params.get("from");
+  const to = params.get("to");
+  const ok = (v: string | null) => (v && ISO_DAY.test(v) ? v : null);
+  if (!ok(from) && !ok(to)) return null;
+  return { field: field as DateFilter["field"], from: ok(from), to: ok(to) };
 }
 
 /** Writes filters into `base` (other params such as ?task= are preserved). */
@@ -81,17 +99,23 @@ export function writeFilters(base: URLSearchParams, filters: TaskFilters): URLSe
   }
   if (filters.q.trim()) next.set(PARAM.q, filters.q);
   else next.delete(PARAM.q);
+  for (const k of ["date", "from", "to"]) next.delete(k);
+  if (filters.date && (filters.date.from || filters.date.to)) {
+    next.set("date", filters.date.field);
+    if (filters.date.from) next.set("from", filters.date.from);
+    if (filters.date.to) next.set("to", filters.date.to);
+  }
   return next;
 }
 
 export function hasActiveFilters(f: TaskFilters): boolean {
-  return LIST_KEYS.some((k) => f[k].length > 0) || f.q.trim() !== "";
+  return LIST_KEYS.some((k) => f[k].length > 0) || f.q.trim() !== "" || !!(f.date && (f.date.from || f.date.to));
 }
 
 type FilterableTask = Pick<
   Task,
   "appTypeId" | "type" | "moduleId" | "assigneeIds" | "status" | "priority" | "title" | "descriptionText" | "taskKey"
-> & { remarks?: string };
+> & { remarks?: string } & DatedTask;
 
 export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilters): T[] {
   const q = f.q.trim().toLowerCase();
@@ -105,6 +129,7 @@ export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilter
     }
     if (f.status.length && !f.status.includes(t.status)) return false;
     if (f.priority.length && !f.priority.includes(t.priority)) return false;
+    if (!matchesDate(t, f.date)) return false;
     if (q) {
       const hay = `${t.taskKey} ${t.title} ${t.descriptionText} ${t.remarks ?? ""}`.toLowerCase();
       if (!hay.includes(q)) return false;

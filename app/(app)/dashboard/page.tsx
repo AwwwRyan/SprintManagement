@@ -18,6 +18,8 @@ import { MetricsView, StatTile } from "@/components/dashboard/metrics-view";
 import { ProgressCard } from "@/components/dashboard/progress-card";
 import { ExportReportDialog } from "@/components/dashboard/export-report-dialog";
 import { CategoryBreakdownCard } from "@/components/dashboard/category-breakdown";
+import { DateFilterControl } from "@/components/tasks/date-filter-control";
+import { matchesDate, type DateFilter } from "@/lib/date-filter";
 import { TASK_TYPE_LABELS } from "@/lib/constants";
 import { TASK_TYPES, type TaskType } from "@/types";
 
@@ -29,13 +31,14 @@ export default function DashboardPage() {
   const live = useSprintTasks(activeSprint?.id ?? null, actor.uid);
   const [appTypeId, setAppTypeId] = useState(ALL);
   const [category, setCategory] = useState<TaskType | typeof ALL>(ALL);
+  const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const isAdmin = canManageUsers(actor);
 
-  // App Type filter applies everywhere; the category filter also narrows the summary cards.
+  // App Type and date filters apply everywhere; the category filter also narrows the summary cards.
   const appTasks = useMemo(
-    () => (appTypeId === ALL ? live.tasks : live.tasks.filter((t) => t.appTypeId === appTypeId)),
-    [live.tasks, appTypeId],
+    () => live.tasks.filter((t) => (appTypeId === ALL || t.appTypeId === appTypeId) && matchesDate(t, dateFilter)),
+    [live.tasks, appTypeId, dateFilter],
   );
   const tasks = useMemo(() => (category === ALL ? appTasks : appTasks.filter((t) => t.type === category)), [appTasks, category]);
   const metrics = useMemo(() => computeSprintMetrics(tasks, users, appTypes), [tasks, users, appTypes]);
@@ -85,6 +88,7 @@ export default function DashboardPage() {
         }
         actions={
           <>
+            <DateFilterControl value={dateFilter} onChange={setDateFilter} defaultField="created" />
             <Select value={category} onValueChange={(v) => setCategory(v as TaskType | typeof ALL)}>
               <SelectTrigger className="w-44" aria-label="Filter dashboard by category">
                 <SelectValue />
