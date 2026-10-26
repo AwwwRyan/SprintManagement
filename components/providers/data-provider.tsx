@@ -53,6 +53,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
 
+/** Like useData, but null outside the provider (for shared components such as avatars). */
+export function useOptionalData(): DataState | null {
+  return useContext(DataContext);
+}
+
 export function useData(): DataState {
   const ctx = useContext(DataContext);
   if (!ctx) throw new Error("useData must be used inside <DataProvider>");

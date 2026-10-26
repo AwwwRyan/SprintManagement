@@ -1,7 +1,9 @@
 "use client";
 
-/** Client wrappers for the Admin-SDK-backed user API (app/api/admin/users/...). */
+/** Client wrappers for the Admin-SDK-backed user API (app/api/admin/users/...), plus the avatar colour. */
+import { updateDoc } from "firebase/firestore";
 import { auth } from "@/lib/firebase/client";
+import { ref } from "@/lib/firebase/refs";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validation";
 
 async function call<T>(path: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
@@ -29,3 +31,8 @@ export const updateUser = (uid: string, input: UpdateUserInput) =>
 
 export const resetUserPassword = (uid: string, password: string) =>
   call<{ ok: true }>(`/api/admin/users/${uid}/password`, "POST", { password });
+
+/** The only user field written from the client: rules allow your own, or anyone's for admins. null = automatic. */
+export async function setAvatarColor(userId: string, color: string | null): Promise<void> {
+  await updateDoc(ref.user(userId), { avatarColor: color });
+}

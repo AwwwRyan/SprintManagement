@@ -87,7 +87,7 @@ const taskDefaults: Partial<Omit<Task, "id">> = {
 };
 
 export const converters = {
-  user: converter<AppUser>({ designation: "", active: true }),
+  user: converter<AppUser>({ designation: "", active: true, avatarColor: null }),
   appType: converter<AppType>(),
   module: converter<Module>(),
   sprint: converter<Sprint>({ goal: "", closedAt: null, closedBy: null }),

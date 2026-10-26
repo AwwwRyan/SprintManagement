@@ -1,4 +1,7 @@
-import { cn } from "@/lib/utils";
+"use client";
+
+import { useOptionalData } from "@/components/providers/data-provider";
+import { cn, readableTextColor } from "@/lib/utils";
 
 const PALETTE = [
   "bg-rose-500",
@@ -17,31 +20,40 @@ function colorFor(seed: string) {
   return PALETTE[h % PALETTE.length];
 }
 
-/** Initials avatar with a stable color per user. */
+/**
+ * Initials avatar. Uses the colour the person picked (users.avatarColor, looked up by id),
+ * else a stable automatic colour. `color` overrides both (e.g. a live preview).
+ */
 export function UserAvatar({
   id,
   initials,
   name,
   size = "sm",
+  color,
   className,
 }: {
   id: string;
   initials: string;
   name?: string;
-  size?: "xs" | "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg";
+  color?: string | null;
   className?: string;
 }) {
-  const sizes = { xs: "size-5 text-[9px]", sm: "size-6 text-[10px]", md: "size-8 text-xs" };
+  const data = useOptionalData();
+  const chosen = color !== undefined ? color : (data?.userById.get(id)?.avatarColor ?? null);
+  const sizes = { xs: "size-5 text-[9px]", sm: "size-6 text-[10px]", md: "size-8 text-xs", lg: "size-14 text-lg" };
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white select-none",
-        colorFor(id),
+        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold select-none",
+        chosen ? "" : cn("text-white", colorFor(id)),
         sizes[size],
         className,
       )}
+      style={chosen ? { backgroundColor: chosen, color: readableTextColor(chosen) } : undefined}
       title={name}
       aria-label={name}
+      data-avatar-color={chosen ?? "auto"}
     >
       {initials}
     </span>

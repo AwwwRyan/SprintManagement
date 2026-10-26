@@ -21,6 +21,11 @@ export function canManageUsers(actor: Actor | null): boolean {
   return !!actor?.active && actor.role === "admin";
 }
 
+/** Avatar colour: your own, or anyone's for admins (mirrors the users rule). */
+export function canSetAvatarColor(actor: Actor | null, userId: string): boolean {
+  return !!actor?.active && (actor.uid === userId || actor.role === "admin");
+}
+
 export function canManageMasterData(actor: Actor | null): boolean {
   return !!actor?.active && actor.role === "admin";
 }

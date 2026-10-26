@@ -59,6 +59,8 @@ export interface AppUser {
   designation: string;
   active: boolean;
   initials: string;
+  /** chosen avatar colour ("#rrggbb"); null = automatic */
+  avatarColor: string | null;
   createdAt: TS;
   updatedAt: TS;
 }

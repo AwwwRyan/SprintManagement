@@ -198,6 +198,30 @@ test("columns can be reordered from the menu or by dragging headers, and the ord
   await expect.poll(headers).toEqual(before);
 });
 
+test("people pick their avatar colour; admins can set anyone's", async ({ browser }) => {
+  test.setTimeout(150_000); // two sessions + first compile of /admin/users in dev
+  const dev = await newSession(browser, "dev3@example.com");
+  const accountAvatar = dev.page.getByRole("button", { name: "Account menu" }).locator("[data-avatar-color]");
+  await dev.page.getByRole("button", { name: "Account menu" }).click();
+  await dev.page.getByRole("menuitem", { name: "Avatar colour" }).click();
+  await dev.page.getByRole("radio", { name: "Colour #16a34a" }).click();
+  await dev.page.getByRole("button", { name: "Save" }).click();
+  await expect(accountAvatar).toHaveAttribute("data-avatar-color", "#16a34a");
+  await dev.page.reload();
+  await expect(accountAvatar).toHaveAttribute("data-avatar-color", "#16a34a");
+
+  const admin = await newSession(browser, "admin@example.com");
+  await admin.page.goto("/admin/users");
+  await admin.page.getByRole("button", { name: "Actions for Leo Garcia" }).click();
+  await admin.page.getByRole("menuitem", { name: "Avatar colour" }).click();
+  await admin.page.getByRole("button", { name: "Use automatic colour" }).click();
+  await admin.page.getByRole("button", { name: "Save" }).click();
+  // the developer's own header updates live
+  await expect(accountAvatar).toHaveAttribute("data-avatar-color", "auto");
+  await admin.ctx.close();
+  await dev.ctx.close();
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task

@@ -59,6 +59,12 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Avatar colours (2026-10-26)
+- `users.avatarColor` ("#rrggbb", or null = the automatic colour from the user id). Everyone sees the same colour; text is black or white for contrast.
+- Set from the account menu ("Avatar colour") for yourself, or from Admin → Users → "…" → Avatar colour for anyone.
+- It is the **only user field written from the client**. Rules allow `changed().hasOnly(['avatarColor'])` for yourself or for an admin, with a hex check. Everything else stays Admin SDK only. `canSetAvatarColor` mirrors it.
+- `UserAvatar` looks the colour up by id from `useOptionalData()`, so every existing avatar picks it up without changes at the call sites.
+
 ## Column order (2026-10-26)
 - Columns can be reordered from the **Columns** menu (Move left / Move right, keyboard-reachable) or by dragging headers. "Reset column order" restores the default.
 - **Per person and per view, saved in the browser** (localStorage), like column visibility. It isn't shared with the team or synced across devices.

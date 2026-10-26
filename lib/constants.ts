@@ -86,6 +86,14 @@ export const TREND_CHART_COLORS: Record<"light" | "dark", { reported: string; fi
 };
 export const BAR_CHART_COLOR: Record<"light" | "dark", string> = { light: "#2a78d6", dark: "#3987e5" };
 
+/** Avatar colour choices (text colour is picked automatically for contrast). */
+export const AVATAR_COLORS = [
+  "#e11d48", "#db2777", "#c026d3", "#9333ea", "#7c3aed", "#4f46e5", "#2563eb", "#0284c7",
+  "#0891b2", "#0d9488", "#059669", "#16a34a", "#65a30d", "#ca8a04", "#ea580c", "#dc2626",
+  "#78716c", "#475569", "#171717", "#f472b6", "#38bdf8", "#4ade80", "#facc15", "#fb923c",
+] as const;
+export const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
 /* Attachments (stored in Firestore, see lib/attachment-codec.ts) */
 /** Max size of a picked file, before compression. */
 export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;

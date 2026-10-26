@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import { KeyRound, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { KeyRound, LogOut, Monitor, Moon, Palette, Sun } from "lucide-react";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { useAuth, useCurrentUser } from "@/components/providers/auth-provider";
@@ -14,6 +14,7 @@ import { changePasswordSchema } from "@/lib/validation";
 import { ROLE_LABELS } from "@/lib/constants";
 import { errorMessage } from "@/lib/utils";
 import { UserAvatar } from "@/components/common/user-avatar";
+import { AvatarColorDialog } from "@/components/common/avatar-color-dialog";
 import { Field } from "@/components/common/field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,13 +42,14 @@ export function UserMenu() {
   const { signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [pwOpen, setPwOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="gap-2 px-1.5" aria-label="Account menu">
-            <UserAvatar id={profile.id} initials={profile.initials} size="sm" />
+            <UserAvatar id={profile.id} initials={profile.initials} size="sm" color={profile.avatarColor ?? null} />
             <span className="hidden max-w-40 truncate text-sm sm:inline">{profile.name}</span>
           </Button>
         </DropdownMenuTrigger>
@@ -74,6 +76,9 @@ export function UserMenu() {
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setColorOpen(true)}>
+            <Palette /> Avatar colour
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setPwOpen(true)}>
             <KeyRound /> Change password
           </DropdownMenuItem>
@@ -83,6 +88,7 @@ export function UserMenu() {
         </DropdownMenuContent>
       </DropdownMenu>
       <ChangePasswordDialog open={pwOpen} onOpenChange={setPwOpen} />
+      <AvatarColorDialog user={colorOpen ? profile : null} self onClose={() => setColorOpen(false)} />
     </>
   );
 }

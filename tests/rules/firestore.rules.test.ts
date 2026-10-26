@@ -69,10 +69,20 @@ describe("authentication & active users", () => {
     await assertSucceeds(getDoc(doc(db, "users", UIDS.inactive)));
     await assertFails(getDoc(doc(db, "users", UIDS.admin)));
   });
-  it("nobody writes users from the client (Admin SDK only)", async () => {
+  it("nobody writes users from the client (Admin SDK only), except the avatar colour", async () => {
     for (const who of ["admin", "qa", "dev"] as const) {
       await assertFails(updateDoc(doc(fsOf(as(env, who)), "users", UIDS[who]), { role: "admin" }));
+      await assertFails(updateDoc(doc(fsOf(as(env, who)), "users", UIDS[who]), { avatarColor: "#123456", name: "x" }));
     }
+  });
+  it("anyone sets their own avatar colour; admins can set anyone's", async () => {
+    const dev = fsOf(as(env, "dev"));
+    await assertSucceeds(updateDoc(doc(dev, "users", UIDS.dev), { avatarColor: "#2563eb" }));
+    await assertSucceeds(updateDoc(doc(dev, "users", UIDS.dev), { avatarColor: null }));
+    await assertFails(updateDoc(doc(dev, "users", UIDS.dev), { avatarColor: "blue" }));
+    await assertFails(updateDoc(doc(dev, "users", UIDS.qa), { avatarColor: "#2563eb" }));
+    await assertSucceeds(updateDoc(doc(fsOf(as(env, "admin")), "users", UIDS.dev), { avatarColor: "#16a34a" }));
+    await assertFails(updateDoc(doc(fsOf(as(env, "inactive")), "users", UIDS.inactive), { avatarColor: "#16a34a" }));
   });
 });
 

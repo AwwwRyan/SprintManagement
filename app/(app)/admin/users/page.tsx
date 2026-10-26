@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { KeyRound, Mail, MoreHorizontal, Pencil, Plus, UserCheck, UserX, Users } from "lucide-react";
+import { KeyRound, Mail, MoreHorizontal, Palette, Pencil, Plus, UserCheck, UserX, Users } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCurrentUser } from "@/components/providers/auth-provider";
@@ -36,6 +36,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { UserAvatar } from "@/components/common/user-avatar";
+import { AvatarColorDialog } from "@/components/common/avatar-color-dialog";
 import { PropSelect } from "@/components/tasks/property-controls";
 
 const roleOptions = ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
@@ -234,6 +235,7 @@ export default function AdminUsersPage() {
   const [editing, setEditing] = useState<AppUser | null>(null);
   const [resetting, setResetting] = useState<AppUser | null>(null);
   const [toggling, setToggling] = useState<AppUser | null>(null);
+  const [coloring, setColoring] = useState<AppUser | null>(null);
 
   return (
     <>
@@ -296,6 +298,9 @@ export default function AdminUsersPage() {
                         <DropdownMenuItem onSelect={() => setEditing(u)}>
                           <Pencil /> Edit
                         </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setColoring(u)}>
+                          <Palette /> Avatar colour
+                        </DropdownMenuItem>
                         {u.active && (
                           <DropdownMenuItem
                             onSelect={() =>
@@ -326,6 +331,7 @@ export default function AdminUsersPage() {
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
       <EditUserDialog user={editing} onClose={() => setEditing(null)} isSelf={editing?.id === actor.uid} />
       <ResetPasswordDialog user={resetting} onClose={() => setResetting(null)} />
+      <AvatarColorDialog user={coloring} self={coloring?.id === actor.uid} onClose={() => setColoring(null)} />
       <ConfirmDialog
         open={!!toggling}
         onOpenChange={(o) => !o && setToggling(null)}

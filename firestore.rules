@@ -36,7 +36,13 @@ service cloud.firestore {
     match /users/{userId} {
       // Users may always read their own doc (so a deactivated session can see it was deactivated).
       allow read: if isActive() || (signedIn() && uid() == userId);
-      allow write: if false; // Admin SDK only (route handlers / scripts)
+      // Everything else is Admin SDK only (route handlers / scripts). The one exception is the
+      // avatar colour: your own, or anyone's for admins.
+      allow create, delete: if false;
+      allow update: if isActive() && (uid() == userId || isAdmin())
+        && changed().hasOnly(['avatarColor'])
+        && (request.resource.data.avatarColor == null
+            || (request.resource.data.avatarColor is string && request.resource.data.avatarColor.matches('^#[0-9a-fA-F]{6}$')));
     }
 
     // ---------------------------------------------------------------- master data
