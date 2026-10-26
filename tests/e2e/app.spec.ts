@@ -169,6 +169,35 @@ test("anyone can drag tasks into a new order (or use Alt+arrows), and others see
   await dev.ctx.close();
 });
 
+test("columns can be reordered from the menu or by dragging headers, and the order is remembered", async ({ page }) => {
+  await login(page, "dev1@example.com");
+  const headers = () => page.locator("thead th[data-column]").evaluateAll((ths) => ths.map((th) => th.getAttribute("data-column")));
+  const before = (await headers()) as string[];
+  expect(before.slice(0, 3)).toEqual(["srNo", "appTypeId", "type"]);
+
+  // menu: move Priority left once (it swaps with Assignees)
+  await page.getByRole("button", { name: "Columns" }).click();
+  await page.getByRole("menuitem", { name: "Move Priority left" }).click();
+  await page.keyboard.press("Escape");
+  const afterMenu = (await headers()) as string[];
+  expect(afterMenu.indexOf("priority")).toBe(afterMenu.indexOf("assigneeIds") - 1);
+
+  // drag: Task onto the left half of App Type → Task becomes the first movable column
+  const target = page.locator('thead th[data-column="appTypeId"]');
+  await page.locator('thead th[data-column="title"]').dragTo(target, { targetPosition: { x: 4, y: 10 } });
+  await expect.poll(async () => ((await headers()) as string[]).slice(0, 3)).toEqual(["srNo", "title", "appTypeId"]);
+
+  // remembered after a reload
+  await page.reload();
+  await expect.poll(async () => ((await headers()) as string[]).slice(0, 3)).toEqual(["srNo", "title", "appTypeId"]);
+
+  // reset
+  await page.getByRole("button", { name: "Columns" }).click();
+  await page.getByRole("menuitem", { name: "Reset column order" }).click();
+  await page.keyboard.press("Escape");
+  await expect.poll(headers).toEqual(before);
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task

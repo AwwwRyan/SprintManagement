@@ -59,11 +59,11 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 ## Seed data (emulators)
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15). TSK-1…6 live in closed Sprint 13. The next key after seeding is TSK-32.
 
-## Testing status (last full run: 2026-10-26; E2E: dashboard flows re-run)
-- Unit: 94 tests in 10 files, all passing.
+## Testing status (last full run: 2026-10-26)
+- Unit: 100 tests in 11 files, all passing.
 - Rules: 66 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 24 Playwright flows, all passing (see the README for the list).
+- E2E: 25 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas
@@ -72,7 +72,7 @@ Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Ty
 - Geist font variables must sit on `<html>`, since `html { font-family: var(--font-geist-sans) }` is resolved there.
 - Recharts `<Cell>` ignores `style`; pass real colors via `fill`.
 - Next 15: client pages using `useSearchParams` are wrapped in `<Suspense>`.
-- Task ID column is **hidden by default** (`DEFAULT_HIDDEN` in task-grid.tsx; users can show it via Columns). Rows carry `data-task-key`, so tests locate rows by it, not by visible text.
+- Column order is per user (localStorage `stm.columnOrder.<view>`); E2E `COL` indexes assume the default order. Task ID column is **hidden by default** (`DEFAULT_HIDDEN` in task-grid.tsx; users can show it via Columns). Rows carry `data-task-key`, so tests locate rows by it, not by visible text.
 - E2E `tests/e2e/global-setup.ts` warms every Admin API route first: in `next dev` each route boots its own Admin SDK on first call (up to ~60s on a busy machine).
 - **Vercel can't `require()` ES modules** (works locally on Node 22+). firebase-admin → jwks-rsa → jose v6 (ESM-only) crashed every Admin API route with ERR_REQUIRE_ESM. Fixed with `overrides.jwks-rsa.jose = ^5.10.0` in package.json. Reproduce locally with `NODE_OPTIONS=--no-experimental-require-module npm start`. Re-check this whenever firebase-admin is upgraded.
 - Never run `npm run build` while `npm run dev` is running: both use `.next`, and the dev server breaks (ENOENT `_document.js`). Fix: stop dev, `rm -rf .next`, restart.

@@ -10,7 +10,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, GripVertical, Paperclip, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Columns3, GripVertical, Paperclip, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
@@ -18,6 +18,7 @@ import { applyFilters, type TaskFilters } from "@/lib/task-filters";
 import { canCreateTask, canEditTask } from "@/lib/permissions";
 import { createTask, setTaskOrders, updateTask, type NewTaskInput } from "@/lib/services/tasks";
 import { planMove } from "@/lib/reorder";
+import { moveColumn, normalizeOrder, shiftColumn } from "@/lib/column-order";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { PRIORITIES, TASK_STATUSES, TASK_TYPES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
@@ -29,6 +30,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -85,6 +87,13 @@ function readStorage(key: string): string | null {
 function writeStorage(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
+  } catch {
+    /* storage unavailable */
+  }
+}
+function removeStorage(key: string) {
+  try {
+    localStorage.removeItem(key);
   } catch {
     /* storage unavailable */
   }
@@ -342,6 +351,36 @@ export function TaskGrid({
     writeStorage(visibilityKey, JSON.stringify(next));
   };
 
+  /* Column order: per person and view (localStorage), pinned (sticky) columns always first. */
+  const orderKey = `stm.columnOrder.${storageKey}`;
+  const defaultOrder = useMemo(() => cols.map((c) => c.id), [cols]);
+  const pinned = useMemo(() => cols.filter((c) => c.sticky).map((c) => c.id), [cols]);
+  const [savedOrder, setSavedOrder] = useState<string[] | null>(null);
+  useEffect(() => {
+    const saved = readStorage(orderKey);
+    try {
+      setSavedOrder(saved ? (JSON.parse(saved) as string[]) : null);
+    } catch {
+      setSavedOrder(null); // ignore corrupt value
+    }
+  }, [orderKey]);
+  const columnOrder = useMemo(() => normalizeOrder(savedOrder, defaultOrder, pinned), [savedOrder, defaultOrder, pinned]);
+  const updateOrder = (next: string[] | null) => {
+    setSavedOrder(next);
+    if (next) writeStorage(orderKey, JSON.stringify(next));
+    else removeStorage(orderKey);
+  };
+  const [colDrag, setColDrag] = useState<string | null>(null);
+  const [colHint, setColHint] = useState<{ id: string; pos: "before" | "after" } | null>(null);
+  const colDropPos = (e: React.DragEvent<HTMLElement>): "before" | "after" => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return e.clientX < rect.left + rect.width / 2 ? "before" : "after";
+  };
+  const endColDrag = () => {
+    setColDrag(null);
+    setColHint(null);
+  };
+
   const [sorting, setSorting] = useState<SortingState>([{ id: "srNo", desc: false }]);
   const filtered = useMemo(() => applyFilters(tasks, filters), [tasks, filters]);
 
@@ -361,7 +400,7 @@ export function TaskGrid({
   const table = useReactTable({
     data: filtered,
     columns,
-    state: { sorting, columnVisibility },
+    state: { sorting, columnVisibility, columnOrder },
     onSortingChange: setSorting,
     getRowId: (t) => t.id,
     getCoreRowModel: getCoreRowModel(),
@@ -580,22 +619,78 @@ export function TaskGrid({
               <Columns3 /> Columns
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-h-80 w-52 overflow-y-auto">
-            <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="max-h-96 w-64 overflow-y-auto">
+            <DropdownMenuLabel>Show and order columns</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {table
               .getAllLeafColumns()
-              .filter((col) => col.getCanHide())
-              .map((col) => (
-                <DropdownMenuCheckboxItem
-                  key={col.id}
-                  checked={col.getIsVisible()}
-                  onSelect={(e) => e.preventDefault()}
-                  onCheckedChange={(v) => updateVisibility({ ...columnVisibility, [col.id]: !!v })}
-                >
-                  {colById.get(col.id)?.label}
-                </DropdownMenuCheckboxItem>
-              ))}
+              // pinned columns that can't be hidden (Sr No) have nothing to offer here
+              .filter((col) => !pinned.includes(col.id) || col.getCanHide())
+              .sort((a, b) => columnOrder.indexOf(a.id) - columnOrder.indexOf(b.id)) // definition order otherwise
+              .map((col, _, list) => {
+                const label = colById.get(col.id)?.label;
+                const movableIds = list.map((c) => c.id).filter((id) => !pinned.includes(id));
+                const i = movableIds.indexOf(col.id);
+                const shift = (delta: -1 | 1) => updateOrder(shiftColumn(columnOrder, col.id, delta, movableIds, pinned));
+                const checkbox = (
+                  <DropdownMenuCheckboxItem
+                    className="flex-1"
+                    checked={col.getIsVisible()}
+                    disabled={!col.getCanHide()}
+                    onSelect={(e) => e.preventDefault()}
+                    onCheckedChange={(v) => updateVisibility({ ...columnVisibility, [col.id]: !!v })}
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                );
+                if (i < 0)
+                  return (
+                    <div key={col.id} className="flex items-center" title="Pinned to the left">
+                      {checkbox}
+                      <span className="w-16 pr-2 text-right text-[11px] text-muted-foreground">pinned</span>
+                    </div>
+                  );
+                return (
+                  <div key={col.id} className="flex items-center">
+                    {checkbox}
+                    <DropdownMenuItem
+                      className="px-1.5"
+                      disabled={i === 0}
+                      aria-label={`Move ${label} left`}
+                      title="Move left"
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        shift(-1);
+                      }}
+                    >
+                      <ChevronUp />
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="px-1.5"
+                      disabled={i === movableIds.length - 1}
+                      aria-label={`Move ${label} right`}
+                      title="Move right"
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        shift(1);
+                      }}
+                    >
+                      <ChevronDown />
+                    </DropdownMenuItem>
+                  </div>
+                );
+              })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={!savedOrder}
+              onSelect={(e) => {
+                e.preventDefault();
+                updateOrder(null);
+              }}
+            >
+              <RotateCcw /> Reset column order
+            </DropdownMenuItem>
+            <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">You can also drag column headers. Saved in this browser.</p>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -617,16 +712,54 @@ export function TaskGrid({
                   const cfg = colById.get(h.column.id)!;
                   const sorted = h.column.getIsSorted();
                   const left = stickyLeft.get(h.column.id);
+                  const movable = !pinned.includes(h.column.id);
+                  const colId = h.column.id;
                   return (
                     <th
                       key={h.id}
                       scope="col"
+                      data-column={colId}
                       aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"}
                       className={cn(
                         "sticky top-0 z-20 border-b bg-muted px-2 py-1.5 text-left text-xs font-medium whitespace-nowrap text-muted-foreground",
                         left !== undefined && "z-30",
+                        movable && "cursor-grab active:cursor-grabbing",
+                        colDrag === colId && "opacity-50",
+                        // drop indicator: an inset line, nothing moves
+                        colHint?.id === colId &&
+                          (colHint.pos === "before" ? "shadow-[inset_2px_0_0_0_var(--primary)]" : "shadow-[inset_-2px_0_0_0_var(--primary)]"),
                       )}
                       style={{ width: cfg.width, minWidth: cfg.width, left }}
+                      draggable={movable}
+                      onDragStart={
+                        movable
+                          ? (e) => {
+                              e.dataTransfer.effectAllowed = "move";
+                              e.dataTransfer.setData("text/plain", colId);
+                              setColDrag(colId);
+                            }
+                          : undefined
+                      }
+                      onDragEnd={endColDrag}
+                      onDragOver={
+                        colDrag && movable
+                          ? (e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = "move";
+                              const pos = colDropPos(e);
+                              if (colHint?.id !== colId || colHint.pos !== pos) setColHint({ id: colId, pos });
+                            }
+                          : undefined
+                      }
+                      onDrop={
+                        colDrag && movable
+                          ? (e) => {
+                              e.preventDefault();
+                              updateOrder(moveColumn(columnOrder, colDrag, colId, colDropPos(e), pinned));
+                              endColDrag();
+                            }
+                          : undefined
+                      }
                     >
                       <button
                         type="button"

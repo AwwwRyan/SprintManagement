@@ -59,6 +59,11 @@ Decided with the owner:
 - The Firestore converter normalises unmigrated docs (`LEGACY_*` maps), so old data and old activity entries still read correctly.
 - Live data: `scripts/migrate-workflow.ts` (preview by default, `--apply` to write). Imported "done" tasks → Released (CANCELLED ones → Closed). All Excel owners are restored as assignees; the owner "QA" (TSK-96/172/177) is a team, not a person, so it isn't mapped. Imported titles get the full text (≤ 300 chars), and the duplicated description is reduced to the import footer.
 
+## Column order (2026-10-26)
+- Columns can be reordered from the **Columns** menu (Move left / Move right, keyboard-reachable) or by dragging headers. "Reset column order" restores the default.
+- **Per person and per view, saved in the browser** (localStorage), like column visibility. It isn't shared with the team or synced across devices.
+- The pinned (sticky) columns, Sr No and Task ID, always stay first so horizontal scrolling keeps working. Task ID can still be shown or hidden. Saved orders are repaired when columns are added or removed (`lib/column-order.ts`).
+
 ## Dashboard: per-category breakdown (2026-10-26)
 - Category filter (All / Bug / Improvement / Task) next to the App Type filter. It narrows the progress card and the summary charts. The breakdown card follows the App Type filter only, and shows just one category when one is picked.
 - "Bugs, improvements and tasks in detail" tabs, from the already-loaded release tasks (**no extra reads**). Each shows open / testing (Dev Done + Testing) / Ready to Release / Released, critical-high open, average age of open items, the stage bar, App Type and priority tables, open/testing/ready/released per person (shared items count for each assignee), and the 5 oldest open items (link to the task). Logic: `lib/category-breakdown.ts`.
