@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
 import { taskFormSchema, type TaskFormInput, type TaskFormValues } from "@/lib/validation";
+import { PRODUCTION, requiresEnvironment } from "@/lib/task-model";
 import { createTask } from "@/lib/services/tasks";
 import { notifyError } from "@/lib/notify";
 import { Field } from "@/components/common/field";
@@ -198,7 +199,10 @@ export function NewTaskDialog({
             <Field label="Estimated hours" htmlFor="nt-est" error={errors.estimatedHours?.message}>
               <Input id="nt-est" type="number" min={0} step={0.5} {...hours("estimatedHours")} />
             </Field>
-            <Field label="Environment">
+            <Field
+              label={requiresEnvironment(type) ? "Environment (required for bugs)" : "Environment"}
+              error={errors.environment?.message}
+            >
               <Controller
                 control={control}
                 name="environment"
@@ -207,8 +211,12 @@ export function NewTaskDialog({
                     label="Environment"
                     value={field.value || null}
                     options={environmentOptions()}
-                    onChange={(v) => field.onChange(v ?? "")}
-                    allowNone
+                    onChange={(v) => {
+                      field.onChange(v ?? "");
+                      // Production issues are Critical by default (can still be changed)
+                      if (v === PRODUCTION) setValue("priority", "critical");
+                    }}
+                    allowNone={!requiresEnvironment(type)}
                   />
                 )}
               />

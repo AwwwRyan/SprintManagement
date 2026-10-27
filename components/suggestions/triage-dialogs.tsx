@@ -17,7 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/components/common/field";
 import { PropSelect } from "@/components/tasks/property-controls";
-import { appTypeOptions, priorityOptions, typeOptions } from "@/components/tasks/options";
+import { appTypeOptions, environmentOptions, priorityOptions, typeOptions } from "@/components/tasks/options";
+import { PRODUCTION, requiresEnvironment } from "@/lib/task-model";
 import type { Priority, Suggestion, TaskType } from "@/types";
 
 const LAST_APP_TYPE_KEY = "stm.lastAppTypeId";
@@ -40,6 +41,7 @@ export function AddToReleaseDialog({ suggestion: s, onClose }: { suggestion: Sug
   const [type, setType] = useState<TaskType>("improvement");
   const [appTypeId, setAppTypeId] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>("medium");
+  const [environment, setEnvironment] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -56,17 +58,19 @@ export function AddToReleaseDialog({ suggestion: s, onClose }: { suggestion: Sug
     setType(categoryForKind(s.kind));
     setAppTypeId(active.find((a) => a.id === last)?.id ?? active[0]?.id ?? null);
     setPriority("medium");
+    setEnvironment("");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when a new suggestion opens
   }, [s?.id]);
 
   const sprint = releases.find((r) => r.id === sprintId);
+  const missingEnvironment = requiresEnvironment(type) && !environment;
   const submit = async () => {
     if (!s || !sprint || !appTypeId || !title.trim()) return;
     setSaving(true);
     try {
       const author = userById.get(s.authorId)?.name ?? "a team member";
       const when = s.createdAt ? format(s.createdAt.toDate(), "d MMM yyyy") : "an earlier date";
-      const { taskKey, failedImages } = await addSuggestionToRelease(s, { sprint, title: title.trim(), type, appTypeId, priority }, author, when, actor.uid);
+      const { taskKey, failedImages } = await addSuggestionToRelease(s, { sprint, title: title.trim(), type, appTypeId, priority, environment }, author, when, actor.uid);
       toast.success(`Added to ${sprint.name} as ${taskKey}`, {
         description: failedImages ? `${failedImages} picture(s) couldn't be copied to the task.` : undefined,
         action: { label: "Open task", onClick: () => router.push(`/releases/${sprint.id}?task=${taskKey}`) },
@@ -119,13 +123,28 @@ export function AddToReleaseDialog({ suggestion: s, onClose }: { suggestion: Sug
                 <PropSelect label="Priority" value={priority} options={priorityOptions} onChange={(v) => v && setPriority(v as Priority)} />
               </Field>
             </div>
+            <Field
+              label={requiresEnvironment(type) ? "Environment (required for bugs)" : "Environment"}
+              error={missingEnvironment ? "Choose where the bug was found" : undefined}
+            >
+              <PropSelect
+                label="Environment"
+                value={environment || null}
+                options={environmentOptions()}
+                onChange={(v) => {
+                  setEnvironment(v ?? "");
+                  if (v === PRODUCTION) setPriority("critical"); // Production issues are Critical by default
+                }}
+                allowNone={!requiresEnvironment(type)}
+              />
+            </Field>
           </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={saving || !sprint || !appTypeId || !title.trim()}>
+          <Button onClick={submit} disabled={saving || !sprint || !appTypeId || !title.trim() || missingEnvironment}>
             {saving ? (
               <>
                 <Loader2 className="animate-spin" /> Adding…

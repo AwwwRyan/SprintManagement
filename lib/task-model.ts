@@ -78,3 +78,11 @@ export function sameIds(a: readonly string[], b: readonly string[]): boolean {
   const set = new Set(a);
   return b.every((x) => set.has(x));
 }
+
+/* ------------------------------------------------------------------ environment */
+
+export const PRODUCTION = "Production";
+/** Filter value for tasks with no environment set. */
+export const NO_ENVIRONMENT = "__none__";
+/** Bugs must say where they were found (owner's rule, 2026-10-27); other categories may leave it empty. */
+export const requiresEnvironment = (type: TaskType) => type === "bug";

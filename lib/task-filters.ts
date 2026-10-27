@@ -1,5 +1,6 @@
 /** Task table filters: URL <-> state, and the pure filter/search function. */
 import { DATE_FIELDS, matchesDate, type DatedTask, type DateFilter } from "@/lib/date-filter";
+import { NO_ENVIRONMENT } from "@/lib/task-model";
 import {
   PRIORITIES,
   TASK_STATUSES,
@@ -22,6 +23,8 @@ export interface TaskFilters {
   priority: Priority[];
   /** release / Backlog ids (All Tasks) */
   sprintId: string[];
+  /** "Production", "Staging", or NO_ENVIRONMENT for tasks without one */
+  environment: string[];
   q: string;
   /** which date (created / due / release) and an inclusive range; null = no date filter */
   date: DateFilter | null;
@@ -35,11 +38,12 @@ export const EMPTY_FILTERS: TaskFilters = {
   status: [],
   priority: [],
   sprintId: [],
+  environment: [],
   q: "",
   date: null,
 };
 
-const LIST_KEYS = ["appTypeId", "type", "moduleId", "assigneeId", "status", "priority", "sprintId"] as const;
+const LIST_KEYS = ["appTypeId", "type", "moduleId", "assigneeId", "status", "priority", "sprintId", "environment"] as const;
 type ListKey = (typeof LIST_KEYS)[number];
 
 /** URL param names (short, readable in links). */
@@ -51,6 +55,7 @@ const PARAM: Record<ListKey | "q", string> = {
   status: "status",
   priority: "priority",
   sprintId: "release",
+  environment: "env",
   q: "q",
 };
 
@@ -76,6 +81,7 @@ export function parseFilters(params: ParamsLike): TaskFilters {
     status: list("status").filter(oneOf(TASK_STATUSES)),
     priority: list("priority").filter(oneOf(PRIORITIES)),
     sprintId: list("sprintId"),
+    environment: list("environment"),
     q: params.get(PARAM.q) ?? "",
     date: parseDate(params),
   };
@@ -120,7 +126,7 @@ export function hasActiveFilters(f: TaskFilters): boolean {
 type FilterableTask = Pick<
   Task,
   "appTypeId" | "type" | "moduleId" | "assigneeIds" | "status" | "priority" | "title" | "descriptionText" | "taskKey" | "sprintId"
-> & { remarks?: string } & DatedTask;
+> & { remarks?: string; environment?: string } & DatedTask;
 
 export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilters): T[] {
   const q = f.q.trim().toLowerCase();
@@ -135,6 +141,7 @@ export function applyFilters<T extends FilterableTask>(tasks: T[], f: TaskFilter
     if (f.status.length && !f.status.includes(t.status)) return false;
     if (f.priority.length && !f.priority.includes(t.priority)) return false;
     if (f.sprintId.length && !f.sprintId.includes(t.sprintId)) return false;
+    if (f.environment.length && !f.environment.includes(t.environment || NO_ENVIRONMENT)) return false;
     if (!matchesDate(t, f.date)) return false;
     if (q) {
       const hay = `${t.taskKey} ${t.title} ${t.descriptionText} ${t.remarks ?? ""}`.toLowerCase();

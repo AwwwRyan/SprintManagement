@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PRIORITIES, ROLES, TASK_STATUSES, TASK_TYPES } from "@/types";
+import { requiresEnvironment } from "@/lib/task-model";
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 
@@ -122,6 +123,11 @@ export const taskFormSchema = z
     expectedResult: z.string().max(5000),
     actualResult: z.string().max(5000),
     remarks: z.string().max(2000).default(""),
+  })
+  .superRefine((v, ctx) => {
+    if (requiresEnvironment(v.type) && !v.environment) {
+      ctx.addIssue({ code: "custom", path: ["environment"], message: "Choose where the bug was found (Staging or Production)" });
+    }
   });
 export type TaskFormInput = z.input<typeof taskFormSchema>;
 export type TaskFormValues = z.output<typeof taskFormSchema>;

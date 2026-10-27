@@ -10,6 +10,7 @@ import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
 import { canDeleteTask, canEditTask, canMoveTasks } from "@/lib/permissions";
 import { MoveTasksDialog } from "./move-tasks-dialog";
+import { requiresEnvironment } from "@/lib/task-model";
 import { BACKLOG_ID } from "@/types";
 import { deleteTask, updateTask } from "@/lib/services/tasks";
 import { notifyError } from "@/lib/notify";
@@ -239,7 +240,7 @@ export function TaskPanel({
                   value={task.environment || null}
                   options={environmentOptions(task.environment)}
                   onChange={(v) => save({ environment: v ?? "" })}
-                  allowNone
+                  allowNone={!requiresEnvironment(task.type)}
                   disabled={!editable}
                 />
               </Row>

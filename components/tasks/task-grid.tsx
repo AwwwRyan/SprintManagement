@@ -18,6 +18,7 @@ import { applyFilters, type TaskFilters } from "@/lib/task-filters";
 import { canCreateTask, canEditTask } from "@/lib/permissions";
 import { createTask, setTaskOrders, updateTask, type NewTaskInput } from "@/lib/services/tasks";
 import { planMove } from "@/lib/reorder";
+import { requiresEnvironment } from "@/lib/task-model";
 import { moveColumn, normalizeOrder, shiftColumn } from "@/lib/column-order";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
@@ -346,7 +347,8 @@ export function TaskGrid({
         width: 130,
         field: "environment",
         editor: "select",
-        options: (t) => ({ options: environmentOptions(t.environment), allowNone: true }),
+        // bugs must keep an environment (owner's rule); Production makes a task Critical (normalizePatch)
+        options: (t) => ({ options: environmentOptions(t.environment), allowNone: !requiresEnvironment(t.type) }),
         render: (t) => <span className="block truncate">{t.environment || <span className="text-muted-foreground">-</span>}</span>,
         sortValue: (t) => t.environment.toLowerCase(),
       },

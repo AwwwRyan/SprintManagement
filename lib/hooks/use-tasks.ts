@@ -102,6 +102,7 @@ function serverWheres(f: ServerFilters): QueryConstraint[] {
     ...(f.sprintIds.length ? [where("sprintId", "in", f.sprintIds)] : []),
     ...(f.statuses.length ? [where("status", "in", f.statuses)] : []),
     ...(f.types.length ? [where("type", "in", f.types)] : []),
+    ...(f.environments.length ? [where("environment", "in", f.environments)] : []),
   ];
 }
 

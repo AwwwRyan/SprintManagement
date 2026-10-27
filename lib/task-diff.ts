@@ -1,5 +1,5 @@
 /** Pure helpers for turning a task patch into activity-log entries. */
-import { sameIds } from "@/lib/task-model";
+import { PRODUCTION, sameIds } from "@/lib/task-model";
 import type { ActivityValue, Task, TaskPatch } from "@/types";
 
 export interface FieldChange {
@@ -45,9 +45,19 @@ export function diffPatch(task: Partial<Task>, patch: TaskPatch): { changed: Tas
   return { changed: changed as TaskPatch, changes };
 }
 
-/** App Type changes clear the module (modules belong to one App Type). */
-export function normalizePatch(task: Pick<Task, "type" | "appTypeId" | "moduleId">, patch: TaskPatch): TaskPatch {
+/**
+ * App Type changes clear the module (modules belong to one App Type). Setting the environment
+ * to Production makes the task Critical by default (owner's rule), unless the same change sets a
+ * priority itself.
+ */
+export function normalizePatch(
+  task: Pick<Task, "type" | "appTypeId" | "moduleId"> & Partial<Pick<Task, "environment" | "priority">>,
+  patch: TaskPatch,
+): TaskPatch {
   const out: TaskPatch = { ...patch };
+  if (patch.environment === PRODUCTION && task.environment !== PRODUCTION && patch.priority === undefined && task.priority !== "critical") {
+    out.priority = "critical";
+  }
   if (patch.appTypeId !== undefined && patch.appTypeId !== task.appTypeId && patch.moduleId === undefined) {
     out.moduleId = null; // App Type changed: the module belongs to the old App Type
   }

@@ -14,6 +14,8 @@ import {
 } from "@/lib/task-filters";
 import { cn } from "@/lib/utils";
 import { sortSprints } from "@/lib/sprint-utils";
+import { ENVIRONMENTS } from "@/lib/constants";
+import { NO_ENVIRONMENT } from "@/lib/task-model";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,6 +35,11 @@ import {
   type Option,
 } from "./options";
 import { DateFilterControl } from "./date-filter-control";
+
+const environmentFilterOptions: Option[] = [
+  ...ENVIRONMENTS.map((e) => ({ value: e, label: e })),
+  { value: NO_ENVIRONMENT, label: "Not set" },
+];
 
 /** URL query string <-> filter state. Other params (e.g. ?task=) are preserved. */
 export function useTaskFilters(): [TaskFilters, (next: TaskFilters) => void] {
@@ -189,6 +196,12 @@ export function TaskFiltersBar({
         options={priorityOptions}
         selected={filters.priority}
         onChange={(v) => onChange({ ...filters, priority: v as TaskFilters["priority"] })}
+      />
+      <MultiFilter
+        label="Environment"
+        options={environmentFilterOptions}
+        selected={filters.environment}
+        onChange={(v) => onChange({ ...filters, environment: v })}
       />
       <DateFilterControl value={filters.date} onChange={(date) => onChange({ ...filters, date })} />
       {hasActiveFilters(filters) && (

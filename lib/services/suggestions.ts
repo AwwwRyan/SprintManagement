@@ -96,6 +96,8 @@ export interface AddToReleaseInput {
   type: TaskType;
   appTypeId: string;
   priority: Priority;
+  /** "" when not set; required for bugs */
+  environment: string;
 }
 
 /**
@@ -117,6 +119,7 @@ export async function addSuggestionToRelease(
       appTypeId: input.appTypeId,
       type: input.type,
       priority: input.priority,
+      environment: input.environment,
       status: "pending",
       description,
       descriptionText,

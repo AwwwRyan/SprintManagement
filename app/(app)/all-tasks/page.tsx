@@ -33,7 +33,7 @@ function AllTasksView() {
   const rowNumbers = useMemo(() => new Map(live.tasks.map((t, i) => [t.id, offset + i + 1])), [live.tasks, offset]);
   const last = page.tasks[page.tasks.length - 1];
   const hasNext = !taskNumber && page.tasks.length === ALL_TASKS_PAGE_SIZE && (total === null || offset + ALL_TASKS_PAGE_SIZE < total);
-  const browserOnly = (filters.q.trim() !== "" && !taskNumber) || leftInBrowser.length > 0 || hasActiveFilters({ ...filters, q: "", sprintId: [], status: [], type: [] });
+  const browserOnly = (filters.q.trim() !== "" && !taskNumber) || leftInBrowser.length > 0 || hasActiveFilters({ ...filters, q: "", sprintId: [], status: [], type: [], environment: [] });
 
   const pager = (
     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm" aria-label="Pages">
@@ -71,7 +71,7 @@ function AllTasksView() {
       {browserOnly && !taskNumber && (
         <p className="w-full text-xs text-muted-foreground">
           Text search and the {[...leftInBrowser, "App Type", "Module", "Assignee", "Priority", "Date"].join(" / ")} filters look within the{" "}
-          {ALL_TASKS_PAGE_SIZE} tasks on this page. Release, Status and Category cover all tasks. To find one task anywhere, search
+          {ALL_TASKS_PAGE_SIZE} tasks on this page. Release, Status, Category and Environment cover all tasks. To find one task anywhere, search
           its number (e.g. TSK-142).
         </p>
       )}
