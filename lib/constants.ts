@@ -14,14 +14,14 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  pending: "Pending",
+  pending: "Open",
   in_progress: "In Progress",
   on_hold: "On Hold",
-  dev_done: "Dev Done",
+  dev_done: "Fixed",
   testing: "Testing in Progress",
   done: "Ready to Release",
   released: "Released",
-  closed: "Closed",
+  closed: "Cancelled",
   duplicate: "Duplicate",
 };
 

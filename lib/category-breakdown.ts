@@ -11,7 +11,6 @@ export type BreakdownTask = Pick<
   "id" | "taskKey" | "title" | "type" | "status" | "priority" | "appTypeId" | "assigneeIds" | "descriptionText"
 > & { createdAtMs: number | null };
 
-const inTesting = (s: Task["status"]) => s === "dev_done" || s === "testing";
 
 export interface AppTypeRow {
   appTypeId: string;
@@ -19,6 +18,9 @@ export interface AppTypeRow {
   color: string;
   total: number;
   open: number;
+  /** Fixed (dev done, waiting for QA) */
+  fixed: number;
+  /** Testing in Progress */
   testing: number;
   ready: number;
   released: number;
@@ -35,6 +37,9 @@ export interface PersonRow {
   userId: string | null;
   name: string;
   open: number;
+  /** Fixed (dev done, waiting for QA) */
+  fixed: number;
+  /** Testing in Progress */
   testing: number;
   ready: number;
   released: number;
@@ -54,6 +59,9 @@ export interface CategoryBreakdown {
   type: TaskType;
   total: number;
   open: number;
+  /** Fixed (dev done, waiting for QA) */
+  fixed: number;
+  /** Testing in Progress */
   testing: number;
   ready: number;
   released: number;
@@ -93,7 +101,8 @@ export function categoryBreakdown(
         color: at?.color ?? "#64748b",
         total: sub.length,
         open: count(sub, (t) => isOpen(t.status)),
-        testing: count(sub, (t) => inTesting(t.status)),
+        fixed: count(sub, (t) => t.status === "dev_done"),
+        testing: count(sub, (t) => t.status === "testing"),
         ready: count(sub, (t) => t.status === "done"),
         released: count(sub, (t) => t.status === "released"),
         completionPct: completionPct(sub.map((t) => t.status)),
@@ -111,7 +120,8 @@ export function categoryBreakdown(
         userId,
         name: userId ? (users.find((u) => u.id === userId)?.name ?? "Unknown user") : "Unassigned",
         open: count(sub, (t) => isOpen(t.status)),
-        testing: count(sub, (t) => inTesting(t.status)),
+        fixed: count(sub, (t) => t.status === "dev_done"),
+        testing: count(sub, (t) => t.status === "testing"),
         ready: count(sub, (t) => t.status === "done"),
         released: count(sub, (t) => t.status === "released"),
       };
@@ -131,7 +141,8 @@ export function categoryBreakdown(
     type,
     total: tasks.length,
     open: open.length,
-    testing: count(tasks, (t) => inTesting(t.status)),
+    fixed: count(tasks, (t) => t.status === "dev_done"),
+    testing: count(tasks, (t) => t.status === "testing"),
     ready: count(tasks, (t) => t.status === "done"),
     released: count(tasks, (t) => t.status === "released"),
     dropped: count(tasks, (t) => isExcluded(t.status)),

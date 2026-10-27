@@ -10,7 +10,7 @@ const STAGES = [
   { label: "Ready to release", share: 18, color: "#34d399" },
   { label: "Testing", share: 16, color: "#a855f7" },
   { label: "In progress", share: 20, color: "#3b82f6" },
-  { label: "Pending", share: 12, color: "#52525b" },
+  { label: "Open", share: 12, color: "#52525b" },
 ];
 
 /** Link preview (Slack, WhatsApp, Teams, X…): name, one-line pitch, and a release progress bar motif. */

@@ -153,7 +153,7 @@ export function CloseSprintDialog({
         <DialogHeader>
           <DialogTitle>Close {sprint.name}</DialogTitle>
           <DialogDescription>
-            {doneCount} of {tasks.length} tasks are released, closed or duplicate and stay here. Every other task goes
+            {doneCount} of {tasks.length} tasks are released, cancelled or duplicate and stay here. Every other task goes
             either to the next release or to the Backlog; &ldquo;Ready to Release&rdquo; tasks always go to a release.
             Status, comments, pictures and history move with them.
           </DialogDescription>
@@ -161,7 +161,7 @@ export function CloseSprintDialog({
 
         {unfinished.length === 0 ? (
           <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-            Every task is released, closed or duplicate. Nothing to move.
+            Every task is released, cancelled or duplicate. Nothing to move.
           </p>
         ) : (
           <div className="grid gap-2">

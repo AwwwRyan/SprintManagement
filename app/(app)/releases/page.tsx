@@ -110,7 +110,7 @@ export default function SprintsPage() {
                       <span className="text-muted-foreground">0 tasks</span>
                     )}
                   </div>
-                  <div className="flex w-44 items-center gap-2" title="Ready to Release + Released; Closed and Duplicate tasks are left out of the %">
+                  <div className="flex w-44 items-center gap-2" title="Ready to Release + Released; Cancelled and Duplicate tasks are left out of the %">
                     <Progress value={pct} className="h-1.5" aria-label={`${pct}% complete`} />
                     <span className="w-10 text-right text-xs tabular-nums">{pct}%</span>
                   </div>

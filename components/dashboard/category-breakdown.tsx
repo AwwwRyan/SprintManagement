@@ -61,14 +61,15 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
 
   return (
     <div className="grid gap-5">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Mini label="Open" value={b.open} sub={`of ${b.total}`} />
-        <Mini label="In testing" value={b.testing} sub="Dev Done + Testing" />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        <Mini label="Remaining" value={b.open} sub={`of ${b.total}, not ready yet`} />
+        <Mini label="Fixed" value={b.fixed} sub="waiting for QA" />
+        <Mini label="Testing" value={b.testing} sub="in progress" />
         <Mini label="Ready to Release" value={b.ready} />
         <Mini label="Released" value={b.released} sub={`${b.completionPct}% complete`} />
-        <Mini label="Critical / High open" value={`${b.criticalOpen} / ${b.highOpen}`} tone={b.criticalOpen ? "red" : undefined} />
+        <Mini label="Critical / High remaining" value={`${b.criticalOpen} / ${b.highOpen}`} tone={b.criticalOpen ? "red" : undefined} />
         <Mini
-          label="Avg. age of open"
+          label="Avg. age remaining"
           value={b.avgOpenAgeDays === null ? "–" : `${b.avgOpenAgeDays}d`}
           sub={b.unassignedOpen ? `${b.unassignedOpen} unassigned` : "all assigned"}
           tone={b.unassignedOpen ? "amber" : undefined}
@@ -84,7 +85,8 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
               <thead className="text-xs text-muted-foreground">
                 <tr>
                   <th className="pb-1.5 text-left font-medium">App Type</th>
-                  <th className={th}>Open</th>
+                  <th className={th}>Remaining</th>
+                  <th className={th}>Fixed</th>
                   <th className={th}>Testing</th>
                   <th className={th}>Ready</th>
                   <th className={th}>Released</th>
@@ -101,6 +103,7 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
                       </span>
                     </td>
                     <td className={`${td} font-medium`}>{a.open}</td>
+                    <td className={td}>{a.fixed}</td>
                     <td className={td}>{a.testing}</td>
                     <td className={td}>{a.ready}</td>
                     <td className={td}>{a.released}</td>
@@ -122,9 +125,9 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
             <thead className="text-xs text-muted-foreground">
               <tr>
                 <th className="pb-1.5 text-left font-medium">Priority</th>
-                <th className={th}>Open</th>
+                <th className={th}>Remaining</th>
                 <th className={th}>Total</th>
-                <th className="w-32 pb-1.5 pl-3 text-left font-medium">Share of open</th>
+                <th className="w-32 pb-1.5 pl-3 text-left font-medium">Share of remaining</th>
               </tr>
             </thead>
             <tbody>
@@ -139,7 +142,7 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
                     <Progress
                       value={b.open ? Math.round((p.open / b.open) * 100) : 0}
                       className="h-1.5"
-                      aria-label={`${PRIORITY_LABELS[p.key]}: ${p.open} of ${b.open} open`}
+                      aria-label={`${PRIORITY_LABELS[p.key]}: ${p.open} of ${b.open} remaining`}
                     />
                   </td>
                 </tr>
@@ -154,7 +157,8 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
               <thead className="text-xs text-muted-foreground">
                 <tr>
                   <th className="pb-1.5 text-left font-medium">Assignee</th>
-                  <th className={th}>Open</th>
+                  <th className={th}>Remaining</th>
+                  <th className={th}>Fixed</th>
                   <th className={th}>Testing</th>
                   <th className={th}>Ready</th>
                   <th className={th}>Released</th>
@@ -165,6 +169,7 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
                   <tr key={p.userId ?? "none"} className="border-t">
                     <td className={`py-1.5 ${p.userId ? "" : "text-muted-foreground"}`}>{p.name}</td>
                     <td className={`${td} font-medium`}>{p.open}</td>
+                    <td className={td}>{p.fixed}</td>
                     <td className={td}>{p.testing}</td>
                     <td className={td}>{p.ready}</td>
                     <td className={td}>{p.released}</td>
@@ -176,9 +181,9 @@ function Panel({ b, tasks, sprint }: { b: CategoryBreakdown; tasks: BreakdownTas
           <p className="mt-1 text-[11px] text-muted-foreground">Items with several assignees count for each of them.</p>
         </Block>
 
-        <Block title={`Oldest open ${name}`}>
+        <Block title={`Oldest remaining ${name}`}>
           {b.oldestOpen.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing open.</p>
+            <p className="text-sm text-muted-foreground">Nothing remaining.</p>
           ) : (
             <ul className="grid gap-1.5">
               {b.oldestOpen.map((t) => (
@@ -230,7 +235,7 @@ function Trend({ tasks, type, changes }: { tasks: BreakdownTask[]; type: TaskTyp
   const totals = data.reduce((a, w) => ({ reported: a.reported + w.reported, fixed: a.fixed + w.fixed }), { reported: 0, fixed: 0 });
   return (
     <div>
-      <div className="h-52" role="img" aria-label={`${PLURAL[type]} reported vs fixed per week: ${data.map((w) => `${w.label} ${w.reported}/${w.fixed}`).join(", ")}`}>
+      <div className="h-52" role="img" aria-label={`${PLURAL[type]} reported vs completed per week: ${data.map((w) => `${w.label} ${w.reported}/${w.fixed}`).join(", ")}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barCategoryGap="25%" barGap={2}>
             <CartesianGrid vertical={false} stroke="var(--viz-grid)" />
@@ -238,7 +243,7 @@ function Trend({ tasks, type, changes }: { tasks: BreakdownTask[]; type: TaskTyp
             <YAxis allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} />
             <Tooltip content={<TrendTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.6 }} />
             <Bar dataKey="reported" name="Reported" fill={colors.reported} radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-            <Bar dataKey="fixed" name="Fixed" fill={colors.fixed} radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+            <Bar dataKey="fixed" name="Completed" fill={colors.fixed} radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -247,11 +252,11 @@ function Trend({ tasks, type, changes }: { tasks: BreakdownTask[]; type: TaskTyp
           <span className="size-2.5 rounded-sm" style={{ background: colors.reported }} aria-hidden /> Reported
         </li>
         <li className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm" style={{ background: colors.fixed }} aria-hidden /> Fixed (Ready to Release / Released)
+          <span className="size-2.5 rounded-sm" style={{ background: colors.fixed }} aria-hidden /> Completed (reached Ready to Release / Released)
         </li>
       </ul>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Last {TREND_WEEKS} weeks, this release: {totals.reported} reported, {totals.fixed} fixed. Excel imports aren&rsquo;t counted as
+        Last {TREND_WEEKS} weeks, this release: {totals.reported} reported, {totals.fixed} completed. Excel imports aren&rsquo;t counted as
         reported.
       </p>
     </div>
@@ -290,7 +295,7 @@ export function CategoryBreakdownCard({ tasks: live, sprint, only }: { tasks: Ta
   const panel = (ty: TaskType) => (
     <div className="grid gap-5">
       <Panel b={breakdowns[ty]} tasks={tasks} sprint={sprint} />
-      <Block title={`${PLURAL[ty]} reported vs fixed per week`}>
+      <Block title={`${PLURAL[ty]} reported vs completed per week`}>
         {changes ? (
           <Trend tasks={tasks} type={ty} changes={changes} />
         ) : (

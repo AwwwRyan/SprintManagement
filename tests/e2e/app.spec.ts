@@ -138,7 +138,7 @@ test("statuses include On Hold, Released and Duplicate; the old Description colu
   await expect(page.getByRole("columnheader", { name: "Severity" })).toHaveCount(0);
   const status = row(page, "TSK-11").locator("td").nth(COL.status);
   await status.click();
-  for (const name of ["Pending", "On Hold", "Dev Done", "Testing in Progress", "Ready to Release", "Released", "Closed", "Duplicate"]) {
+  for (const name of ["Open", "On Hold", "Fixed", "Testing in Progress", "Ready to Release", "Released", "Cancelled", "Duplicate"]) {
     await expect(page.getByRole("option", { name, exact: true })).toBeVisible();
   }
   await page.getByRole("option", { name: "On Hold", exact: true }).click();
@@ -490,13 +490,13 @@ test("dashboard: bugs / improvements / tasks breakdown, weekly trend and categor
   const card = page.getByText("Bugs, improvements and tasks in detail").locator("xpath=ancestor::*[@data-slot='card'][1]");
   await expect(card.getByRole("tab", { name: /Bugs/ })).toHaveAttribute("aria-selected", "true");
   await expect(card.getByText("By App Type")).toBeVisible();
-  await expect(card.getByText("Oldest open bugs")).toBeVisible();
+  await expect(card.getByText("Oldest remaining bugs")).toBeVisible();
   await expect(card.getByLabel("Bugs by stage")).toBeVisible();
 
   await card.getByRole("tab", { name: /Improvements/ }).click();
-  await expect(card.getByText("Oldest open improvements")).toBeVisible();
+  await expect(card.getByText("Oldest remaining improvements")).toBeVisible();
   await card.getByRole("button", { name: /Show weekly trend/ }).click();
-  await expect(card.getByText(/Last 8 weeks, this release: \d+ reported, \d+ fixed/)).toBeVisible({ timeout: 30_000 });
+  await expect(card.getByText(/Last 8 weeks, this release: \d+ reported, \d+ completed/)).toBeVisible({ timeout: 30_000 });
   await card.screenshot({ path: "test-results/dashboard-breakdown.png" });
 
   // category filter narrows the whole dashboard to one category
@@ -511,7 +511,8 @@ test("dashboard: detailed progress card, and admin exports a date-range Excel re
   await login(page, "admin@example.com");
   await page.goto("/dashboard");
   await expect(page.getByText("Release progress")).toBeVisible();
-  await expect(page.getByLabel("Progress legend")).toContainText("Dev done / testing");
+  await expect(page.getByLabel("Progress legend")).toContainText("Fixed (to test)");
+  await expect(page.getByLabel("Progress legend")).toContainText("Testing");
   await expect(page.getByText(/Release time: day \d+ of 14/)).toBeVisible();
   await expect(page.getByText("Critical open")).toBeVisible();
 

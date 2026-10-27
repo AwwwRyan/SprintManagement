@@ -106,7 +106,7 @@ export function computeSprintMetrics(
 
 /* ------------------------------------------------------------------ sprint progress */
 
-export type ProgressStage = "released" | "done" | "qa" | "inProgress" | "pending" | "onHold" | "dropped";
+export type ProgressStage = "released" | "done" | "testing" | "fixed" | "inProgress" | "pending" | "onHold" | "dropped";
 
 export interface SprintProgress {
   total: number;
@@ -129,15 +129,15 @@ export interface SprintProgress {
 const STAGE_OF: Record<TaskStatus, ProgressStage> = {
   released: "released",
   done: "done",
-  dev_done: "qa",
-  testing: "qa",
+  dev_done: "fixed",
+  testing: "testing",
   in_progress: "inProgress",
   pending: "pending",
   on_hold: "onHold",
   closed: "dropped",
   duplicate: "dropped",
 };
-const STAGES: ProgressStage[] = ["released", "done", "qa", "inProgress", "pending", "onHold", "dropped"];
+const STAGES: ProgressStage[] = ["released", "done", "testing", "fixed", "inProgress", "pending", "onHold", "dropped"];
 
 /** Percentages that always sum to exactly 100 (or 0 for an empty sprint). */
 export function roundedShares(counts: number[]): number[] {

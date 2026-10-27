@@ -10,11 +10,12 @@ import type { Sprint } from "@/types";
 const STAGE_META: Record<ProgressStage, { label: string; bar: string; dot: string }> = {
   released: { label: "Released", bar: "bg-emerald-600", dot: "bg-emerald-600" },
   done: { label: "Ready to release", bar: "bg-emerald-400", dot: "bg-emerald-400" },
-  qa: { label: "Dev done / testing", bar: "bg-purple-500", dot: "bg-purple-500" },
+  testing: { label: "Testing", bar: "bg-purple-500", dot: "bg-purple-500" },
+  fixed: { label: "Fixed (to test)", bar: "bg-indigo-400", dot: "bg-indigo-400" },
   inProgress: { label: "In progress", bar: "bg-blue-500", dot: "bg-blue-500" },
-  pending: { label: "Pending", bar: "bg-slate-300 dark:bg-slate-600", dot: "bg-slate-400" },
+  pending: { label: "Open", bar: "bg-slate-300 dark:bg-slate-600", dot: "bg-slate-400" },
   onHold: { label: "On hold", bar: "bg-orange-500", dot: "bg-orange-500" },
-  dropped: { label: "Closed / duplicate", bar: "bg-zinc-200 dark:bg-zinc-700", dot: "bg-zinc-300 dark:bg-zinc-600" },
+  dropped: { label: "Cancelled / duplicate", bar: "bg-zinc-200 dark:bg-zinc-700", dot: "bg-zinc-300 dark:bg-zinc-600" },
 };
 
 function PaceBadge({ p }: { p: SprintProgress }) {
@@ -79,7 +80,8 @@ export function StageBar({ stages, total, legendLabel = "Progress legend" }: { s
 
 /** Detailed sprint progress: stage breakdown, time used vs work done, and warning counts. */
 export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress; sprint: Sprint }) {
-  const done = p.stages[0].count + p.stages[1].count; // released + done
+  const stage = (k: ProgressStage) => p.stages.find((s) => s.key === k)?.count ?? 0;
+  const done = stage("released") + stage("done");
   return (
     <Card className="print-break-avoid gap-4 py-4">
       <CardContent className="grid gap-4 px-4">
@@ -89,7 +91,7 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
             <div className="mt-0.5 flex items-baseline gap-2">
               <span className="text-3xl font-semibold tabular-nums">{p.completionPct}%</span>
               <span className="text-sm text-muted-foreground">
-                {done} of {p.total - p.stages[6].count} tasks done
+                {done} of {p.total - stage("dropped")} tasks done
               </span>
             </div>
           </div>

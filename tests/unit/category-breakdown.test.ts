@@ -46,8 +46,14 @@ describe("categoryBreakdown", () => {
   });
 
   it("splits open / testing / ready / released and leaves duplicates out of completion", () => {
-    expect(b).toMatchObject({ open: 2, testing: 1, ready: 1, released: 1, dropped: 1, criticalOpen: 1, unassignedOpen: 0 });
+    expect(b).toMatchObject({ open: 2, fixed: 0, testing: 1, ready: 1, released: 1, dropped: 1, criticalOpen: 1, unassignedOpen: 0 });
     expect(b.completionPct).toBe(50); // (ready + released) / (5 - 1 duplicate)
+  });
+
+  it("counts Fixed (dev done) and Testing separately", () => {
+    const x = categoryBreakdown([t({ status: "dev_done" }), t({ status: "dev_done" }), t({ status: "testing" })], "bug", users, appTypes, today);
+    expect(x).toMatchObject({ fixed: 2, testing: 1, open: 3 });
+    expect(x.byAppType[0]).toMatchObject({ fixed: 2, testing: 1 });
   });
 
   it("breaks down by App Type, most open first (ties by name)", () => {

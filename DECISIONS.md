@@ -67,6 +67,11 @@ Decided with the owner:
 - **Closing a release**: every unfinished task must get a destination, next release or Backlog (Ready to Release: release only). Nothing is left behind any more. "Send all" buttons exist for both. The report lists "Moved to the Backlog"; older reports still show "Left incomplete".
 - Suggestions can also be added to the Backlog.
 
+## Status names and Fixed vs Testing (2026-10-27)
+- Labels only (stored values unchanged, no migration): **pending → "Open"**, **dev_done → "Fixed"**, **closed → "Cancelled"**. Closed *releases* still say "closed".
+- Dashboard: **Fixed** (dev done, waiting for QA) and **Testing** are separate stages in the progress bars and separate columns in the category breakdown (they used to be one "Dev done / testing").
+- Because "Open" is now a status, the dashboard's not-finished total is called **Remaining** (Open + In Progress + On Hold + Fixed + Testing). The weekly trend's second series is **Completed** (reached Ready to Release / Released), so it isn't confused with the Fixed status.
+
 ## All Tasks paging (2026-10-26)
 - All Tasks reads **100 tasks per page** from Firestore, newest first (`createdAt` desc, then id), with Previous/Next cursors. Each page is live. The total comes from a count aggregate (about 1 read per 1000 tasks), so the page never reads every task (Spark quota).
 - **Release, Status and Category filters run in the database**. Firestore allows at most 30 combinations of "in" values per query; anything beyond that is applied to the loaded page (`lib/task-page.ts`). Composite indexes `tasks(sprintId|status|type…, createdAt desc, __name__ desc)` are in `firestore.indexes.json`.

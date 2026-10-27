@@ -159,7 +159,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
             <ProgressCard progress={progress} sprint={release} />
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-1">
-              <StatTile label="Open tasks" value={openCount} sub={`of ${metrics.total} in this release (not Ready, Released, Closed or Duplicate)`} />
+              <StatTile label="Remaining tasks" value={openCount} sub={`of ${metrics.total} in this release (not yet Ready to Release, Released, Cancelled or Duplicate)`} />
               <StatTile
                 label="Hours (estimated / actual)"
                 value={`${metrics.estimatedHours} / ${metrics.actualHours}`}

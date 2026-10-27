@@ -103,7 +103,9 @@ describe("sprintProgress", () => {
       sprint,
       new Date("2026-10-12T10:00:00"),
     );
-    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 2, 1, 1, 1, 1]);
+    // Testing and Fixed (dev done) are separate stages
+    expect(p.stages.map((s) => s.key)).toEqual(["released", "done", "testing", "fixed", "inProgress", "pending", "onHold", "dropped"]);
+    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
     expect(p.stages.reduce((a, s) => a + s.pct, 0)).toBe(100);
     expect(p.completionPct).toBe(29); // 2 of 7 (the duplicate doesn't count)
   });
