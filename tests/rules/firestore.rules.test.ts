@@ -247,6 +247,14 @@ describe("task creation & counter", () => {
     await assertFails(createTaskBatch(db, UIDS.qa, { assigneeIds: UIDS.dev })); // must be a list
     await assertSucceeds(createTaskBatch(db, UIDS.qa, { type: "improvement", status: "on_hold" }));
   });
+  it("new bugs must have an environment; other categories may leave it empty", async () => {
+    const db = fsOf(as(env, "dev"));
+    await assertFails(createTaskBatch(db, UIDS.dev, { type: "bug", environment: "" }));
+    await assertSucceeds(createTaskBatch(db, UIDS.dev, { type: "bug", environment: "Production", priority: "critical" }));
+  });
+  it("tasks and improvements may be created without an environment", async () => {
+    await assertSucceeds(createTaskBatch(fsOf(as(env, "dev")), UIDS.dev, { type: "improvement", environment: "" }));
+  });
   it("accepts several assignees", async () => {
     const db = fsOf(as(env, "qa"));
     await assertSucceeds(createTaskBatch(db, UIDS.qa, { status: "released", assigneeIds: [UIDS.dev, UIDS.dev2] }));

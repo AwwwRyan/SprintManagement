@@ -18,7 +18,7 @@ describe("parseTaskNumber", () => {
 describe("serverFilters", () => {
   it("sends Release, Status and Category to the database", () => {
     const r = serverFilters({ sprintId: ["s1", "s2"], status: ["pending"], type: ["bug", "task"] });
-    expect(r.server).toEqual({ sprintIds: ["s1", "s2"], statuses: ["pending"], types: ["bug", "task"] });
+    expect(r.server).toEqual({ sprintIds: ["s1", "s2"], statuses: ["pending"], types: ["bug", "task"], environments: [] });
     expect(r.leftInBrowser).toEqual([]);
   });
   it("keeps within Firestore's 30 combinations, leaving the rest to the browser", () => {
@@ -29,10 +29,14 @@ describe("serverFilters", () => {
     expect(r.server.types).toEqual(["bug"]);
     expect(r.leftInBrowser).toEqual(["Status"]);
   });
+  it("sends Environment too, with 'Not set' as an empty value", () => {
+    const r = serverFilters({ sprintId: [], status: [], type: ["bug"], environment: ["Production", "__none__"] });
+    expect(r.server.environments).toEqual(["Production", ""]);
+  });
   it("gives a stable key whatever the selection order", () => {
-    const a = pageQueryKey({ sprintIds: ["b", "a"], statuses: [], types: [] }, null);
-    const b = pageQueryKey({ sprintIds: ["a", "b"], statuses: [], types: [] }, null);
+    const a = pageQueryKey({ sprintIds: ["b", "a"], statuses: [], types: [], environments: [] }, null);
+    const b = pageQueryKey({ sprintIds: ["a", "b"], statuses: [], types: [], environments: [] }, null);
     expect(a).toBe(b);
-    expect(pageQueryKey({ sprintIds: [], statuses: [], types: [] }, { createdAtMs: 5, id: "x" })).toContain("after=5:x");
+    expect(pageQueryKey({ sprintIds: [], statuses: [], types: [], environments: [] }, { createdAtMs: 5, id: "x" })).toContain("after=5:x");
   });
 });

@@ -67,6 +67,12 @@ describe("form schemas", () => {
     expect(taskFormSchema.parse({ ...validTask, assigneeIds: ["a", "b"] }).assigneeIds).toEqual(["a", "b"]);
   });
 
+  it("task: a bug must say where it was found; other categories may not", () => {
+    expect(taskFormSchema.safeParse({ ...validTask, type: "bug", environment: "" }).success).toBe(false);
+    expect(taskFormSchema.safeParse({ ...validTask, type: "bug", environment: "Production" }).success).toBe(true);
+    expect(taskFormSchema.safeParse({ ...validTask, type: "task", environment: "" }).success).toBe(true);
+  });
+
   it("task: hours use 0.5 steps and can't be negative", () => {
     expect(taskFormSchema.safeParse({ ...validTask, estimatedHours: 1.25 }).success).toBe(false);
     expect(taskFormSchema.safeParse({ ...validTask, estimatedHours: -1 }).success).toBe(false);

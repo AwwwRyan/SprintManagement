@@ -350,6 +350,44 @@ test("dashboard: pick any release; numbers only cover that release", async ({ pa
   await expect(page.getByText(/^\d+ tasks in this release/).or(page.getByText(/\d+ tasks in this release/)).first()).toBeVisible();
 });
 
+test("bugs need an environment; Production makes a task Critical; Environment filter", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "qa2@example.com");
+  await page.getByRole("button", { name: "New Task" }).click();
+  const form = page.getByRole("dialog", { name: "New task" });
+  await form.getByLabel("Task", { exact: true }).fill("Checkout crashes on submit");
+  await form.getByRole("combobox", { name: "Category" }).click();
+  await page.getByRole("option", { name: "Bug" }).click();
+  await expect(form.getByText("Environment (required for bugs)")).toBeVisible();
+  await form.getByRole("button", { name: "Create task" }).click();
+  await expect(form.getByText("Choose where the bug was found (Staging or Production)")).toBeVisible();
+
+  await form.getByRole("combobox", { name: "Environment" }).click();
+  await page.getByRole("option", { name: "Production", exact: true }).click();
+  await expect(form.getByRole("combobox", { name: "Priority" })).toContainText("Critical"); // default for Production
+  await form.getByRole("button", { name: "Create task" }).click();
+  const toast = page.getByText(/^TSK-\d+ created$/);
+  await expect(toast).toBeVisible({ timeout: 30_000 });
+  const key = (await toast.textContent())!.replace(" created", "");
+
+  // changing an existing task to Production also makes it Critical
+  await row(page, "TSK-15").locator("td").nth(COL.srNo).getByText(/^\d+$/).click();
+  const panel = page.getByRole("dialog", { name: /TSK-15/ });
+  await panel.getByRole("combobox", { name: "Environment" }).click();
+  await page.getByRole("option", { name: "Production", exact: true }).click();
+  await expect(panel.getByRole("combobox", { name: "Priority" })).toContainText("Critical");
+  await panel.getByRole("button", { name: "Close panel" }).click();
+
+  // filter: Environment → Production lists the new bug and TSK-15 only among production work
+  await page.getByRole("button", { name: /^Environment/ }).first().click();
+  await page.getByRole("menuitemcheckbox", { name: "Production" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/env=Production/);
+  await expect(row(page, key)).toBeVisible();
+  await expect(row(page, "TSK-15")).toBeVisible();
+  await expect(row(page, "TSK-9")).toHaveCount(0);
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task

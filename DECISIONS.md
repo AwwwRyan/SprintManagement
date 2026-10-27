@@ -67,6 +67,11 @@ Decided with the owner:
 - **Closing a release**: every unfinished task must get a destination, next release or Backlog (Ready to Release: release only). Nothing is left behind any more. "Send all" buttons exist for both. The report lists "Moved to the Backlog"; older reports still show "Left incomplete".
 - Suggestions can also be added to the Backlog.
 
+## Environment: required for bugs, Production → Critical, filter (2026-10-27)
+- **New bugs must have an environment** (Staging/Production). The owner's wording was about bugs being reported, so Improvements/Tasks stay optional. This applies in the New Task form and the suggestion "Add to a release" dialog, and the rules reject a new bug with an empty environment (`requiresEnvironment` in `lib/task-model.ts`). Older bugs without one aren't blocked, but once set, the field has no "None" option for bugs.
+- **Production makes a task Critical by default**: choosing Production in a form pre-selects Critical, and changing an existing task's environment to Production also sets Critical in the same update (`normalizePatch`, logged in Activity), unless that change sets a priority itself. Priority can be changed afterwards.
+- **Environment filter** (Production / Staging / Not set) in every task list (releases, Backlog, My Tasks, All Tasks; URL `?env=`). On All Tasks it runs in the database (indexes with `environment` added).
+
 ## Status names and Fixed vs Testing (2026-10-27)
 - Labels only (stored values unchanged, no migration): **pending → "Open"**, **dev_done → "Fixed"**, **closed → "Cancelled"**. Closed *releases* still say "closed".
 - Dashboard: **Fixed** (dev done, waiting for QA) and **Testing** are separate stages in the progress bars and separate columns in the category breakdown (they used to be one "Dev done / testing").

@@ -31,6 +31,7 @@ Next.js 15.5 App Router · React 19 · TS strict (no `any`) · Tailwind v4 · sh
 - Pure logic lives in `lib/*.ts` with no Firebase imports, so it's unit-testable: metrics, filters, diff, carry-forward, activity-format, sprint-utils, validation.
 - Types: `types/index.ts`. Firestore converters and typed refs: `lib/firebase/refs.ts`.
 - Admin-only server operations: `app/api/admin/users/**` with `requireAdmin()` (`lib/server/require-admin.ts`), which verifies the ID token **and** the Firestore doc role/active. Admin SDK init: `lib/firebase/admin-core.ts` (also used by scripts), `lib/firebase/admin.ts` (`server-only`).
+- Environment: required for new bugs (form + rules), Production → Critical by default (`normalizePatch`), Environment filter everywhere (server-side on All Tasks).
 - Status labels (2026-10-27): pending = "Open", dev_done = "Fixed", done = "Ready to Release", closed = "Cancelled" (values unchanged). Dashboard shows Fixed and Testing separately; the not-finished total is "Remaining".
 - Workflow model (`lib/task-model.ts`): Done = tested, still carries forward; Released/Closed/Duplicate are finished; completion % excludes Closed/Duplicate. `assigneeIds: string[]` (no `assigneeId`, no `severity`). See DECISIONS.md "Workflow statuses".
 - Suggestion box: `suggestions/{id}` (+ `images/{id}/chunks/{i}` like attachments), `lib/suggestions.ts` (pure), `lib/services/suggestions.ts`, `/suggestions`. QA/Admin "Add to a release" creates a task with `suggestionId` and copies the pictures; "Done" = linked task Released (not stored).
@@ -63,10 +64,10 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15), Backlog (3 tasks). TSK-1…6 live in closed Release 13. The next key after seeding is TSK-35.
 
 ## Testing status (last full run: 2026-10-27)
-- Unit: 123 tests in 15 files, all passing.
-- Rules: 80 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
+- Unit: 127 tests in 15 files, all passing.
+- Rules: 82 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 30 Playwright flows, all passing (see the README for the list).
+- E2E: 31 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas

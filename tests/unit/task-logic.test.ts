@@ -103,6 +103,21 @@ describe("diffPatch / normalizePatch", () => {
     ]);
   });
 
+  it("makes a task Critical when its environment becomes Production, unless a priority is given", () => {
+    const t = task({ environment: "", priority: "medium" });
+    expect(normalizePatch(t, { environment: "Production" })).toEqual({ environment: "Production", priority: "critical" });
+    expect(normalizePatch(t, { environment: "Production", priority: "low" })).toEqual({ environment: "Production", priority: "low" });
+    expect(normalizePatch(t, { environment: "Staging" })).toEqual({ environment: "Staging" });
+    expect(normalizePatch(task({ environment: "Production", priority: "high" }), { environment: "Production" })).toEqual({ environment: "Production" });
+  });
+
+  it("filters by environment, including tasks with none set", () => {
+    const list = [task({ id: "p", environment: "Production" }), task({ id: "s", environment: "Staging" }), task({ id: "n", environment: "" })];
+    expect(applyFilters(list, { ...EMPTY_FILTERS, environment: ["Production"] }).map((x) => x.id)).toEqual(["p"]);
+    expect(applyFilters(list, { ...EMPTY_FILTERS, environment: ["__none__", "Staging"] }).map((x) => x.id)).toEqual(["s", "n"]);
+    expect(parseFilters(new URLSearchParams("env=Production")).environment).toEqual(["Production"]);
+  });
+
   it("leaves a category change alone", () => {
     expect(normalizePatch(task({ type: "bug" }), { type: "task" })).toEqual({ type: "task" });
   });
