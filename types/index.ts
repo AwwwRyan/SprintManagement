@@ -68,6 +68,8 @@ export interface AppUser {
   initials: string;
   /** chosen avatar colour ("#rrggbb"); null = automatic */
   avatarColor: string | null;
+  /** false = never offered as an assignee (still a normal user); default true */
+  assignable: boolean;
   createdAt: TS;
   updatedAt: TS;
 }

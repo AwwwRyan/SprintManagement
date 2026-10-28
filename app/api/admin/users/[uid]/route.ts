@@ -8,7 +8,7 @@ import { initialsFromName } from "@/lib/utils";
 export const runtime = "nodejs";
 
 /**
- * PATCH /api/admin/users/:uid: change name / designation / role / active.
+ * PATCH /api/admin/users/:uid: change name / designation / role / active / assignable.
  * Role changes update the custom claim (the client sees the Firestore doc change and force-refreshes
  * its token). Deactivation disables the Auth user and revokes refresh tokens; the open session is
  * kicked out by the client's listener on users/{uid}.

@@ -12,6 +12,7 @@ import {
 import { ENVIRONMENTS, PRIORITY_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
 import { AppTypeBadge, PriorityBadge, StatusBadge, TypeBadge } from "@/components/common/badges";
 import { UserChip } from "@/components/common/user-avatar";
+import { isAssignable } from "@/lib/permissions";
 
 export interface Option {
   value: string;
@@ -71,8 +72,9 @@ export function moduleOptions(modules: Module[], appTypeId: string | null | unde
 }
 
 /** Active users, plus the current assignee even if deactivated. */
+/** People offered as assignees (and in the Assignee filter). */
 export function userOptions(users: AppUser[], currentId?: string | null): Option[] {
   return users
-    .filter((u) => u.active || u.id === currentId)
+    .filter((u) => isAssignable(u) || u.id === currentId)
     .map((u) => ({ value: u.id, label: u.name, node: <UserChip user={u} /> }));
 }

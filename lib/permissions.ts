@@ -29,6 +29,11 @@ export function canDeleteSuggestion(actor: Actor | null): boolean {
   return !!actor?.active && actor.role === "admin";
 }
 
+/** Offered as an assignee: active and not switched off by an admin ("Can be assigned tasks"). */
+export function isAssignable(u: { active: boolean; assignable?: boolean }): boolean {
+  return u.active && u.assignable !== false;
+}
+
 /** Avatar colour: your own, or anyone's for admins (mirrors the users rule). */
 export function canSetAvatarColor(actor: Actor | null, userId: string): boolean {
   return !!actor?.active && (actor.uid === userId || actor.role === "admin");

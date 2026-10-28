@@ -85,3 +85,13 @@ describe("permission table (spec §3)", () => {
     expect(p.canCreateTask(null, open)).toBe(false);
   });
 });
+
+describe("isAssignable", () => {
+  it("offers active people unless an admin switched it off", async () => {
+    const { isAssignable } = await import("@/lib/permissions");
+    expect(isAssignable({ active: true })).toBe(true);
+    expect(isAssignable({ active: true, assignable: true })).toBe(true);
+    expect(isAssignable({ active: true, assignable: false })).toBe(false);
+    expect(isAssignable({ active: false, assignable: true })).toBe(false);
+  });
+});

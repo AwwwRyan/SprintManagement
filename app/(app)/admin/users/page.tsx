@@ -134,12 +134,13 @@ const editSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
   designation: z.string().trim().max(100),
   role: z.enum(ROLES),
+  assignable: z.boolean(),
 });
 
 function EditUserDialog({ user, onClose, isSelf }: { user: AppUser | null; onClose: () => void; isSelf: boolean }) {
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
-    values: user ? { name: user.name, designation: user.designation, role: user.role } : undefined,
+    values: user ? { name: user.name, designation: user.designation, role: user.role, assignable: user.assignable !== false } : undefined,
   });
   const onSubmit = form.handleSubmit(async (values) => {
     if (!user) return;
@@ -175,6 +176,21 @@ function EditUserDialog({ user, onClose, isSelf }: { user: AppUser | null; onClo
               )}
             />
           </Field>
+          <Controller
+            control={form.control}
+            name="assignable"
+            render={({ field }) => (
+              <label className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                <span>
+                  <span className="block text-sm font-medium">Can be assigned tasks</span>
+                  <span className="block text-xs text-muted-foreground">
+                    When off, this person isn&rsquo;t offered in the Assignees list. They can still sign in and work as usual.
+                  </span>
+                </span>
+                <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="Can be assigned tasks" />
+              </label>
+            )}
+          />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
@@ -277,7 +293,14 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="p-2.5 text-muted-foreground">{u.email}</td>
                   <td className="p-2.5">{ROLE_LABELS[u.role]}</td>
-                  <td className="p-2.5">{u.designation || <span className="text-muted-foreground">-</span>}</td>
+                  <td className="p-2.5">
+                    {u.designation || <span className="text-muted-foreground">-</span>}
+                    {u.assignable === false && (
+                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground" title="Not offered in the Assignees list">
+                        not assigned tasks
+                      </span>
+                    )}
+                  </td>
                   <td className="p-2.5">
                     {u.active ? (
                       <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">

@@ -28,6 +28,7 @@ export const updateUserSchema = z
     role: z.enum(ROLES).optional(),
     designation: z.string().trim().max(100).optional(),
     active: z.boolean().optional(),
+    assignable: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, "Nothing to update");
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

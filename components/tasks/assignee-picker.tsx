@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { cn } from "@/lib/utils";
+import { isAssignable } from "@/lib/permissions";
 
 /** Read-only display of a task's assignees. `wrap`: names run onto more lines instead of being cut off. */
 export function AssigneeStack({ ids, max = 3, wrap = false }: { ids: string[]; max?: number; wrap?: boolean }) {
@@ -38,8 +39,8 @@ export function AssigneeStack({ ids, max = 3, wrap = false }: { ids: string[]; m
 /** The checkbox list itself (reused inside a popover). */
 function AssigneeList({ value, onToggle }: { value: string[]; onToggle: (id: string) => void }) {
   const { users } = useData();
-  // Active users, plus anyone already assigned even if deactivated since.
-  const options = users.filter((u) => u.active || value.includes(u.id));
+  // People who can be assigned, plus anyone already on the task (deactivated or switched off since).
+  const options = users.filter((u) => isAssignable(u) || value.includes(u.id));
   return (
     <Command>
       <CommandInput placeholder="Search people…" />

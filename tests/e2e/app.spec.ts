@@ -388,6 +388,33 @@ test("bugs need an environment; Production makes a task Critical; Environment fi
   await expect(row(page, "TSK-9")).toHaveCount(0);
 });
 
+test("admins can keep a user out of the Assignees list; the Move dialog lists the selected tasks", async ({ page }) => {
+  test.setTimeout(150_000);
+  await login(page, "admin@example.com");
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Actions for Leo Garcia" }).click({ timeout: 90_000 });
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  await page.getByRole("switch", { name: "Can be assigned tasks" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("not assigned tasks")).toBeVisible();
+
+  await page.goto("/releases/s14");
+  await row(page, "TSK-9").locator("td").nth(COL.assignees).click(); // TSK-9: Dev Patel only
+  await expect(page.getByRole("option", { name: "Dev Patel" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Leo Garcia" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // the Move dialog shows what's selected
+  await row(page, "TSK-9").getByRole("checkbox", { name: "Select TSK-9" }).check();
+  await row(page, "TSK-10").getByRole("checkbox", { name: "Select TSK-10" }).check();
+  await page.getByRole("button", { name: "Move to…" }).click();
+  const list = page.getByRole("dialog", { name: "Move 2 tasks to…" }).getByRole("list", { name: "Tasks to move" });
+  await expect(list.getByRole("listitem")).toHaveCount(2);
+  await expect(list).toContainText("TSK-9");
+  await expect(list).toContainText("TSK-10");
+  await page.getByRole("button", { name: "Cancel" }).click();
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task
