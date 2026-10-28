@@ -67,6 +67,14 @@ Decided with the owner:
 - **Closing a release**: every unfinished task must get a destination, next release or Backlog (Ready to Release: release only). Nothing is left behind any more. "Send all" buttons exist for both. The report lists "Moved to the Backlog"; older reports still show "Left incomplete".
 - Suggestions can also be added to the Backlog.
 
+## Completion % and the Move dialog (2026-10-28)
+- **Done = Released, Cancelled or Duplicate** (owner): only finished work counts. Open, In Progress, On Hold, Fixed, Testing in Progress and Ready to Release don't. **Completion % = done ÷ all tasks**, so every screen uses one total (the release list, header and dashboard all said 313 vs 257 before). `countsAsDone` = `isFinished` in `lib/task-model.ts`. "Bugs fixed" and the weekly trend still count delivered work (Ready to Release / Released). Older release reports keep the numbers they were saved with.
+- The Move dialog lists the selected tasks (key, title, status, release when mixed) and marks the ones that stay when moving to the Backlog.
+
+## "Can be assigned tasks" (2026-10-28)
+- `users.assignable` (default true), set in Admin → Users → Edit. When off, the person isn't offered in the Assignees picker or the Assignee filter (`isAssignable` in `lib/permissions.ts`). They remain a normal user, and tasks already assigned to them keep them. Saved through the admin users API.
+- Switched off for Nikita, Bala and Badri (2026-10-28). Nikita was still on TSK-99 and TSK-104 at the time; those were left as they were.
+
 ## Environment: required for bugs, Production → Critical, filter (2026-10-27)
 - **New bugs must have an environment** (Staging/Production). The owner's wording was about bugs being reported, so Improvements/Tasks stay optional. This applies in the New Task form and the suggestion "Add to a release" dialog, and the rules reject a new bug with an empty environment (`requiresEnvironment` in `lib/task-model.ts`). Older bugs without one aren't blocked, but once set, the field has no "None" option for bugs.
 - **Production makes a task Critical by default**: choosing Production in a form pre-selects Critical, and changing an existing task's environment to Production also sets Critical in the same update (`normalizePatch`, logged in Activity), unless that change sets a priority itself. Priority can be changed afterwards.
