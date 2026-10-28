@@ -412,6 +412,15 @@ test("admins can keep a user out of the Assignees list; the Move dialog lists th
   await expect(list.getByRole("listitem")).toHaveCount(2);
   await expect(list).toContainText("TSK-9");
   await expect(list).toContainText("TSK-10");
+  // untick one: it stays in the list, greyed out, and only the other moves
+  const dialog = page.getByRole("dialog", { name: "Move 2 tasks to…" });
+  await dialog.getByRole("checkbox", { name: "Move TSK-10" }).uncheck();
+  await expect(list.getByRole("listitem")).toHaveCount(2);
+  await expect(list).toContainText("won’t move");
+  await expect(dialog.getByText("1 of 2 will move")).toBeVisible();
+  await dialog.getByRole("radio", { name: /Backlog/ }).click();
+  await expect(dialog.getByRole("button", { name: "Move 1 task" })).toBeEnabled();
+  await dialog.screenshot({ path: "test-results/move-dialog.png" });
   await page.getByRole("button", { name: "Cancel" }).click();
 });
 
@@ -661,6 +670,7 @@ test("starting a second release while one is active is blocked", async ({ page }
 });
 
 test("close release: every unfinished task goes to the next release or the Backlog; report", async ({ page }) => {
+  test.setTimeout(180_000); // closes a release, then first visits of the report and Backlog pages compile in dev
   await login(page, "qa1@example.com");
   await page.getByRole("button", { name: "Close release" }).click();
   const dialog = page.getByRole("dialog", { name: "Close Release 14" });
