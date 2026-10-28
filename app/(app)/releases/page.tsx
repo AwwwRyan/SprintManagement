@@ -32,7 +32,7 @@ export default function SprintsPage() {
   const reports = useReports();
 
   const counts = useMemo(() => {
-    // total = every task in the release; % = (Ready to Release + Released) / (all - Closed - Duplicate)
+    // total = every task in the release; % = (Released + Cancelled + Duplicate) / all
     const statuses = new Map<string, TaskStatus[]>();
     for (const t of liveTasks.data) statuses.set(t.sprintId, [...(statuses.get(t.sprintId) ?? []), t.status]);
     const m = new Map<string, { total: number; pct: number }>();
@@ -110,7 +110,7 @@ export default function SprintsPage() {
                       <span className="text-muted-foreground">0 tasks</span>
                     )}
                   </div>
-                  <div className="flex w-44 items-center gap-2" title="Ready to Release + Released; Cancelled and Duplicate tasks are left out of the %">
+                  <div className="flex w-44 items-center gap-2" title="Done = Released, Cancelled or Duplicate">
                     <Progress value={pct} className="h-1.5" aria-label={`${pct}% complete`} />
                     <span className="w-10 text-right text-xs tabular-nums">{pct}%</span>
                   </div>

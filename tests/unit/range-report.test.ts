@@ -107,11 +107,11 @@ describe("sprintProgress", () => {
     expect(p.stages.map((s) => s.key)).toEqual(["released", "done", "testing", "fixed", "inProgress", "pending", "onHold", "dropped"]);
     expect(p.stages.map((s) => s.count)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
     expect(p.stages.reduce((a, s) => a + s.pct, 0)).toBe(100);
-    expect(p.completionPct).toBe(29); // 2 of 7 (the duplicate doesn't count)
+    expect(p.completionPct).toBe(25); // Released + Duplicate = 2 of 8 (Ready to Release isn't done yet)
   });
 
   it("compares completion with time used", () => {
-    const p = sprintProgress([t("done"), t("pending"), t("pending"), t("pending")], sprint, new Date("2026-10-12T10:00:00"));
+    const p = sprintProgress([t("released"), t("pending"), t("pending"), t("pending")], sprint, new Date("2026-10-12T10:00:00"));
     expect(p.dayOfSprint).toBe(7);
     expect(p.timePct).toBe(50);
     expect(p.paceDelta).toBe(-25);

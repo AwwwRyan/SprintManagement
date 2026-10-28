@@ -81,7 +81,7 @@ export function StageBar({ stages, total, legendLabel = "Progress legend" }: { s
 /** Detailed sprint progress: stage breakdown, time used vs work done, and warning counts. */
 export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress; sprint: Sprint }) {
   const stage = (k: ProgressStage) => p.stages.find((s) => s.key === k)?.count ?? 0;
-  const done = stage("released") + stage("done");
+  const done = stage("released") + stage("dropped"); // done = Released, Cancelled or Duplicate
   return (
     <Card className="print-break-avoid gap-4 py-4">
       <CardContent className="grid gap-4 px-4">
@@ -91,9 +91,14 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
             <div className="mt-0.5 flex items-baseline gap-2">
               <span className="text-3xl font-semibold tabular-nums">{p.completionPct}%</span>
               <span className="text-sm text-muted-foreground">
-                {done} of {p.total - stage("dropped")} tasks done
+                {done} of {p.total} tasks done
               </span>
             </div>
+            {stage("dropped") > 0 && (
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                incl. {stage("dropped")} cancelled or duplicate
+              </div>
+            )}
           </div>
           <PaceBadge p={p} />
         </div>

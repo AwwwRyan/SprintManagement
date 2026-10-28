@@ -3,7 +3,7 @@
  * No Firebase imports here, so it is fully unit-testable.
  */
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
-import { completionPct as completionOf, isComplete, isFinished, isOpen } from "@/lib/task-model";
+import { completionPct as completionOf, countsAsDone, isComplete, isFinished, isOpen } from "@/lib/task-model";
 import {
   PRIORITIES,
   TASK_STATUSES,
@@ -34,7 +34,7 @@ export function computeSprintMetrics(
   appTypes: Pick<AppType, "id" | "name" | "color">[],
 ): SprintMetrics {
   const total = tasks.length;
-  const done = tasks.filter((t) => isComplete(t.status)).length;
+  const done = tasks.filter((t) => countsAsDone(t.status)).length;
 
   const byStatus: CountByKey[] = TASK_STATUSES.map((key) => ({
     key,
@@ -50,7 +50,7 @@ export function computeSprintMetrics(
   const byAppType: AppTypeBreakdown[] = appTypeIds
     .map((id) => {
       const subset = tasks.filter((t) => t.appTypeId === id);
-      const d = subset.filter((t) => isComplete(t.status)).length;
+      const d = subset.filter((t) => countsAsDone(t.status)).length;
       const at = appTypes.find((a) => a.id === id);
       return {
         appTypeId: id,
@@ -73,7 +73,7 @@ export function computeSprintMetrics(
         userId,
         name: userId ? (users.find((u) => u.id === userId)?.name ?? "Unknown user") : "Unassigned",
         tasks: subset.length,
-        done: subset.filter((t) => isComplete(t.status)).length,
+        done: subset.filter((t) => countsAsDone(t.status)).length,
         estimatedHours: sum(subset.map((t) => t.estimatedHours)),
         actualHours: sum(subset.map((t) => t.actualHours)),
       };

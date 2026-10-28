@@ -52,21 +52,23 @@ describe("computeSprintMetrics", () => {
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
     expect(m.total).toBe(3);
-    expect(m.done).toBe(2);
-    expect(m.completionPct).toBe(67);
+    expect(m.done).toBe(1); // only Released counts as done; Ready to Release doesn't
+    expect(m.completionPct).toBe(33);
     expect(m.estimatedHours).toBe(7.5);
     expect(m.actualHours).toBe(4);
     expect(m.byStatus.find((s) => s.key === "done")?.count).toBe(1);
     expect(m.byStatus).toHaveLength(9);
   });
 
-  it("leaves Closed and Duplicate out of the completion %", () => {
-    const tasks = [t({ status: "done" }), t({ status: "pending" }), t({ status: "closed" }), t({ status: "duplicate" })];
-    expect(computeSprintMetrics(tasks, users, appTypes).completionPct).toBe(50);
+  it("counts Released, Cancelled and Duplicate as done; Ready to Release isn't yet", () => {
+    const tasks = [t({ status: "done" }), t({ status: "pending" }), t({ status: "closed" }), t({ status: "duplicate" }), t({ status: "released" })];
+    const m = computeSprintMetrics(tasks, users, appTypes);
+    expect(m.done).toBe(3);
+    expect(m.completionPct).toBe(60);
   });
 
   it("gives every assignee the task's full hours", () => {
-    const m = computeSprintMetrics([t({ assigneeIds: ["u1", "u2"], estimatedHours: 6, status: "done" })], users, appTypes);
+    const m = computeSprintMetrics([t({ assigneeIds: ["u1", "u2"], estimatedHours: 6, status: "released" })], users, appTypes);
     expect(m.byPerson).toHaveLength(2);
     for (const p of m.byPerson) expect(p).toMatchObject({ tasks: 1, done: 1, estimatedHours: 6 });
   });
@@ -74,7 +76,7 @@ describe("computeSprintMetrics", () => {
   it("breaks down by person, with Unassigned last", () => {
     const tasks = [
       t({ assigneeIds: [] }),
-      t({ assigneeIds: ["u2"], status: "done", estimatedHours: 1 }),
+      t({ assigneeIds: ["u2"], status: "released", estimatedHours: 1 }),
       t({ assigneeIds: ["u1"] }),
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
@@ -83,7 +85,7 @@ describe("computeSprintMetrics", () => {
   });
 
   it("breaks down by App Type with completion %", () => {
-    const tasks = [t({ appTypeId: "app1", status: "done" }), t({ appTypeId: "app1" }), t({ appTypeId: "app2" })];
+    const tasks = [t({ appTypeId: "app1", status: "released" }), t({ appTypeId: "app1" }), t({ appTypeId: "app2" })];
     const m = computeSprintMetrics(tasks, users, appTypes);
     const portal = m.byAppType.find((a) => a.appTypeId === "app1");
     expect(portal).toMatchObject({ name: "Portal", total: 2, done: 1, completionPct: 50 });

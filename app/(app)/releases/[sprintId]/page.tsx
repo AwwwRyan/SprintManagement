@@ -78,7 +78,7 @@ function SprintView() {
                 </span>
                 {sprint.status === "active" && <span>{daysRemaining(sprint.endDate)} days left</span>}
                 {!live.loading && (
-                  <span title="Completion counts Ready to Release + Released; Cancelled and Duplicate tasks are left out of the %">
+                  <span title="Done = Released, Cancelled or Duplicate">
                     {live.tasks.length} tasks · {pct}% complete
                   </span>
                 )}

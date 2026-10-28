@@ -47,7 +47,7 @@ describe("categoryBreakdown", () => {
 
   it("splits open / testing / ready / released and leaves duplicates out of completion", () => {
     expect(b).toMatchObject({ open: 2, fixed: 0, testing: 1, ready: 1, released: 1, dropped: 1, criticalOpen: 1, unassignedOpen: 0 });
-    expect(b.completionPct).toBe(50); // (ready + released) / (5 - 1 duplicate)
+    expect(b.completionPct).toBe(40); // (released + duplicate) / 5
   });
 
   it("counts Fixed (dev done) and Testing separately", () => {

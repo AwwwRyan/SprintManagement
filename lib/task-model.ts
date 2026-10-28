@@ -5,14 +5,15 @@
  * Team decisions (DECISIONS.md "Workflow statuses"):
  * - Done = testing passed but not yet live; it still carries into the next release.
  * - Released / Closed / Duplicate are finished: never carried forward.
- * - Completion % = (Done + Released) ÷ (all − Closed − Duplicate).
+ * - Completion % = (Released + Closed + Duplicate) ÷ all (owner, 2026-10-28): only finished work
+ *   counts as done; Ready to Release (tested, not live yet) does not. One total everywhere.
  */
 import type { TaskStatus, TaskType } from "@/types";
 
 /** Work is complete (counts toward completion %). */
 export const isComplete = (s: TaskStatus) => s === "done" || s === "released";
 
-/** Dropped work: left out of completion % entirely. */
+/** Dropped work (Cancelled / Duplicate): never carried forward; counts as done in completion %. */
 export const isExcluded = (s: TaskStatus) => s === "closed" || s === "duplicate";
 
 /** Finished for the release: not offered for carry-forward. */
@@ -21,11 +22,13 @@ export const isFinished = (s: TaskStatus) => s === "released" || isExcluded(s);
 /** Still being worked on (pending, in progress, on hold, dev done, testing). */
 export const isOpen = (s: TaskStatus) => !isComplete(s) && !isExcluded(s);
 
-/** Completion % for a set of statuses (0 when nothing counts). */
+/** Counts as done for release progress: Released, or closed out (Cancelled, Duplicate). Same as finished. */
+export const countsAsDone = (s: TaskStatus) => isFinished(s);
+
+/** Completion % for a set of statuses (0 for none): share of tasks that count as done. */
 export function completionPct(statuses: TaskStatus[]): number {
-  const counted = statuses.filter((s) => !isExcluded(s));
-  if (counted.length === 0) return 0;
-  return Math.round((counted.filter(isComplete).length / counted.length) * 100);
+  if (statuses.length === 0) return 0;
+  return Math.round((statuses.filter(countsAsDone).length / statuses.length) * 100);
 }
 
 /* ------------------------------------------------------------------ legacy values */
