@@ -13,7 +13,7 @@ import { sortSprints } from "@/lib/sprint-utils";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SprintStatusBadge } from "@/components/common/badges";
+import { ReleaseChip, SprintStatusBadge, StatusBadge } from "@/components/common/badges";
 import { BACKLOG_ID, type Task } from "@/types";
 
 export function MoveTasksDialog({ tasks, onClose, onMoved }: { tasks: Task[] | null; onClose: () => void; onMoved?: () => void }) {
@@ -60,7 +60,7 @@ export function MoveTasksDialog({ tasks, onClose, onMoved }: { tasks: Task[] | n
 
   return (
     <Dialog open={!!tasks} onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[92svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             Move {list.length === 1 ? list[0].taskKey : `${list.length} tasks`} to…
@@ -69,6 +69,31 @@ export function MoveTasksDialog({ tasks, onClose, onMoved }: { tasks: Task[] | n
             The task number, comments, pictures and history move with {list.length === 1 ? "it" : "them"}.
           </DialogDescription>
         </DialogHeader>
+
+        {/* what's being moved, at a glance */}
+        <div>
+          <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Selected task{list.length === 1 ? "" : "s"} ({list.length})
+          </div>
+          <ul className="max-h-48 divide-y overflow-y-auto rounded-lg border text-sm" aria-label="Tasks to move">
+            {[...list]
+              .sort((a, b) => a.order - b.order)
+              .map((t) => {
+                const stays = target === BACKLOG_ID && !canGoToBacklog(t.status);
+                return (
+                  <li key={t.id} className={cn("flex items-center gap-2 px-2.5 py-1.5", stays && "opacity-60")}>
+                    <span className="w-16 shrink-0 font-mono text-xs text-muted-foreground">{t.taskKey}</span>
+                    <span className="min-w-0 flex-1 truncate" title={t.title}>
+                      {t.title}
+                    </span>
+                    {from.size > 1 && <ReleaseChip sprint={sprintById.get(t.sprintId)} />}
+                    <StatusBadge status={t.status} />
+                    {stays && <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-300">stays</span>}
+                  </li>
+                );
+              })}
+          </ul>
+        </div>
 
         {options.length === 0 ? (
           <p className="text-sm text-muted-foreground">There is no other open release{backlog ? "" : " and the Backlog isn't set up yet"}.</p>
