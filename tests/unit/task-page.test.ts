@@ -22,10 +22,10 @@ describe("serverFilters", () => {
     expect(r.leftInBrowser).toEqual([]);
   });
   it("keeps within Firestore's 30 combinations, leaving the rest to the browser", () => {
-    const statuses = ["pending", "in_progress", "on_hold", "dev_done", "testing", "done", "released", "closed", "duplicate"] as const;
+    const statuses = ["pending", "in_progress", "dev_done", "testing", "done", "released", "closed", "duplicate"] as const;
     const r = serverFilters({ sprintId: ["s1", "s2", "s3", "s4"], status: [...statuses], type: ["bug"] });
     expect(r.server.sprintIds).toHaveLength(4);
-    expect(r.server.statuses).toEqual([]); // 4 x 9 = 36 > 30
+    expect(r.server.statuses).toEqual([]); // 4 x 8 = 32 > 30
     expect(r.server.types).toEqual(["bug"]);
     expect(r.leftInBrowser).toEqual(["Status"]);
   });

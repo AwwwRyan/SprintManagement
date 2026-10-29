@@ -20,11 +20,14 @@ export const BACKLOG_ID = "backlog";
 export const TASK_TYPES = ["bug", "improvement", "task"] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
 
-/** Workflow order. Which statuses are complete / finished / excluded: lib/task-model.ts. */
+/**
+ * Workflow order. Which statuses are complete / finished / excluded: lib/task-model.ts.
+ * "pending" is shown as **Backlog** (2026-10-29: Open and On Hold were merged into it); a task with
+ * that status lives in the Backlog. Old "on_hold" values are read as "pending".
+ */
 export const TASK_STATUSES = [
   "pending",
   "in_progress",
-  "on_hold",
   "dev_done",
   "testing",
   "done",
@@ -70,6 +73,8 @@ export interface AppUser {
   avatarColor: string | null;
   /** false = never offered as an assignee (still a normal user); default true */
   assignable: boolean;
+  /** "Product Owner": an admin shown with this title (display only, same permissions) */
+  productOwner: boolean;
   createdAt: TS;
   updatedAt: TS;
 }

@@ -8,7 +8,7 @@ describe("canGoToBacklog", () => {
   it("keeps Ready to Release and Released tasks out of the Backlog", () => {
     expect(canGoToBacklog("done")).toBe(false);
     expect(canGoToBacklog("released")).toBe(false);
-    for (const s of ["pending", "in_progress", "on_hold", "dev_done", "testing", "closed", "duplicate"] as const) {
+    for (const s of ["pending", "in_progress", "dev_done", "testing", "closed", "duplicate"] as const) {
       expect(canGoToBacklog(s)).toBe(true);
     }
   });
@@ -28,6 +28,13 @@ describe("planTaskMove", () => {
     const plan = planTaskMove([t("1", "pending"), t("2", "done"), t("3", "released"), t("4", "pending", BACKLOG_ID)], BACKLOG_ID, 0);
     expect(plan.moving.map((m) => m.taskKey)).toEqual(["TSK-1"]);
     expect(plan.skipped.map((s) => s.taskKey)).toEqual(["TSK-2", "TSK-3", "TSK-4"]);
+  });
+
+  it("status follows the place: Backlog in the Backlog, In Progress when planned into a release", async () => {
+    const { statusAfterMove } = await import("@/lib/move-plan");
+    expect(statusAfterMove("testing", BACKLOG_ID)).toBe("pending");
+    expect(statusAfterMove("pending", "s2")).toBe("in_progress");
+    expect(statusAfterMove("dev_done", "s2")).toBe("dev_done");
   });
 
   it("lets Ready to Release tasks move between releases", () => {

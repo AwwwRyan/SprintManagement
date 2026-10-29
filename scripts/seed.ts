@@ -72,7 +72,7 @@ const TITLES: [TaskType, string][] = [
   ["bug", "Session expires too early on mobile"],
 ];
 
-const STATUSES: TaskStatus[] = ["pending", "in_progress", "dev_done", "testing", "done", "released", "on_hold", "done", "in_progress", "released", "pending", "duplicate"];
+const STATUSES: TaskStatus[] = ["in_progress", "in_progress", "dev_done", "testing", "done", "released", "testing", "done", "in_progress", "released", "dev_done", "duplicate"];
 const PRIORITIES: Priority[] = ["critical", "high", "medium", "medium", "low"];
 
 function doc(text: string) {
@@ -262,7 +262,7 @@ async function main() {
   }
   // Backlog: 3 tasks not planned into a release yet
   for (let i = 0; i < 3; i++) {
-    const t = makeTask(30 + i, "backlog", i === 2 ? "on_hold" : "pending", addDays(activeStart, i));
+    const t = makeTask(30 + i, "backlog", "pending", addDays(activeStart, i));
     const ref = db.collection("tasks").doc();
     batch.set(ref, t);
     batch.set(ref.collection("activity").doc(), {

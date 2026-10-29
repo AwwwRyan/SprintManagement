@@ -6,6 +6,14 @@ export const ROLE_LABELS: Record<Role, string> = {
   developer: "Developer",
 };
 
+/** An admin with the Product Owner title (display only; same permissions as Admin). */
+export const PRODUCT_OWNER_LABEL = "Product Owner";
+
+/** What to call someone's role: "Product Owner" for that one admin, else the role name. */
+export function roleLabel(u: { role: Role; productOwner?: boolean }): string {
+  return u.role === "admin" && u.productOwner ? PRODUCT_OWNER_LABEL : ROLE_LABELS[u.role];
+}
+
 /** Category labels (the `type` field). */
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   bug: "Bug",
@@ -14,9 +22,8 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  pending: "Open",
+  pending: "Backlog",
   in_progress: "In Progress",
-  on_hold: "On Hold",
   dev_done: "Fixed",
   testing: "Testing in Progress",
   done: "Ready to Release",
@@ -47,9 +54,8 @@ export const TASK_TYPE_COLORS: Record<TaskType, string> = {
 };
 
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  pending: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  pending: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
   in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-  on_hold: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
   dev_done: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   testing: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
   done: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",

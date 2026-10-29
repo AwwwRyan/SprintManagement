@@ -89,7 +89,7 @@ export function TaskPanel({
 
   const save = (patch: TaskPatch) => {
     if (!task) return;
-    updateTask(task, patch, actor.uid).catch((err) => notifyError(err, "Couldn't save"));
+    updateTask(task, patch, actor.uid, { releaseName: sprint?.name }).catch((err) => notifyError(err, "Couldn't save"));
   };
   const field =
     <K extends EditableTaskField>(name: K) =>

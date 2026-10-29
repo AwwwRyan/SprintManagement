@@ -8,6 +8,7 @@ import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
 import { taskFormSchema, type TaskFormInput, type TaskFormValues } from "@/lib/validation";
 import { PRODUCTION, requiresEnvironment } from "@/lib/task-model";
+import { BACKLOG_ID } from "@/types";
 import { createTask } from "@/lib/services/tasks";
 import { notifyError } from "@/lib/notify";
 import { Field } from "@/components/common/field";
@@ -66,7 +67,8 @@ export function NewTaskDialog({
       moduleId: null,
       assigneeIds: defaultAssigneeId ? [defaultAssigneeId] : [],
       priority: "medium",
-      status: "pending",
+      // in a release new tasks start In Progress; in the Backlog they're Backlog
+      status: sprintId === BACKLOG_ID ? "pending" : "in_progress",
       estimatedHours: null,
       actualHours: null,
       dueDate: null,

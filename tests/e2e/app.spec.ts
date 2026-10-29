@@ -27,6 +27,13 @@ const COL = { srNo: 0, category: 2, task: 4, assignees: 5, priority: 6, status: 
 
 test.describe.configure({ mode: "serial" });
 
+/** Filters live in the column headers: open a column's menu and tick an option. */
+async function columnFilter(page: Page, column: string, option: string) {
+  await page.getByRole("button", { name: `${column}: sort and filter` }).first().click();
+  await page.getByRole("checkbox", { name: option, exact: true }).click();
+  await page.keyboard.press("Escape");
+}
+
 test("unauthenticated users are redirected to /login", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login/);
@@ -130,19 +137,29 @@ test("a task can have several assignees, and it shows in each one's My Tasks", a
   await dev.ctx.close();
 });
 
-test("statuses include On Hold, Released and Duplicate; the old Description column is gone", async ({ page }) => {
+test("statuses: Backlog (moves the task to the Backlog), Fixed, Released…; the old Description column is gone", async ({ page }) => {
+  test.setTimeout(120_000);
   await login(page, "qa2@example.com");
-  await expect(page.getByRole("columnheader", { name: "Task", exact: true })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Category" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Task: sort and filter", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Category: sort and filter" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Description" })).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Severity" })).toHaveCount(0);
   const status = row(page, "TSK-11").locator("td").nth(COL.status);
   await status.click();
-  for (const name of ["Open", "On Hold", "Fixed", "Testing in Progress", "Ready to Release", "Released", "Cancelled", "Duplicate"]) {
+  for (const name of ["Backlog", "In Progress", "Fixed", "Testing in Progress", "Ready to Release", "Released", "Cancelled", "Duplicate"]) {
     await expect(page.getByRole("option", { name, exact: true })).toBeVisible();
   }
-  await page.getByRole("option", { name: "On Hold", exact: true }).click();
-  await expect(status).toContainText("On Hold");
+  await expect(page.getByRole("option", { name: "On Hold", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: "Open", exact: true })).toHaveCount(0);
+  await page.getByRole("option", { name: "Fixed", exact: true }).click();
+  await expect(status).toContainText("Fixed");
+
+  // setting Backlog sends the task to the Backlog
+  await row(page, "TSK-21").locator("td").nth(COL.status).click();
+  await page.getByRole("option", { name: "Backlog", exact: true }).click();
+  await expect(row(page, "TSK-21")).toHaveCount(0);
+  await page.goto("/backlog");
+  await expect(row(page, "TSK-21")).toBeVisible({ timeout: 90_000 });
 });
 
 test("anyone can drag tasks into a new order (or use Alt+arrows), and others see it live", async ({ browser }) => {
@@ -165,7 +182,9 @@ test("anyone can drag tasks into a new order (or use Alt+arrows), and others see
   await expect.poll(() => keys(dev.page)).toEqual([first, third, second, ...before.slice(3)]);
 
   // sorted by another column → no drag handles
-  await dev.page.getByRole("columnheader", { name: "Priority" }).getByRole("button").click();
+  await dev.page.getByRole("button", { name: "Priority: sort and filter" }).click();
+  await dev.page.getByRole("button", { name: "Sort A→Z" }).click();
+  await dev.page.keyboard.press("Escape");
   await expect(dev.page.locator("[data-drag-handle]")).toHaveCount(0);
   await expect(dev.page.getByText("Sort by Sr No to reorder")).toBeVisible();
   await qa.ctx.close();
@@ -298,7 +317,7 @@ test("Backlog and All Tasks: QA moves tasks between a release and the Backlog; c
   await page.getByRole("link", { name: "Backlog" }).click();
   await expect(page.getByRole("heading", { name: "Backlog" })).toBeVisible({ timeout: 90_000 });
   await expect(row(page, "TSK-11")).toBeVisible();
-  await expect(footer).toHaveText(/^5 tasks/);
+  await expect(footer).toHaveText(/^6 tasks/); // 3 seeded + TSK-21 (statuses flow) + the 2 just moved
   await row(page, "TSK-11").locator("td").nth(COL.srNo + 0).getByText(/^\d+$/).click();
   await page.getByRole("button", { name: "Move to…" }).click();
   await page.getByRole("dialog", { name: "Move TSK-11 to…" }).getByRole("radio", { name: /Release 14/ }).click();
@@ -311,14 +330,12 @@ test("Backlog and All Tasks: QA moves tasks between a release and the Backlog; c
   // All Tasks: everything, with a Release column and filter
   await page.getByRole("link", { name: "All Tasks" }).click();
   await expect(page.getByRole("heading", { name: "All Tasks" })).toBeVisible({ timeout: 90_000 });
-  await expect(page.getByRole("columnheader", { name: "Release", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Release: sort and filter", exact: true })).toBeVisible();
   await expect(row(page, "TSK-1")).toBeVisible(); // a task from the closed Release 13
-  await page.getByRole("button", { name: /^Release/ }).first().click();
-  await page.getByRole("menuitemcheckbox", { name: "Backlog" }).click();
-  await page.keyboard.press("Escape");
+  await columnFilter(page, "Release", "Backlog");
   // the Release filter runs in the database: the page holds just the 4 Backlog tasks
-  await expect(footer).toHaveText(/^4 tasks/);
-  await expect(page.getByLabel("Pages")).toContainText("Showing 1–4 of 4");
+  await expect(footer).toHaveText(/^5 tasks/);
+  await expect(page.getByLabel("Pages")).toContainText("Showing 1–5 of 5");
   await expect(page.getByLabel("Pages")).toContainText("Page 1 of 1");
   await page.getByRole("button", { name: "Clear filters" }).click();
 
@@ -379,9 +396,7 @@ test("bugs need an environment; Production makes a task Critical; Environment fi
   await panel.getByRole("button", { name: "Close panel" }).click();
 
   // filter: Environment → Production lists the new bug and TSK-15 only among production work
-  await page.getByRole("button", { name: /^Environment/ }).first().click();
-  await page.getByRole("menuitemcheckbox", { name: "Production" }).click();
-  await page.keyboard.press("Escape");
+  await columnFilter(page, "Environment", "Production");
   await expect(page).toHaveURL(/env=Production/);
   await expect(row(page, key)).toBeVisible();
   await expect(row(page, "TSK-15")).toBeVisible();
@@ -449,10 +464,31 @@ test("click a title to edit it in the table; double-click opens the task with a 
   await panel.getByRole("button", { name: "Close panel" }).click();
 
   // filtering shows "N of M tasks" at the top
-  await page.getByRole("button", { name: /^Priority/ }).first().click();
-  await page.getByRole("menuitemcheckbox", { name: "Critical" }).click();
-  await page.keyboard.press("Escape");
+  await columnFilter(page, "Priority", "Critical");
   await expect(page.getByLabel("Task count")).toHaveText(/^\d+ of \d+ tasks$/);
+});
+
+test("releases page: newest end date first, Backlog row and button; Product Owner title", async ({ page }) => {
+  test.setTimeout(150_000);
+  await login(page, "admin@example.com");
+  await page.goto("/releases");
+  const rows = page.locator("main ul > li");
+  await expect(rows.first()).toContainText("Backlog", { timeout: 60_000 });
+  // seeded end dates: Release 15 (latest) > Release 14 > Release 13
+  await expect(rows.nth(1)).toContainText("Release 15");
+  await expect(rows.nth(2)).toContainText("Release 14");
+  await expect(rows.nth(3)).toContainText("Release 13");
+  await page.getByRole("link", { name: /Open the Backlog/ }).click();
+  await expect(page).toHaveURL(/\/backlog/);
+
+  // Product Owner: an admin with that title (display only)
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Actions for Priya Shah" }).click({ timeout: 90_000 });
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  await page.getByRole("combobox", { name: "Role" }).click();
+  await page.getByRole("option", { name: "Product Owner (admin)" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("row", { name: /Priya Shah/ })).toContainText("Product Owner");
 });
 
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
@@ -527,15 +563,29 @@ test("attachments: upload via picker shows a thumbnail and bumps the count", asy
   await page.keyboard.press("Escape");
 });
 
-test("filters persist in the URL", async ({ page }) => {
+test("filters are in the column headers, persist in the URL and are remembered next time", async ({ page }) => {
   await login(page, "qa1@example.com");
-  await page.getByRole("button", { name: /^Category/ }).first().click(); // toolbar filter (header sort button comes later)
-  await page.getByRole("menuitemcheckbox", { name: "Bug" }).click();
-  await page.keyboard.press("Escape");
+  await columnFilter(page, "Category", "Bug");
   await expect(page).toHaveURL(/type=bug/);
+  await expect(page.getByRole("button", { name: "Category: sort and filter" })).toContainText("Category");
   await page.reload();
-  await expect(page.getByLabel("Task count")).toBeVisible(); // the total varies with earlier flows
+  await expect(page.getByLabel("Task count")).toHaveText(/^\d+ of \d+ tasks$/);
+
+  // coming back without any filters in the link restores this person's last filters
+  await page.goto("/releases/s14");
+  await expect(page).toHaveURL(/type=bug/);
+
+  // Select all, then untick one
+  await page.getByRole("button", { name: "Status: sort and filter" }).click();
+  await page.getByRole("button", { name: "Select all" }).click();
+  await page.getByRole("checkbox", { name: "Released", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/status=/);
+  await expect(page).not.toHaveURL(/status=[^&]*released/);
+
   await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page).not.toHaveURL(/type=bug/);
+  await page.goto("/releases/s14"); // cleared filters are remembered as cleared
   await expect(page).not.toHaveURL(/type=bug/);
 });
 
@@ -546,11 +596,10 @@ test("date filter: pick which date and a range, in the grid (kept in the URL) an
   await expect(row(page, "TSK-9")).toBeVisible(); // grid loaded (the footer says "0 tasks" while loading)
   const total = Number((await footer.textContent())!.match(/^(\d+)/)![1]);
 
-  await page.getByRole("button", { name: "Filter by date" }).click();
-  await expect(page.getByRole("radio", { name: "Due date" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Due date: sort and filter" }).click();
   await page.getByLabel("From", { exact: true }).fill("2000-01-01");
   await page.getByLabel("To", { exact: true }).fill("2100-12-31");
-  await page.getByRole("button", { name: "Done" }).click();
+  await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/date=due&from=2000-01-01&to=2100-12-31/);
   // only tasks that have a due date are left (the seed gives every 4th task one)
   await expect(footer).toHaveText(new RegExp(`^\\d+ of ${total} tasks`));
@@ -558,16 +607,17 @@ test("date filter: pick which date and a range, in the grid (kept in the URL) an
   expect(shown).toBeGreaterThan(0);
   expect(shown).toBeLessThan(total);
 
-  // switching to Created keeps the range and applies it to the other date
-  await page.getByRole("button", { name: /Date filter: Due date/ }).click();
-  await page.getByRole("radio", { name: "Created" }).click();
+  // Created is a column (hidden by default): show it and filter on it
+  await page.getByRole("button", { name: "Columns" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Created" }).click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Created: sort and filter" }).click();
+  await page.getByLabel("From", { exact: true }).fill("2000-01-01");
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/date=created/);
   await expect(footer).toHaveText(new RegExp(`^${total} tasks`)); // every task has a created date, so nothing is hidden
 
-  await page.reload();
-  await expect(page.getByRole("button", { name: /Date filter: Created/ })).toBeVisible();
-  await page.getByRole("button", { name: "Clear date filter" }).click();
+  await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).not.toHaveURL(/date=/);
 
   // dashboard

@@ -57,7 +57,7 @@ describe("computeSprintMetrics", () => {
     expect(m.estimatedHours).toBe(7.5);
     expect(m.actualHours).toBe(4);
     expect(m.byStatus.find((s) => s.key === "done")?.count).toBe(1);
-    expect(m.byStatus).toHaveLength(9);
+    expect(m.byStatus).toHaveLength(8); // On Hold was merged into Backlog
   });
 
   it("counts Released, Cancelled and Duplicate as done; Ready to Release isn't yet", () => {
@@ -97,7 +97,7 @@ describe("computeSprintMetrics", () => {
       t({ type: "bug", priority: "critical" }),
       t({ type: "bug", priority: "critical", status: "done" }),
       t({ type: "bug", priority: "critical", status: "duplicate" }),
-      t({ type: "bug", priority: "low", status: "on_hold" }),
+      t({ type: "bug", priority: "low", status: "pending" }), // Backlog (was On Hold)
       t({ type: "task", priority: "critical" }),
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);

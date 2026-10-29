@@ -23,7 +23,7 @@ import { db } from "@/lib/firebase/client";
 import { col, ref } from "@/lib/firebase/refs";
 import { buildSprintReport } from "@/lib/metrics";
 import { carrySummary, planCarryForward } from "@/lib/carry-forward";
-import { planTaskMove, type MovePlan } from "@/lib/move-plan";
+import { planTaskMove, statusAfterMove, type MovePlan } from "@/lib/move-plan";
 import { chunk } from "@/lib/utils";
 import { BATCH_CHUNK_SIZE } from "@/lib/constants";
 import { addActivity } from "./tasks";
@@ -172,13 +172,18 @@ export async function closeSprint(args: CloseSprintArgs): Promise<string> {
     ...plan.toBacklog.map((item) => ({ item, to: { id: BACKLOG_ID, name: "Backlog" } })),
   ];
 
-  // Each task needs 2 writes (task update + activity), so a chunk holds 450 writes.
-  for (const group of chunk(moves, Math.floor(BATCH_CHUNK_SIZE / 2))) {
+  // Up to 3 writes per task (update + carried entry + status entry), so a chunk holds 150 tasks.
+  for (const group of chunk(moves, Math.floor(BATCH_CHUNK_SIZE / 3))) {
     const batch = writeBatch(db());
     for (const { item, to } of group) {
+      const status = statusAfterMove(item.finalStatusInSprint, to.id);
+      if (status !== item.finalStatusInSprint) {
+        addActivity(batch, item.taskId, actorId, { action: "updated", field: "status", oldValue: item.finalStatusInSprint, newValue: status });
+      }
       batch.update(doc(db(), "tasks", item.taskId), {
         sprintId: to.id,
         order: item.newOrder,
+        ...(status !== item.finalStatusInSprint ? { status } : {}),
         carryOverCount: increment(1),
         sprintHistory: arrayUnion({
           sprintId: sprint.id,
@@ -225,18 +230,22 @@ export async function moveTasks(
 ): Promise<MovePlan["skipped"]> {
   const plan = planTaskMove(tasks, target.id, await lastOrder(target.id));
   const movedAt = Timestamp.now();
-  for (const group of chunk(plan.moving, Math.floor(BATCH_CHUNK_SIZE / 2))) {
+  // up to 3 writes per task (update + "moved" + status entry)
+  for (const group of chunk(plan.moving, Math.floor(BATCH_CHUNK_SIZE / 3))) {
     const batch = writeBatch(db());
     for (const m of group) {
       const fromName = sprintNames.get(m.fromSprintId) ?? "another release";
+      const status = statusAfterMove(m.status, target.id);
       batch.update(doc(db(), "tasks", m.taskId), {
         sprintId: target.id,
         order: m.newOrder,
+        ...(status !== m.status ? { status } : {}),
         sprintHistory: arrayUnion({ sprintId: m.fromSprintId, sprintName: fromName, finalStatusInSprint: m.status, movedAt }),
         updatedAt: serverTimestamp(),
         updatedBy: actorId,
       });
       addActivity(batch, m.taskId, actorId, { action: "moved", field: "sprintId", oldValue: fromName, newValue: target.name });
+      if (status !== m.status) addActivity(batch, m.taskId, actorId, { action: "updated", field: "status", oldValue: m.status, newValue: status });
     }
     await batch.commit();
   }

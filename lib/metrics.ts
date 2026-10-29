@@ -106,7 +106,7 @@ export function computeSprintMetrics(
 
 /* ------------------------------------------------------------------ sprint progress */
 
-export type ProgressStage = "released" | "done" | "testing" | "fixed" | "inProgress" | "pending" | "onHold" | "dropped";
+export type ProgressStage = "released" | "done" | "testing" | "fixed" | "inProgress" | "pending" | "dropped";
 
 export interface SprintProgress {
   total: number;
@@ -122,7 +122,6 @@ export interface SprintProgress {
   pace: "ahead" | "on_track" | "behind" | "not_started";
   overdue: number;
   criticalOpen: number;
-  onHold: number;
   unassignedOpen: number;
 }
 
@@ -133,11 +132,10 @@ const STAGE_OF: Record<TaskStatus, ProgressStage> = {
   testing: "testing",
   in_progress: "inProgress",
   pending: "pending",
-  on_hold: "onHold",
   closed: "dropped",
   duplicate: "dropped",
 };
-const STAGES: ProgressStage[] = ["released", "done", "testing", "fixed", "inProgress", "pending", "onHold", "dropped"];
+const STAGES: ProgressStage[] = ["released", "done", "testing", "fixed", "inProgress", "pending", "dropped"];
 
 /** Percentages that always sum to exactly 100 (or 0 for an empty sprint). */
 export function roundedShares(counts: number[]): number[] {
@@ -186,7 +184,6 @@ export function sprintProgress(
     pace,
     overdue: open.filter((t) => t.dueDate !== null && t.dueDate < todayStr).length,
     criticalOpen: open.filter((t) => t.priority === "critical").length,
-    onHold: tasks.filter((t) => t.status === "on_hold").length,
     unassignedOpen: open.filter((t) => t.assigneeIds.length === 0).length,
   };
 }

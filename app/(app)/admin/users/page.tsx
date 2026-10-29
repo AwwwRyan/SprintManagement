@@ -11,7 +11,7 @@ import { useData } from "@/components/providers/data-provider";
 import { createUserSchema, resetPasswordSchema, type CreateUserInput } from "@/lib/validation";
 import { createUser, resetUserPassword, sendInvite, updateUser } from "@/lib/services/users";
 import { notifyError, attempt } from "@/lib/notify";
-import { ROLE_LABELS } from "@/lib/constants";
+import { PRODUCT_OWNER_LABEL, ROLE_LABELS, roleLabel } from "@/lib/constants";
 import { ROLES, type AppUser, type Role } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,12 +39,24 @@ import { UserAvatar } from "@/components/common/user-avatar";
 import { AvatarColorDialog } from "@/components/common/avatar-color-dialog";
 import { PropSelect } from "@/components/tasks/property-controls";
 
-const roleOptions = ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
+/**
+ * Role picker: the three roles plus "Product Owner", which is an admin shown with that title
+ * (display only, same permissions). Stored as role "admin" + productOwner: true.
+ */
+const PRODUCT_OWNER = "product_owner";
+const roleOptions = [
+  { value: "admin", label: ROLE_LABELS.admin },
+  { value: PRODUCT_OWNER, label: `${PRODUCT_OWNER_LABEL} (admin)` },
+  ...ROLES.filter((r) => r !== "admin").map((r) => ({ value: r, label: ROLE_LABELS[r] })),
+];
+const toPicker = (role: Role, productOwner: boolean | undefined) => (role === "admin" && productOwner ? PRODUCT_OWNER : role);
+const fromPicker = (v: string): { role: Role; productOwner: boolean } =>
+  v === PRODUCT_OWNER ? { role: "admin", productOwner: true } : { role: v as Role, productOwner: false };
 
 function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const form = useForm<z.input<typeof createUserSchema>, unknown, CreateUserInput>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { name: "", email: "", role: "developer", designation: "", invite: true, password: "" },
+    defaultValues: { name: "", email: "", role: "developer", productOwner: false, designation: "", invite: true, password: "" },
   });
   const errors = form.formState.errors;
   const invite = form.watch("invite");
@@ -88,7 +100,17 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                 control={form.control}
                 name="role"
                 render={({ field }) => (
-                  <PropSelect label="Role" value={field.value} options={roleOptions} onChange={(v) => v && field.onChange(v)} />
+                  <PropSelect
+                    label="Role"
+                    value={toPicker(field.value as Role, form.watch("productOwner"))}
+                    options={roleOptions}
+                    onChange={(v) => {
+                      if (!v) return;
+                      const r = fromPicker(v);
+                      field.onChange(r.role);
+                      form.setValue("productOwner", r.productOwner);
+                    }}
+                  />
                 )}
               />
             </Field>
@@ -134,13 +156,16 @@ const editSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
   designation: z.string().trim().max(100),
   role: z.enum(ROLES),
+  productOwner: z.boolean(),
   assignable: z.boolean(),
 });
 
 function EditUserDialog({ user, onClose, isSelf }: { user: AppUser | null; onClose: () => void; isSelf: boolean }) {
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
-    values: user ? { name: user.name, designation: user.designation, role: user.role, assignable: user.assignable !== false } : undefined,
+    values: user
+      ? { name: user.name, designation: user.designation, role: user.role, productOwner: !!user.productOwner, assignable: user.assignable !== false }
+      : undefined,
   });
   const onSubmit = form.handleSubmit(async (values) => {
     if (!user) return;
@@ -161,17 +186,22 @@ function EditUserDialog({ user, onClose, isSelf }: { user: AppUser | null; onClo
           <Field label="Designation" htmlFor="e-des">
             <Input id="e-des" {...form.register("designation")} />
           </Field>
-          <Field label="Role" hint={isSelf ? "You can't change your own role." : undefined}>
+          <Field label="Role" hint={isSelf ? "You can switch between Admin and Product Owner, but not remove your own admin access." : undefined}>
             <Controller
               control={form.control}
               name="role"
               render={({ field }) => (
                 <PropSelect
                   label="Role"
-                  value={field.value}
-                  options={roleOptions}
-                  onChange={(v) => v && field.onChange(v as Role)}
-                  disabled={isSelf}
+                  value={toPicker(field.value, form.watch("productOwner"))}
+                  // admins can't demote themselves, but may switch between Admin and Product Owner
+                  options={isSelf ? roleOptions.filter((o) => o.value === "admin" || o.value === PRODUCT_OWNER) : roleOptions}
+                  onChange={(v) => {
+                    if (!v) return;
+                    const r = fromPicker(v);
+                    field.onChange(r.role);
+                    form.setValue("productOwner", r.productOwner);
+                  }}
                 />
               )}
             />
@@ -292,7 +322,7 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="p-2.5 text-muted-foreground">{u.email}</td>
-                  <td className="p-2.5">{ROLE_LABELS[u.role]}</td>
+                  <td className="p-2.5">{roleLabel(u)}</td>
                   <td className="p-2.5">
                     {u.designation || <span className="text-muted-foreground">-</span>}
                     {u.assignable === false && (

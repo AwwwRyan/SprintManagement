@@ -12,6 +12,8 @@ export const createUserSchema = z
     email: z.string().trim().toLowerCase().email("Enter a valid email"),
     role: z.enum(ROLES),
     designation: z.string().trim().max(100).default(""),
+    /** Product Owner title (display only; the person is an admin) */
+    productOwner: z.boolean().default(false),
     /** true: email the user a link to set their own password (no password is chosen or shared). */
     invite: z.boolean().default(true),
     password: z.string().max(128).optional(),
@@ -29,6 +31,8 @@ export const updateUserSchema = z
     designation: z.string().trim().max(100).optional(),
     active: z.boolean().optional(),
     assignable: z.boolean().optional(),
+    /** true makes the person an admin with the Product Owner title (display only) */
+    productOwner: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, "Nothing to update");
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

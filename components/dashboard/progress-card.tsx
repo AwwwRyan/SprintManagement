@@ -1,7 +1,7 @@
 "use client";
 
 import { format, parseISO } from "date-fns";
-import { AlertTriangle, CalendarClock, CircleAlert, Gauge, OctagonPause, TrendingDown, TrendingUp, UserX } from "lucide-react";
+import { AlertTriangle, CalendarClock, CircleAlert, Gauge, TrendingDown, TrendingUp, UserX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ProgressStage, SprintProgress } from "@/lib/metrics";
@@ -13,8 +13,7 @@ const STAGE_META: Record<ProgressStage, { label: string; bar: string; dot: strin
   testing: { label: "Testing", bar: "bg-purple-500", dot: "bg-purple-500" },
   fixed: { label: "Fixed (to test)", bar: "bg-indigo-400", dot: "bg-indigo-400" },
   inProgress: { label: "In progress", bar: "bg-blue-500", dot: "bg-blue-500" },
-  pending: { label: "Open", bar: "bg-slate-300 dark:bg-slate-600", dot: "bg-slate-400" },
-  onHold: { label: "On hold", bar: "bg-orange-500", dot: "bg-orange-500" },
+  pending: { label: "Backlog", bar: "bg-slate-300 dark:bg-slate-600", dot: "bg-slate-400" },
   dropped: { label: "Cancelled / duplicate", bar: "bg-zinc-200 dark:bg-zinc-700", dot: "bg-zinc-300 dark:bg-zinc-600" },
 };
 
@@ -128,9 +127,8 @@ export function ProgressCard({ progress: p, sprint }: { progress: SprintProgress
           <div className="mt-1 text-[11px] text-muted-foreground">Green marker = work done, so a marker behind the grey bar means behind schedule.</div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
           <Flag icon={CircleAlert} label="Critical open" value={p.criticalOpen} tone="red" />
-          <Flag icon={OctagonPause} label="On hold" value={p.onHold} tone="amber" />
           <Flag icon={AlertTriangle} label="Overdue" value={p.overdue} tone="amber" />
           <Flag icon={UserX} label="Unassigned (open)" value={p.unassignedOpen} tone="amber" />
         </div>

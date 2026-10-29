@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
   getDocs,
   runTransaction,
   serverTimestamp,
+  Timestamp,
   writeBatch,
   type DocumentReference,
   type WriteBatch,
@@ -14,9 +16,10 @@ import {
 import { db } from "@/lib/firebase/client";
 import { col, ref } from "@/lib/firebase/refs";
 import { diffPatch, normalizePatch, type FieldChange } from "@/lib/task-diff";
+import { BACKLOG_STATUS } from "@/lib/task-model";
 import { chunk, formatTaskKey } from "@/lib/utils";
 import { BATCH_CHUNK_SIZE } from "@/lib/constants";
-import type { ActivityAction, ActivityValue, Task, TaskPatch } from "@/types";
+import { BACKLOG_ID, type ActivityAction, type ActivityValue, type Task, type TaskPatch } from "@/types";
 
 /** Shape of an activity entry before it is written. */
 export interface ActivityInput {
@@ -73,7 +76,8 @@ export async function createTask(input: NewTaskInput, actorId: string): Promise<
       priority: input.priority ?? "medium",
       estimatedHours: input.estimatedHours ?? null,
       actualHours: input.actualHours ?? null,
-      status: input.status ?? "pending",
+      // in a release new tasks start In Progress; in the Backlog they're Backlog (2026-10-29)
+      status: input.status ?? (input.sprintId === BACKLOG_ID ? "pending" : "in_progress"),
       reporterId: actorId,
       dueDate: input.dueDate ?? null,
       releaseDate: input.releaseDate ?? null,
@@ -110,15 +114,38 @@ export async function createTask(input: NewTaskInput, actorId: string): Promise<
  * immediately (optimistic) and rolls it back automatically if the server rejects it.
  * Returns the list of changes (empty if nothing changed).
  */
-export async function updateTask(task: Task, patch: TaskPatch, actorId: string): Promise<FieldChange[]> {
+/**
+ * Field-level update (one activity entry per field, same batch). Setting the status to Backlog
+ * also moves the task into the Backlog (owner's rule, 2026-10-29): anyone may do that move.
+ */
+export async function updateTask(
+  task: Task,
+  patch: TaskPatch,
+  actorId: string,
+  opts: { releaseName?: string } = {},
+): Promise<FieldChange[]> {
   const { changed, changes } = diffPatch(task, normalizePatch(task, patch));
   if (Object.keys(changed).length === 0) return [];
 
+  const toBacklog = changed.status === BACKLOG_STATUS && task.sprintId !== BACKLOG_ID;
+  const fromName = opts.releaseName ?? "a release";
   const batch = writeBatch(db());
-  batch.update(doc(db(), "tasks", task.id), { ...changed, updatedAt: serverTimestamp(), updatedBy: actorId });
+  batch.update(doc(db(), "tasks", task.id), {
+    ...changed,
+    ...(toBacklog
+      ? {
+          sprintId: BACKLOG_ID,
+          order: Date.now(),
+          sprintHistory: arrayUnion({ sprintId: task.sprintId, sprintName: fromName, finalStatusInSprint: task.status, movedAt: Timestamp.now() }),
+        }
+      : {}),
+    updatedAt: serverTimestamp(),
+    updatedBy: actorId,
+  });
   for (const c of changes) {
     addActivity(batch, task.id, actorId, { action: "updated", field: c.field, oldValue: c.oldValue, newValue: c.newValue });
   }
+  if (toBacklog) addActivity(batch, task.id, actorId, { action: "moved", field: "sprintId", oldValue: fromName, newValue: "Backlog" });
   await batch.commit();
   return changes;
 }

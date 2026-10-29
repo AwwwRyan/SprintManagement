@@ -13,7 +13,7 @@ import { BATCH_CHUNK_SIZE } from "@/lib/constants";
 import { taskDescriptionFor } from "@/lib/suggestions";
 import { addImageWrites, prepareImage, writeTaskAttachment, type PreparedImage } from "./attachments";
 import { createTask } from "./tasks";
-import type { Priority, Sprint, Suggestion, SuggestionKind, TaskType } from "@/types";
+import { BACKLOG_ID, type Priority, type Sprint, type Suggestion, type SuggestionKind, type TaskType } from "@/types";
 
 export interface NewSuggestion {
   title: string;
@@ -120,7 +120,7 @@ export async function addSuggestionToRelease(
       type: input.type,
       priority: input.priority,
       environment: input.environment,
-      status: "pending",
+      status: input.sprint.id === BACKLOG_ID ? "pending" : "in_progress",
       description,
       descriptionText,
       suggestionId: s.id,

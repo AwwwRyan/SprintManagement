@@ -325,7 +325,10 @@ service cloud.firestore {
           // Normal edit inside an open sprint (moving to another open sprint is staff-only below).
           (sprintOpen(resource.data.sprintId) && sprintOpen(request.resource.data.sprintId)
             && (isStaff()
-                || unchanged(['sprintId', 'carryOverCount', 'sprintHistory'])))
+                || unchanged(['sprintId', 'carryOverCount', 'sprintHistory'])
+                // anyone may send a task to the Backlog by giving it the Backlog status (2026-10-29)
+                || (request.resource.data.sprintId == 'backlog' && request.resource.data.status == 'pending'
+                    && unchanged(['carryOverCount']))))
           // Carry-forward out of a closed sprint: QA/Admin, only the carry fields.
           || (isStaff()
               && !sprintOpen(resource.data.sprintId)

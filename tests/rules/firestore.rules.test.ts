@@ -245,7 +245,7 @@ describe("task creation & counter", () => {
     await assertFails(createTaskBatch(db, UIDS.qa, { status: "todo" })); // legacy value
     await assertFails(createTaskBatch(db, UIDS.qa, { type: "enhancement" })); // legacy value
     await assertFails(createTaskBatch(db, UIDS.qa, { assigneeIds: UIDS.dev })); // must be a list
-    await assertSucceeds(createTaskBatch(db, UIDS.qa, { type: "improvement", status: "on_hold" }));
+    await assertSucceeds(createTaskBatch(db, UIDS.qa, { type: "improvement", status: "testing" }));
   });
   it("new bugs must have an environment; other categories may leave it empty", async () => {
     const db = fsOf(as(env, "dev"));
@@ -686,9 +686,19 @@ describe("backlog", () => {
   });
   it("QA/Admin move tasks between a release and the Backlog; developers can't", async () => {
     await seedBacklog();
-    await assertFails(move("dev", "t-dev", "backlog"));
+    await assertFails(move("dev", "t-dev", "backlog", { status: "in_progress" })); // only via the Backlog status
     await assertSucceeds(move("qa", "t-dev", "backlog"));
     await assertSucceeds(move("admin", "t-back", "s-active"));
+  });
+  it("anyone sends a task to the Backlog by giving it the Backlog status, but can't move it elsewhere", async () => {
+    await seedBacklog();
+    await assertSucceeds(
+      move("dev", "t-dev", "backlog", {
+        status: "pending",
+        sprintHistory: arrayUnion({ sprintId: "s-active", sprintName: "Active", finalStatusInSprint: "in_progress", movedAt: Timestamp.now() }),
+      }),
+    );
+    await assertFails(move("dev", "t-back", "s-active", { status: "in_progress" })); // planning into a release stays QA/Admin
   });
   it("Ready to Release and Released tasks never go to the Backlog", async () => {
     await seedBacklog();

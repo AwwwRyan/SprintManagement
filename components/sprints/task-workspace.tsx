@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { TaskGrid } from "@/components/tasks/task-grid";
 import { TaskPanel } from "@/components/tasks/task-panel";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
-import { TaskFiltersBar, useTaskFilters } from "@/components/tasks/task-filters-bar";
+import { TaskFiltersBar, useRememberedFilters, useTaskFilters } from "@/components/tasks/task-filters-bar";
 import { PresenceAvatars } from "./presence-avatars";
 import type { Sprint, Task } from "@/types";
 
@@ -47,6 +47,8 @@ export function TaskWorkspace({
   const router = useRouter();
   const pathname = usePathname();
   const [filters, setFilters] = useTaskFilters();
+  // each person's filters are remembered per view and come back next time
+  useRememberedFilters(actor.uid, mode, filters, setFilters);
   const [newOpen, setNewOpen] = useState(false);
   const [moving, setMoving] = useState<Task[] | null>(null);
   const { sprintById } = useData();
@@ -81,11 +83,14 @@ export function TaskWorkspace({
   const filtered = hasActiveFilters(filters);
 
   return (
-    <>
+    // fills the page area: the page doesn't scroll, the table inside does
+    <div className="flex h-full min-h-0 flex-col">
       {header(<PresenceAvatars viewers={viewers} />)}
       <TaskGrid
         tasks={live.tasks}
         filters={filters}
+        onFiltersChange={setFilters}
+        noFilterFor={mode === "my-tasks" ? ["assigneeIds"] : []}
         sprint={sprint}
         sprintOf={mode === "all" ? sprintOf : undefined}
         showRelease={mode === "all"}
@@ -99,7 +104,7 @@ export function TaskWorkspace({
         quickAddDefaults={mode === "my-tasks" ? { assigneeIds: [actor.uid] } : undefined}
         toolbar={
           <>
-            <TaskFiltersBar filters={filters} onChange={setFilters} hideAssignee={mode === "my-tasks"} showRelease={mode === "all"} />
+            <TaskFiltersBar filters={filters} onChange={setFilters} />
             {canAdd && (
               <Button size="sm" onClick={() => setNewOpen(true)} className="ml-auto">
                 <Plus /> New Task
@@ -159,6 +164,6 @@ export function TaskWorkspace({
         />
       )}
       <MoveTasksDialog tasks={moving} onClose={() => setMoving(null)} />
-    </>
+    </div>
   );
 }

@@ -48,7 +48,7 @@ describe("buildRangeReport", () => {
     task({ id: "a", taskKey: "TSK-1", type: "bug", status: "done", actualHours: 3 }),
     task({ id: "b", taskKey: "TSK-2", status: "released", createdAtMs: ms("2026-09-20T10:00:00") }),
     task({ id: "c", taskKey: "TSK-3", status: "done", descriptionText: "x\nImported from Excel: sheet", createdAtMs: ms("2026-10-02T09:00:00") }),
-    task({ id: "d", taskKey: "TSK-4", appTypeId: "app2", priority: "critical", status: "on_hold", assigneeIds: [], dueDate: "2026-10-03" }),
+    task({ id: "d", taskKey: "TSK-4", appTypeId: "app2", priority: "critical", status: "pending", assigneeIds: [], dueDate: "2026-10-03" }),
   ];
   const changes = [
     { taskId: "a", atMs: ms("2026-10-05T12:00:00"), actorId: "u2", from: "testing", to: "done" },
@@ -75,7 +75,6 @@ describe("buildRangeReport", () => {
   it("reports the current open state", () => {
     expect(s["Open tasks now"]).toBe(1); // only d: a and c are done, b is released
     expect(s["Critical open now"]).toBe(1);
-    expect(s["On hold now"]).toBe(1);
     expect(s["Overdue now"]).toBe(1);
     expect(r.openNow[0]["Task ID"]).toBe("TSK-4"); // critical first
   });
@@ -99,15 +98,15 @@ describe("sprintProgress", () => {
 
   it("splits tasks into stages whose percentages sum to 100", () => {
     const p = sprintProgress(
-      [t("released"), t("done"), t("testing"), t("dev_done"), t("in_progress"), t("pending"), t("on_hold"), t("duplicate")],
+      [t("released"), t("done"), t("testing"), t("dev_done"), t("in_progress"), t("pending"), t("duplicate")],
       sprint,
       new Date("2026-10-12T10:00:00"),
     );
     // Testing and Fixed (dev done) are separate stages
-    expect(p.stages.map((s) => s.key)).toEqual(["released", "done", "testing", "fixed", "inProgress", "pending", "onHold", "dropped"]);
-    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(p.stages.map((s) => s.key)).toEqual(["released", "done", "testing", "fixed", "inProgress", "pending", "dropped"]);
+    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 1, 1, 1, 1, 1]);
     expect(p.stages.reduce((a, s) => a + s.pct, 0)).toBe(100);
-    expect(p.completionPct).toBe(25); // Released + Duplicate = 2 of 8 (Ready to Release isn't done yet)
+    expect(p.completionPct).toBe(29); // Released + Duplicate = 2 of 7 (Ready to Release isn't done yet)
   });
 
   it("compares completion with time used", () => {
@@ -119,13 +118,13 @@ describe("sprintProgress", () => {
     expect(sprintProgress([t("pending")], sprint, new Date("2026-10-01")).pace).toBe("not_started");
   });
 
-  it("counts overdue, critical, on-hold and unassigned open tasks", () => {
+  it("counts overdue, critical and unassigned open tasks", () => {
     const p = sprintProgress(
-      [t("pending", { dueDate: "2026-10-10" }), t("done", { dueDate: "2026-10-01" }), t("on_hold", { priority: "critical", assigneeIds: [] })],
+      [t("pending", { dueDate: "2026-10-10" }), t("done", { dueDate: "2026-10-01" }), t("in_progress", { priority: "critical", assigneeIds: [] })],
       sprint,
       new Date("2026-10-12T10:00:00"),
     );
-    expect(p).toMatchObject({ overdue: 1, criticalOpen: 1, onHold: 1, unassignedOpen: 1 });
+    expect(p).toMatchObject({ overdue: 1, criticalOpen: 1, unassignedOpen: 1 });
   });
 
   it("roundedShares always totals 100", () => {

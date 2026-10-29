@@ -107,7 +107,7 @@ function mapStatus(raw: string): { status: TaskStatus; note?: string } {
   if (!s || s === "open" || s === "pending") return { status: "pending" };
   if (s === "in progress") return { status: "in_progress" };
   if (s.startsWith("testing")) return { status: "testing" };
-  if (s === "hold") return { status: "on_hold" };
+  if (s === "hold") return { status: "pending" }; // On Hold was merged into Backlog
   if (s === "completed" || s === "done") return { status: "released" };
   if (s.startsWith("cancel")) return { status: "closed", note: "Marked CANCELLED in the Excel sheet (imported as Closed)." };
   return { status: "pending", note: `Unrecognised Excel status "${raw}", imported as Pending.` };

@@ -39,7 +39,9 @@ export const LEGACY_STATUS: Record<string, TaskStatus> = {
   ready_for_qa: "dev_done",
   qa_testing: "testing",
   reopened: "in_progress",
-  blocked: "on_hold",
+  blocked: "pending",
+  // 2026-10-29: On Hold was merged into Backlog
+  on_hold: "pending",
 };
 
 /** Old type values → new categories. */
@@ -89,3 +91,6 @@ export const PRODUCTION = "Production";
 export const NO_ENVIRONMENT = "__none__";
 /** Bugs must say where they were found (owner's rule, 2026-10-27); other categories may leave it empty. */
 export const requiresEnvironment = (type: TaskType) => type === "bug";
+
+/** The Backlog status (stored as "pending"): a task with it lives in the Backlog. */
+export const BACKLOG_STATUS: TaskStatus = "pending";

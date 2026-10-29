@@ -32,7 +32,7 @@ function mapStatus(raw: string): TaskStatus {
   if (!s || s === "open" || s === "pending") return "pending";
   if (s === "in progress") return "in_progress";
   if (s === "qa test" || s.startsWith("testing")) return "testing";
-  if (s === "hold" || s === "on hold") return "on_hold";
+  if (s === "hold" || s === "on hold") return "pending"; // On Hold was merged into Backlog
   if (s === "completed" || s === "done") return "done"; // tested, not released yet
   if (s.startsWith("cancel")) return "closed";
   return "pending";

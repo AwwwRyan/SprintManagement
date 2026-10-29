@@ -67,6 +67,24 @@ Decided with the owner:
 - **Closing a release**: every unfinished task must get a destination, next release or Backlog (Ready to Release: release only). Nothing is left behind any more. "Send all" buttons exist for both. The report lists "Moved to the Backlog"; older reports still show "Left incomplete".
 - Suggestions can also be added to the Backlog.
 
+## Backlog status (2026-10-29)
+- **Open and On Hold merged into one status, "Backlog".** It's stored as `pending` (the old Open value), and old `on_hold` values are read as `pending` (`LEGACY_STATUS`). The status list is: Backlog, In Progress, Fixed, Testing in Progress, Ready to Release, Released, Cancelled, Duplicate.
+- **Status follows place.** Setting a task to Backlog moves it into the Backlog in the same save (`updateTask`, with a "moved" activity entry and history). **Anyone** may do that: the rules allow a non-staff sprintId change only to `backlog` together with status `pending`. Moving into the Backlog (Move dialog, closing a release) sets the Backlog status. A Backlog task moved into a release becomes **In Progress** (`statusAfterMove`).
+- New tasks start as **In Progress** in a release and as **Backlog** in the Backlog (quick add, New Task, suggestions).
+- Dashboard: the On Hold stage/flag is gone; "Backlog" is the stage name for that status.
+- Live data: `scripts/migrate-backlog-status.ts` (preview by default) converts the 12 On Hold tasks and moves the 10 Open tasks from the open release to the Backlog.
+- **Releases page**: sorted by end date, newest first; a Backlog row at the top and an "Open the Backlog" button with its count.
+
+## Filters in the column headers; remembered filters; fixed page (2026-10-29)
+- **Click a column name** to sort it (A→Z / Z→A / back to the normal order) and filter by it (`components/tasks/column-filters.tsx`). List filters (App Type, Category, Module, Assignees, Status, Priority, Environment, Release) have **Select all / Clear**. Due date, Release date and a new **Created** column (hidden by default) take a date range; one date filter at a time. A filtered column shows a filter icon. Only **search** (+ Clear filters) stays above the table. Dragging a header still reorders columns.
+- **Filters are remembered per person and per view** (release grid / My Tasks / Backlog / All Tasks) in the browser (`useRememberedFilters`, localStorage `stm.filters.<uid>.<view>`), and restored when they come back unless the link already has filters. Search text isn't remembered. It isn't synced across devices (that would need a user-doc field + rules change).
+- **The page doesn't scroll on task pages**: the workspace fills the page area and the table takes the remaining height and scrolls inside, adapting to the window size.
+- The **Columns** menu can be reordered by dragging the grips (as well as the arrows and the table headers).
+
+## Product Owner title (2026-10-29)
+- **Product Owner** is a display title for an admin (`users.productOwner`), with exactly the same permissions. The stored role stays `admin`, so rules, custom claims and `requireAdmin` are unchanged. It's shown wherever a role is named (`roleLabel()` in `lib/constants.ts`: user menu, Users list).
+- It's assigned in Admin → Users (Add user / Edit) as a fourth choice in the Role picker. Choosing it sets role admin + the title, and moving someone off Admin removes the title (API). Today it's meant for Sreevani; more people may get it later, so there's no limit.
+
 ## Editing titles; task count at the top (2026-10-29)
 - In the grid, a **single click on a title edits it in place**, in a wrapping box that grows with the text (Enter saves, Esc cancels). A **double-click opens the task window**. Sr No / Task ID still open the window on one click, and read-only rows (closed releases) open it too.
 - In the task window the title is a **multi-line box that grows as you type** (no sideways scrolling); Enter saves. Titles stay one line of text that wraps visually, so pasted newlines become spaces.

@@ -6,6 +6,16 @@ import { BACKLOG_ID, type Task, type TaskStatus } from "@/types";
 
 export const canGoToBacklog = (status: TaskStatus) => status !== "done" && status !== "released";
 
+/**
+ * Status follows place (owner's rule, 2026-10-29): a task moved into the Backlog gets the Backlog
+ * status; a Backlog task moved into a release becomes In Progress. Otherwise it keeps its status.
+ */
+export function statusAfterMove(status: TaskStatus, targetId: string): TaskStatus {
+  if (targetId === BACKLOG_ID) return "pending";
+  if (status === "pending") return "in_progress";
+  return status;
+}
+
 export interface MoveItem {
   taskId: string;
   taskKey: string;

@@ -8,7 +8,9 @@ import { initialsFromName } from "@/lib/utils";
 export const runtime = "nodejs";
 
 /**
- * PATCH /api/admin/users/:uid: change name / designation / role / active / assignable.
+ * PATCH /api/admin/users/:uid: change name / designation / role / active / assignable / productOwner.
+ * Product Owner is only a display title for an admin (same permissions): setting it also makes
+ * the person an admin, and moving them off Admin removes it.
  * Role changes update the custom claim (the client sees the Firestore doc change and force-refreshes
  * its token). Deactivation disables the Auth user and revokes refresh tokens; the open session is
  * kicked out by the client's listener on users/{uid}.
@@ -18,6 +20,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ uid: s
     const caller = await requireAdmin(req);
     const { uid } = await params;
     const input = await parseBody(req, updateUserSchema);
+    if (input.productOwner) input.role = "admin";
+    if (input.role && input.role !== "admin") input.productOwner = false;
 
     if (uid === caller.uid && (input.active === false || (input.role && input.role !== "admin"))) {
       throw new HttpError(400, "You can't deactivate or demote your own account");

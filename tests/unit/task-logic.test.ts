@@ -134,7 +134,7 @@ describe("planCarryForward", () => {
     task({ id: "a", status: "released", order: 1 }),
     task({ id: "b", status: "in_progress", order: 3, carryOverCount: 1 }),
     task({ id: "c", status: "done", order: 2 }), // tested but not released: still carries
-    task({ id: "d", status: "on_hold", order: 4 }),
+    task({ id: "d", status: "pending", order: 4 }), // Backlog
     task({ id: "e", status: "duplicate", order: 5 }),
   ];
 

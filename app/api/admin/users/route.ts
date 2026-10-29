@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   try {
     await requireAdmin(req);
     const input = await parseBody(req, createUserSchema);
+    if (input.productOwner) input.role = "admin"; // Product Owner = an admin with that title
 
     const user = await adminAuth().createUser({
       email: input.email,
@@ -31,6 +32,7 @@ export async function POST(req: Request) {
           email: input.email,
           role: input.role,
           designation: input.designation,
+          productOwner: input.productOwner,
           active: true,
           initials: initialsFromName(input.name),
           createdAt: FieldValue.serverTimestamp(),

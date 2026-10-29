@@ -11,7 +11,7 @@ import type { z } from "zod";
 import { useAuth, useCurrentUser } from "@/components/providers/auth-provider";
 import { auth } from "@/lib/firebase/client";
 import { changePasswordSchema } from "@/lib/validation";
-import { ROLE_LABELS } from "@/lib/constants";
+import { roleLabel } from "@/lib/constants";
 import { errorMessage } from "@/lib/utils";
 import { UserAvatar } from "@/components/common/user-avatar";
 import { AvatarColorDialog } from "@/components/common/avatar-color-dialog";
@@ -58,7 +58,7 @@ export function UserMenu() {
             <div className="truncate font-medium">{profile.name}</div>
             <div className="truncate text-xs text-muted-foreground">{profile.email}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              {ROLE_LABELS[profile.role]}
+              {roleLabel(profile)}
               {profile.designation && ` · ${profile.designation}`}
             </div>
           </DropdownMenuLabel>

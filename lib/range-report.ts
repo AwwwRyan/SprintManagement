@@ -168,7 +168,6 @@ export function buildRangeReport(args: {
       { label: "Bugs fixed", value: bugsFixed },
       { label: "Open tasks now", value: open.length },
       { label: "Critical open now", value: open.filter((t) => t.priority === "critical").length },
-      { label: "On hold now", value: open.filter((t) => t.status === "on_hold").length },
       { label: "Overdue now", value: open.filter((t) => t.dueDate !== null && t.dueDate < today).length },
       { label: "Generated", value: format(now, "yyyy-MM-dd HH:mm") },
     ],

@@ -61,7 +61,8 @@ describe("form schemas", () => {
   };
 
   it("task: accepts the new categories / statuses and rejects legacy ones", () => {
-    expect(taskFormSchema.safeParse({ ...validTask, type: "improvement", status: "on_hold" }).success).toBe(true);
+    expect(taskFormSchema.safeParse({ ...validTask, type: "improvement", status: "testing" }).success).toBe(true);
+    expect(taskFormSchema.safeParse({ ...validTask, status: "on_hold" }).success).toBe(false); // merged into Backlog
     expect(taskFormSchema.safeParse({ ...validTask, type: "enhancement" }).success).toBe(false);
     expect(taskFormSchema.safeParse({ ...validTask, status: "blocked" }).success).toBe(false);
     expect(taskFormSchema.parse({ ...validTask, assigneeIds: ["a", "b"] }).assigneeIds).toEqual(["a", "b"]);

@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { FileBarChart, Plus, Zap } from "lucide-react";
+import { FileBarChart, Inbox, Plus, Zap } from "lucide-react";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
 import { useReports, useTasksInSprints } from "@/lib/hooks/use-tasks";
 import { canManageSprints } from "@/lib/permissions";
-import { sortSprints, suggestSprintName } from "@/lib/sprint-utils";
+import { suggestSprintName } from "@/lib/sprint-utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,12 +22,15 @@ import type { TaskStatus } from "@/types";
 
 export default function SprintsPage() {
   const { actor } = useCurrentUser();
-  const { sprints, loading } = useData();
+  const { sprints, backlog, loading } = useData();
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   // Open sprints: live counts from their tasks. Closed sprints: totals from the report snapshot.
-  const openIds = useMemo(() => sprints.filter((s) => s.status !== "closed").map((s) => s.id), [sprints]);
+  const openIds = useMemo(
+    () => [...(backlog ? [backlog.id] : []), ...sprints.filter((s) => s.status !== "closed").map((s) => s.id)],
+    [sprints, backlog],
+  );
   const liveTasks = useTasksInSprints(openIds);
   const reports = useReports();
 
@@ -41,7 +44,9 @@ export default function SprintsPage() {
     return m;
   }, [liveTasks.data, reports.data]);
 
-  const ordered = sortSprints(sprints);
+  // newest first, by end date (owner's request, 2026-10-29)
+  const ordered = [...sprints].sort((a, b) => b.endDate.localeCompare(a.endDate) || b.startDate.localeCompare(a.startDate));
+  const backlogCount = backlog ? (counts.get(backlog.id)?.total ?? 0) : 0;
   const fmt = (d: string) => format(parseISO(d), "MMM d");
 
   return (
@@ -50,11 +55,21 @@ export default function SprintsPage() {
         title="Releases"
         description="Releases are shared across all App Types. Only one can be active at a time."
         actions={
-          canManageSprints(actor) && (
-            <Button onClick={() => setOpen(true)}>
-              <Plus /> New Release
-            </Button>
-          )
+          <>
+            {backlog && (
+              <Button variant="outline" asChild>
+                <Link href="/backlog">
+                  <Inbox /> Open the Backlog
+                  <span className="text-muted-foreground tabular-nums">({backlogCount})</span>
+                </Link>
+              </Button>
+            )}
+            {canManageSprints(actor) && (
+              <Button onClick={() => setOpen(true)}>
+                <Plus /> New Release
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -79,6 +94,27 @@ export default function SprintsPage() {
         />
       ) : (
         <ul className="grid gap-2">
+          {backlog && (
+            <li>
+              <Link
+                href="/backlog"
+                className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-dashed bg-card p-4 transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <div className="min-w-48 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Inbox className="size-4 text-amber-600" />
+                    <span className="font-medium">Backlog</span>
+                    <SprintStatusBadge status="backlog" />
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Tasks not planned into a release yet</div>
+                </div>
+                <div className="w-24 text-sm">
+                  <span className="font-medium tabular-nums">{backlogCount}</span> <span className="text-muted-foreground">tasks</span>
+                </div>
+                <div className="w-44" />
+              </Link>
+            </li>
+          )}
           {ordered.map((s) => {
             const c = counts.get(s.id);
             const pct = c?.pct ?? 0;

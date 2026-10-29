@@ -10,7 +10,9 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Columns3, GripVertical, MoveRight, Paperclip, Plus, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Columns3, GripVertical, MoveRight, Paperclip, Plus, RotateCcw } from "lucide-react";
+import { format } from "date-fns";
+import { HeaderMenu } from "./column-filters";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
@@ -77,7 +79,7 @@ interface ColConfig {
 const LAST_APP_TYPE_KEY = "stm.lastAppTypeId";
 
 /** Columns hidden until the user turns them on (Columns menu). Saved choices override this. */
-const DEFAULT_HIDDEN: VisibilityState = { taskKey: false };
+const DEFAULT_HIDDEN: VisibilityState = { taskKey: false, createdAt: false };
 
 function readStorage(key: string): string | null {
   try {
@@ -115,6 +117,10 @@ export interface TaskGridProps {
   onMoveTasks?: (tasks: Task[]) => void;
   /** Sr No per task when the view isn't a whole release (All Tasks pages: 1-100, 101-200, ...) */
   rowNumbers?: Map<string, number>;
+  /** filters are set from the column headers (click a column name) */
+  onFiltersChange?: (f: TaskFilters) => void;
+  /** columns whose header doesn't offer a filter here (e.g. Assignees on My Tasks) */
+  noFilterFor?: string[];
   loading: boolean;
   flashing: Set<string>;
   onOpenTask: (taskKey: string, section?: "attachments") => void;
@@ -143,6 +149,8 @@ export function TaskGrid({
   showRelease = false,
   onMoveTasks,
   rowNumbers,
+  onFiltersChange,
+  noFilterFor = [],
 }: TaskGridProps) {
   const { actor } = useCurrentUser();
   const { appTypes, modules, userById, appTypeById, moduleById, sprintById } = useData();
@@ -333,6 +341,15 @@ export function TaskGrid({
         sortValue: (t) => t.dueDate ?? "9999",
       },
       {
+        id: "createdAt",
+        label: "Created",
+        width: 112,
+        render: (t) => (
+          <span className="tabular-nums">{t.createdAt ? format(t.createdAt.toDate(), "yyyy-MM-dd") : <span className="text-muted-foreground">-</span>}</span>
+        ),
+        sortValue: (t) => (t.createdAt ? t.createdAt.toMillis() : 0),
+      },
+      {
         id: "releaseDate",
         label: "Release date",
         width: 124,
@@ -404,6 +421,9 @@ export function TaskGrid({
     else removeStorage(orderKey);
   };
   const [colDrag, setColDrag] = useState<string | null>(null);
+  // dragging inside the Columns menu
+  const [menuDrag, setMenuDrag] = useState<string | null>(null);
+  const [menuHint, setMenuHint] = useState<{ id: string; pos: "before" | "after" } | null>(null);
   const [colHint, setColHint] = useState<{ id: string; pos: "before" | "after" } | null>(null);
   const colDropPos = (e: React.DragEvent<HTMLElement>): "before" | "after" => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -492,9 +512,11 @@ export function TaskGrid({
     (task: Task, field: EditableTaskField, value: unknown) => {
       if (field === "appTypeId" && typeof value === "string") writeStorage(LAST_APP_TYPE_KEY, value);
       // Firestore applies this to the local cache immediately (optimistic) and reverts it if rejected.
-      updateTask(task, { [field]: value } as TaskPatch, actor.uid).catch((err) => notifyError(err, "Couldn't save"));
+      updateTask(task, { [field]: value } as TaskPatch, actor.uid, { releaseName: sprintById.get(task.sprintId)?.name }).catch((err) =>
+        notifyError(err, "Couldn't save"),
+      );
     },
-    [actor.uid],
+    [actor.uid, sprintById],
   );
 
   /** Click / Enter on a cell. */
@@ -598,7 +620,15 @@ export function TaskGrid({
     setAdding(true);
     try {
       const created = await createTask(
-        { title, sprintId: sprint!.id, appTypeId, type: "task", status: "pending", priority: "medium", ...quickAddDefaults },
+        {
+          title,
+          sprintId: sprint!.id,
+          appTypeId,
+          type: "task",
+          status: sprint!.id === BACKLOG_ID ? "pending" : "in_progress",
+          priority: "medium",
+          ...quickAddDefaults,
+        },
         actor.uid,
       );
       setQuickTitle("");
@@ -659,7 +689,7 @@ export function TaskGrid({
   };
 
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{toolbar}</div>
         {/* count at the top, where it's seen as soon as a filter is applied */}
@@ -711,7 +741,57 @@ export function TaskGrid({
                     </div>
                   );
                 return (
-                  <div key={col.id} className="flex items-center">
+                  <div
+                    key={col.id}
+                    data-column-menu-row={col.id}
+                    className={cn(
+                      "flex items-center",
+                      menuDrag === col.id && "opacity-50",
+                      menuHint?.id === col.id &&
+                        (menuHint.pos === "before" ? "shadow-[inset_0_2px_0_0_var(--primary)]" : "shadow-[inset_0_-2px_0_0_var(--primary)]"),
+                    )}
+                    onDragOver={
+                      menuDrag
+                        ? (e) => {
+                            e.preventDefault();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const pos = e.clientY < rect.top + rect.height / 2 ? "before" : "after";
+                            if (menuHint?.id !== col.id || menuHint.pos !== pos) setMenuHint({ id: col.id, pos });
+                          }
+                        : undefined
+                    }
+                    onDrop={
+                      menuDrag
+                        ? (e) => {
+                            e.preventDefault();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            updateOrder(moveColumn(columnOrder, menuDrag, col.id, e.clientY < rect.top + rect.height / 2 ? "before" : "after", pinned));
+                            setMenuDrag(null);
+                            setMenuHint(null);
+                          }
+                        : undefined
+                    }
+                  >
+                    {/* drag the grip to reorder (the arrows do the same one step at a time) */}
+                    <span
+                      draggable
+                      role="button"
+                      aria-label={`Drag ${label} to reorder`}
+                      title="Drag to reorder"
+                      className="cursor-grab px-1 text-muted-foreground active:cursor-grabbing"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", col.id);
+                        setMenuDrag(col.id);
+                      }}
+                      onDragEnd={() => {
+                        setMenuDrag(null);
+                        setMenuHint(null);
+                      }}
+                    >
+                      <GripVertical className="size-3.5" />
+                    </span>
                     {checkbox}
                     <DropdownMenuItem
                       className="px-1.5"
@@ -750,7 +830,9 @@ export function TaskGrid({
             >
               <RotateCcw /> Reset column order
             </DropdownMenuItem>
-            <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">You can also drag column headers. Saved in this browser.</p>
+            <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">
+              Drag the grips here, or drag the column headers in the table. Saved in this browser.
+            </p>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -769,7 +851,8 @@ export function TaskGrid({
         </div>
       )}
 
-      <div className="relative max-h-[calc(100svh-15rem)] min-h-48 overflow-auto rounded-lg border">
+      {/* fills the space left on screen; the page itself doesn't scroll, the table does */}
+      <div className="relative min-h-48 flex-1 overflow-auto rounded-lg border">
         <table
           ref={tableRef}
           role="grid"
@@ -844,21 +927,14 @@ export function TaskGrid({
                             disabled={rows.length === 0}
                           />
                         )}
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                          onClick={h.column.getToggleSortingHandler()}
-                          tabIndex={-1}
-                        >
-                          {flexRender(h.column.columnDef.header, h.getContext())}
-                          {sorted === "asc" ? (
-                            <ArrowUp className="size-3" />
-                          ) : sorted === "desc" ? (
-                            <ArrowDown className="size-3" />
-                          ) : (
-                            <ArrowUpDown className="size-3 opacity-30" />
-                          )}
-                        </button>
+                        <HeaderMenu
+                          colId={colId}
+                          label={flexRender(h.column.columnDef.header, h.getContext())}
+                          sorted={sorted}
+                          onSort={(dir) => setSorting(dir ? [{ id: colId, desc: dir === "desc" }] : [{ id: "srNo", desc: false }])}
+                          filters={filters}
+                          onFiltersChange={onFiltersChange && !noFilterFor.includes(colId) ? onFiltersChange : undefined}
+                        />
                       </span>
                     </th>
                   );

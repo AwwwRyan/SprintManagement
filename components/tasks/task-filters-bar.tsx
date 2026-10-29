@@ -1,128 +1,80 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Search, X } from "lucide-react";
-import { useData } from "@/components/providers/data-provider";
-import {
-  EMPTY_FILTERS,
-  hasActiveFilters,
-  parseFilters,
-  UNASSIGNED,
-  writeFilters,
-  type TaskFilters,
-} from "@/lib/task-filters";
-import { cn } from "@/lib/utils";
-import { sortSprints } from "@/lib/sprint-utils";
-import { ENVIRONMENTS } from "@/lib/constants";
-import { NO_ENVIRONMENT } from "@/lib/task-model";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Search, X } from "lucide-react";
+import { EMPTY_FILTERS, hasActiveFilters, parseFilters, writeFilters, type TaskFilters } from "@/lib/task-filters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  appTypeOptions,
-  priorityOptions,
-  statusOptions,
-  typeOptions,
-  userOptions,
-  type Option,
-} from "./options";
-import { DateFilterControl } from "./date-filter-control";
-
-const environmentFilterOptions: Option[] = [
-  ...ENVIRONMENTS.map((e) => ({ value: e, label: e })),
-  { value: NO_ENVIRONMENT, label: "Not set" },
-];
 
 /** URL query string <-> filter state. Other params (e.g. ?task=) are preserved. */
 export function useTaskFilters(): [TaskFilters, (next: TaskFilters) => void] {
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const filters = useMemo(() => parseFilters(params), [params]);
   const setFilters = useCallback(
     (next: TaskFilters) => {
       const qs = writeFilters(new URLSearchParams(params.toString()), next).toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      // history.replaceState updates useSearchParams at once (no server round trip), so a quick
+      // second click builds on the first instead of on stale filters
+      window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
     },
-    [params, router, pathname],
+    [params, pathname],
   );
   return [filters, setFilters];
 }
 
-function MultiFilter({
-  label,
-  options,
-  selected,
-  onChange,
-}: {
-  label: string;
-  options: Option[];
-  selected: string[];
-  onChange: (values: string[]) => void;
-}) {
-  const count = selected.length;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className={cn(count > 0 && "border-primary/50 bg-primary/5")}>
-          {label}
-          {count > 0 && (
-            <span className="rounded bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{count}</span>
-          )}
-          <ChevronDown className="opacity-50" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-80 w-max min-w-48 max-w-[calc(100vw-2rem)] overflow-y-auto">
-        {options.length === 0 && <div className="px-2 py-1.5 text-sm text-muted-foreground">No options</div>}
-        {options.map((o) => (
-          <DropdownMenuCheckboxItem
-            key={o.value}
-            checked={selected.includes(o.value)}
-            onSelect={(e) => e.preventDefault()}
-            onCheckedChange={(checked) =>
-              onChange(checked ? [...selected, o.value] : selected.filter((v) => v !== o.value))
-            }
-          >
-            {o.node ?? o.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-        {count > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onChange([])}>Clear</DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+const filterStoreKey = (uid: string, view: string) => `stm.filters.${uid}.${view}`;
+/** Filters as a query string without the search text (search isn't remembered). */
+const storable = (f: TaskFilters) => writeFilters(new URLSearchParams(), { ...f, q: "" }).toString();
+
+/**
+ * Remembers each person's filters per view (release grid, My Tasks, Backlog, All Tasks) in this
+ * browser and restores them when they come back, unless the link already carries filters.
+ */
+export function useRememberedFilters(uid: string, view: string, filters: TaskFilters, setFilters: (f: TaskFilters) => void) {
+  const key = filterStoreKey(uid, view);
+  // Until the restored filters show up in the URL, don't save (that would overwrite them with "none").
+  const pending = useRef<string | null>(null);
+  const restoredFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (restoredFor.current === key) return;
+    restoredFor.current = key;
+    if (storable(filters)) return; // the link has filters: they win
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(key);
+    } catch {
+      /* storage unavailable */
+    }
+    if (!saved) return;
+    pending.current = saved;
+    setFilters({ ...parseFilters(new URLSearchParams(saved)), q: filters.q });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per view
+  }, [key]);
+
+  useEffect(() => {
+    if (restoredFor.current !== key) return;
+    const now = storable(filters);
+    if (pending.current !== null) {
+      if (now !== pending.current) return; // the restore hasn't reached the URL yet
+      pending.current = null;
+    }
+    try {
+      if (now) localStorage.setItem(key, now);
+      else localStorage.removeItem(key);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [key, filters]);
 }
 
-export function TaskFiltersBar({
-  filters,
-  onChange,
-  hideAssignee,
-  showRelease,
-}: {
-  filters: TaskFilters;
-  onChange: (f: TaskFilters) => void;
-  hideAssignee?: boolean;
-  /** All Tasks: filter by release / Backlog */
-  showRelease?: boolean;
-}) {
-  const { appTypes, modules, users, appTypeById, sprints, backlog } = useData();
-  const releaseOpts: Option[] = [
-    ...(backlog ? [{ value: backlog.id, label: "Backlog" }] : []),
-    ...sortSprints(sprints).map((s) => ({ value: s.id, label: `${s.name}${s.status === "closed" ? " (closed)" : s.status === "active" ? " (active)" : ""}` })),
-  ];
-
+/**
+ * Above the table: search and "Clear filters" only. Every other filter is in its column header
+ * (click a column name).
+ */
+export function TaskFiltersBar({ filters, onChange }: { filters: TaskFilters; onChange: (f: TaskFilters) => void }) {
   // Search is debounced into the URL.
   const [q, setQ] = useState(filters.q);
   useEffect(() => setQ(filters.q), [filters.q]);
@@ -132,16 +84,9 @@ export function TaskFiltersBar({
     return () => clearTimeout(t);
   }, [q, filters, onChange]);
 
-  // Module filter lists modules of the selected App Types (or all, grouped by App Type name).
-  const moduleOpts: Option[] = modules
-    .filter((m) => filters.appTypeId.length === 0 || filters.appTypeId.includes(m.appTypeId))
-    .map((m) => ({ value: m.id, label: `${appTypeById.get(m.appTypeId)?.code ?? "?"} · ${m.name}` }));
-
-  const assigneeOpts: Option[] = [{ value: UNASSIGNED, label: "Unassigned" }, ...userOptions(users)];
-
   return (
     <>
-      <div className="relative w-full sm:w-56">
+      <div className="relative w-full sm:w-64">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={q}
@@ -151,63 +96,12 @@ export function TaskFiltersBar({
           aria-label="Search tasks"
         />
       </div>
-      {showRelease && (
-        <MultiFilter
-          label="Release"
-          options={releaseOpts}
-          selected={filters.sprintId}
-          onChange={(v) => onChange({ ...filters, sprintId: v })}
-        />
-      )}
-      <MultiFilter
-        label="App Type"
-        options={appTypeOptions(appTypes)}
-        selected={filters.appTypeId}
-        onChange={(v) => onChange({ ...filters, appTypeId: v })}
-      />
-      <MultiFilter
-        label="Category"
-        options={typeOptions}
-        selected={filters.type}
-        onChange={(v) => onChange({ ...filters, type: v as TaskFilters["type"] })}
-      />
-      <MultiFilter
-        label="Module"
-        options={moduleOpts}
-        selected={filters.moduleId}
-        onChange={(v) => onChange({ ...filters, moduleId: v })}
-      />
-      {!hideAssignee && (
-        <MultiFilter
-          label="Assignee"
-          options={assigneeOpts}
-          selected={filters.assigneeId}
-          onChange={(v) => onChange({ ...filters, assigneeId: v })}
-        />
-      )}
-      <MultiFilter
-        label="Status"
-        options={statusOptions}
-        selected={filters.status}
-        onChange={(v) => onChange({ ...filters, status: v as TaskFilters["status"] })}
-      />
-      <MultiFilter
-        label="Priority"
-        options={priorityOptions}
-        selected={filters.priority}
-        onChange={(v) => onChange({ ...filters, priority: v as TaskFilters["priority"] })}
-      />
-      <MultiFilter
-        label="Environment"
-        options={environmentFilterOptions}
-        selected={filters.environment}
-        onChange={(v) => onChange({ ...filters, environment: v })}
-      />
-      <DateFilterControl value={filters.date} onChange={(date) => onChange({ ...filters, date })} />
-      {hasActiveFilters(filters) && (
+      {hasActiveFilters(filters) ? (
         <Button variant="ghost" size="sm" onClick={() => onChange(EMPTY_FILTERS)}>
           <X /> Clear filters
         </Button>
+      ) : (
+        <span className="hidden text-xs text-muted-foreground md:inline">Click a column name to sort or filter</span>
       )}
     </>
   );

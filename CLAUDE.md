@@ -32,7 +32,7 @@ Next.js 15.5 App Router · React 19 · TS strict (no `any`) · Tailwind v4 · sh
 - Types: `types/index.ts`. Firestore converters and typed refs: `lib/firebase/refs.ts`.
 - Admin-only server operations: `app/api/admin/users/**` with `requireAdmin()` (`lib/server/require-admin.ts`), which verifies the ID token **and** the Firestore doc role/active. Admin SDK init: `lib/firebase/admin-core.ts` (also used by scripts), `lib/firebase/admin.ts` (`server-only`).
 - Environment: required for new bugs (form + rules), Production → Critical by default (`normalizePatch`), Environment filter everywhere (server-side on All Tasks).
-- Status labels (2026-10-27): pending = "Open", dev_done = "Fixed", done = "Ready to Release", closed = "Cancelled" (values unchanged). Dashboard shows Fixed and Testing separately; the not-finished total is "Remaining".
+- Status labels: pending = **"Backlog"** (2026-10-29: Open + On Hold merged; `on_hold` is legacy, read as pending; a task with this status lives in the Backlog and setting it moves the task there), dev_done = "Fixed", done = "Ready to Release", closed = "Cancelled". Dashboard shows Fixed and Testing separately; the not-finished total is "Remaining".
 - Workflow model (`lib/task-model.ts`): Done ("Ready to Release") = tested, still carries forward; Released/Closed/Duplicate are finished; **completion % = finished ÷ all tasks** (2026-10-28). `assigneeIds: string[]` (no `assigneeId`, no `severity`). See DECISIONS.md "Workflow statuses".
 - Suggestion box: `suggestions/{id}` (+ `images/{id}/chunks/{i}` like attachments), `lib/suggestions.ts` (pure), `lib/services/suggestions.ts`, `/suggestions`. QA/Admin "Add to a release" creates a task with `suggestionId` and copies the pictures; "Done" = linked task Released (not stored).
 - Backlog = special doc `sprints/backlog` (`BACKLOG_ID`, status "backlog"); `useData().sprints` excludes it, `backlog` holds it, `sprintById` includes it. Pages `/backlog`, `/all-tasks` (100 per page from Firestore: `useTaskPage` + `useTaskCount`; Release/Status/Category filters server-side, task-number search anywhere; needs the composite indexes in `firestore.indexes.json`). QA/Admin "Move to…" (`moveTasks`, `lib/move-plan.ts`); Ready to Release/Released never go to the Backlog (UI + rules). Closing a release requires a destination for every unfinished task (`planCarryForward(tasks, releaseIds, backlogIds, …)`).
@@ -64,10 +64,10 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15), Backlog (3 tasks). TSK-1…6 live in closed Release 13. The next key after seeding is TSK-35.
 
 ## Testing status (last full run: 2026-10-29)
-- Unit: 128 tests in 15 files, all passing.
-- Rules: 82 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
+- Unit: 129 tests in 15 files, all passing.
+- Rules: 83 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
-- E2E: 33 Playwright flows, all passing (see the README for the list).
+- E2E: 34 Playwright flows, all passing (see the README for the list).
 - `npm run build` and `npm run lint` are clean.
 
 ## Gotchas
@@ -76,7 +76,7 @@ Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Ty
 - Geist font variables must sit on `<html>`, since `html { font-family: var(--font-geist-sans) }` is resolved there.
 - Recharts `<Cell>` ignores `style`; pass real colors via `fill`.
 - Next 15: client pages using `useSearchParams` are wrapped in `<Suspense>`.
-- Column order is per user (localStorage `stm.columnOrder.<view>`); E2E `COL` indexes assume the default order. Task ID column is **hidden by default** (`DEFAULT_HIDDEN` in task-grid.tsx; users can show it via Columns). Rows carry `data-task-key`, so tests locate rows by it, not by visible text. The task count sits in the toolbar (`aria-label="Task count"`). Clicking a title edits it; double-click opens the panel (tests open the panel via the Sr No cell).
+- Column order is per user (localStorage `stm.columnOrder.<view>`); E2E `COL` indexes assume the default order. Task ID column is **hidden by default** (`DEFAULT_HIDDEN` in task-grid.tsx; users can show it via Columns). Rows carry `data-task-key`, so tests locate rows by it, not by visible text. The task count sits in the toolbar (`aria-label="Task count"`). Filters are in the column headers (button "<Column>: sort and filter"); the old toolbar filter buttons are gone, so E2E specs open the header menu (`columnFilter` helper). Header names read "<Column>: sort and filter". Filter changes use `history.replaceState` (instant `useSearchParams` update), not `router.replace`, so quick successive clicks don't build on stale filters. Clicking a title edits it; double-click opens the panel (tests open the panel via the Sr No cell).
 - E2E `tests/e2e/global-setup.ts` warms every Admin API route first: in `next dev` each route boots its own Admin SDK on first call (up to ~60s on a busy machine).
 - **Vercel can't `require()` ES modules** (works locally on Node 22+). firebase-admin → jwks-rsa → jose v6 (ESM-only) crashed every Admin API route with ERR_REQUIRE_ESM. Fixed with `overrides.jwks-rsa.jose = ^5.10.0` in package.json. Reproduce locally with `NODE_OPTIONS=--no-experimental-require-module npm start`. Re-check this whenever firebase-admin is upgraded.
 - Never run `npm run build` while `npm run dev` is running: both use `.next`, and the dev server breaks (ENOENT `_document.js`). Fix: stop dev, `rm -rf .next`, restart.
@@ -99,6 +99,8 @@ All 12 build phases from the spec are implemented and verified locally against t
 - [x] Excel bug list imported: 256 tasks TSK-1…256 in the active sprint "Release 1 (imported from Excel)" (renamed from "Sprint 1 …") (see DECISIONS.md "Excel import"). Source file in git-ignored `import/`. Don't re-run the import.
 - [x] Extra accounts (no invites): Mishal (developer), Nikita (QA, QA Engineer), Ashis (developer, no designation).
 - [x] Bala (md@) and Badri (badriparam@) added as **admins**, no designation, no invites (2026-10-26); also in `team.json`.
+- [ ] **Backlog status migration** (code ready 2026-10-29): `npx tsx scripts/migrate-backlog-status.ts --apply` after deploying rules (12 On Hold → Backlog, 10 Open tasks moved from Oct_release_m4 to the Backlog; previewed).
+- [ ] **Product Owner title for Sreevani** (code ready 2026-10-29, not yet assigned): after deploying, Admin → Users → Sreevani → Edit → Role: Product Owner. Display only; she stays an admin.
 - [x] Nikita, Bala and Badri set to **not be assigned tasks** (`users.assignable = false`, 2026-10-28); Nikita still on TSK-99 and TSK-104.
 - [x] Team accounts created WITHOUT emails (2026-10-12): Sudharsan (CTO) and Sreevani (Senior QA) are **admins** with Aryan; Prithika and Hariharan are QA; Sameeh and Nagma are developers (emails in git-ignored `team.json`). Nobody but Aryan can sign in yet.
 - [x] Workflow refactor (Category, statuses, single Priority, multiple assignees) + drag-and-drop order: pushed, rules + `assigneeIds` index deployed, live data migrated with `scripts/migrate-workflow.ts` (re-running it previews 0 changes) (2026-10-22). The old `tasks(sprintId, assigneeId, order)` index can be removed with `firebase deploy --only firestore:indexes --force`.
