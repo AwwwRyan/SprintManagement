@@ -2,7 +2,7 @@
  * Pure metric calculations shared by the live dashboard and the sprint-report snapshot.
  * No Firebase imports here, so it is fully unit-testable.
  */
-import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import { completionPct as completionOf, countsAsDone, isComplete, isFinished, isOpen } from "@/lib/task-model";
 import {
   PRIORITIES,
@@ -59,6 +59,9 @@ export function computeSprintMetrics(
         total: subset.length,
         done: d,
         completionPct: completionOf(subset.map((t) => t.status)),
+        inProgress: subset.filter((t) => t.status === "in_progress").length,
+        fixed: subset.filter((t) => t.status === "dev_done").length,
+        testing: subset.filter((t) => t.status === "testing").length,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -106,36 +109,25 @@ export function computeSprintMetrics(
 
 /* ------------------------------------------------------------------ sprint progress */
 
-export type ProgressStage = "released" | "done" | "testing" | "fixed" | "inProgress" | "pending" | "dropped";
+export type ProgressStage = "done" | "testing" | "fixed" | "inProgress";
 
+/** Release progress: only the work in flight (In Progress, Fixed, Testing, Ready to Release). */
 export interface SprintProgress {
+  /** tasks in those four statuses */
   total: number;
   /** Tasks per stage, in display order. `pct` values add up to 100 (largest-remainder rounding). */
   stages: { key: ProgressStage; count: number; pct: number }[];
+  /** Ready to Release ÷ total */
   completionPct: number;
-  /** Sprint calendar: day N of M (inclusive), and the % of time used. */
-  dayOfSprint: number;
-  sprintDays: number;
-  timePct: number;
-  /** completion % minus time %; negative = behind schedule. Null before the sprint starts. */
-  paceDelta: number | null;
-  pace: "ahead" | "on_track" | "behind" | "not_started";
-  overdue: number;
-  criticalOpen: number;
-  unassignedOpen: number;
 }
 
-const STAGE_OF: Record<TaskStatus, ProgressStage> = {
-  released: "released",
+const STAGE_OF: Partial<Record<TaskStatus, ProgressStage>> = {
   done: "done",
-  dev_done: "fixed",
   testing: "testing",
+  dev_done: "fixed",
   in_progress: "inProgress",
-  pending: "pending",
-  closed: "dropped",
-  duplicate: "dropped",
 };
-const STAGES: ProgressStage[] = ["released", "done", "testing", "fixed", "inProgress", "pending", "dropped"];
+const STAGES: ProgressStage[] = ["done", "testing", "fixed", "inProgress"];
 
 /** Percentages that always sum to exactly 100 (or 0 for an empty sprint). */
 export function roundedShares(counts: number[]): number[] {
@@ -153,38 +145,14 @@ export function roundedShares(counts: number[]): number[] {
   return floors;
 }
 
-export function sprintProgress(
-  tasks: Pick<Task, "status" | "priority" | "assigneeIds" | "dueDate">[],
-  sprint: Pick<Sprint, "startDate" | "endDate">,
-  today: Date = new Date(),
-): SprintProgress {
+/** Stage counts for release progress; Backlog, Released, Cancelled and Duplicate tasks are ignored. */
+export function sprintProgress(tasks: Pick<Task, "status">[]): SprintProgress {
   const counts = STAGES.map((k) => tasks.filter((t) => STAGE_OF[t.status] === k).length);
   const shares = roundedShares(counts);
-  const total = tasks.length;
-  const completionPct = completionOf(tasks.map((t) => t.status));
-
-  const start = parseISO(sprint.startDate);
-  const sprintDays = Math.max(1, differenceInCalendarDays(parseISO(sprint.endDate), start) + 1);
-  const elapsed = differenceInCalendarDays(today, start) + 1; // today counts as a day
-  const dayOfSprint = Math.min(Math.max(elapsed, 0), sprintDays);
-  const timePct = Math.round((dayOfSprint / sprintDays) * 100);
-  const paceDelta = dayOfSprint === 0 ? null : completionPct - timePct;
-  const pace = paceDelta === null ? "not_started" : paceDelta >= 10 ? "ahead" : paceDelta >= -10 ? "on_track" : "behind";
-
-  const todayStr = format(today, "yyyy-MM-dd");
-  const open = tasks.filter((t) => isOpen(t.status));
   return {
-    total,
+    total: counts.reduce((a, b) => a + b, 0),
     stages: STAGES.map((key, i) => ({ key, count: counts[i], pct: shares[i] })),
-    completionPct,
-    dayOfSprint,
-    sprintDays,
-    timePct,
-    paceDelta,
-    pace,
-    overdue: open.filter((t) => t.dueDate !== null && t.dueDate < todayStr).length,
-    criticalOpen: open.filter((t) => t.priority === "critical").length,
-    unassignedOpen: open.filter((t) => t.assigneeIds.length === 0).length,
+    completionPct: completionOf(tasks.map((t) => t.status)),
   };
 }
 

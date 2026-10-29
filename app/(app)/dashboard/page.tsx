@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
-import { FileSpreadsheet, LayoutDashboard } from "lucide-react";
+import { FileDown, LayoutDashboard } from "lucide-react";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
 import { useSprintTasks } from "@/lib/hooks/use-tasks";
@@ -14,15 +14,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
-import { MetricsView, StatTile } from "@/components/dashboard/metrics-view";
-import { ProgressCard } from "@/components/dashboard/progress-card";
-import { ExportReportDialog } from "@/components/dashboard/export-report-dialog";
+import { ReleaseOverview } from "@/components/dashboard/release-overview";
+import { DashboardReport } from "@/components/dashboard/dashboard-report";
+import { PdfPreviewDialog } from "@/components/dashboard/pdf-preview-dialog";
 import { CategoryBreakdownCard } from "@/components/dashboard/category-breakdown";
 import { DateFilterControl } from "@/components/tasks/date-filter-control";
-import { matchesDate, type DateFilter } from "@/lib/date-filter";
+import { describeDateFilter, matchesDate, type DateFilter } from "@/lib/date-filter";
 import { SPRINT_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
 import { sortSprints } from "@/lib/sprint-utils";
-import { isOpen } from "@/lib/task-model";
+import { elementToPdf } from "@/lib/export-pdf";
+import { notifyError } from "@/lib/notify";
+import { sanitizeFileName } from "@/lib/utils";
+import { inProgressScope } from "@/lib/task-model";
 import { TASK_TYPES, type TaskType } from "@/types";
 
 const ALL = "__all__";
@@ -38,33 +41,48 @@ export default function DashboardPage() {
   const [appTypeId, setAppTypeId] = useState(ALL);
   const [category, setCategory] = useState<TaskType | typeof ALL>(ALL);
   const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState<{ pdf: Blob; fileName: string } | null>(null);
   const isAdmin = canManageUsers(actor);
 
-  // App Type and date filters apply everywhere; the category filter also narrows the summary cards.
+  // App Type and date filters apply everywhere; the category filter also narrows the top cards.
+  // Everything counts only the work in flight: In Progress, Fixed, Testing, Ready to Release.
   const appTasks = useMemo(
     () => live.tasks.filter((t) => (appTypeId === ALL || t.appTypeId === appTypeId) && matchesDate(t, dateFilter)),
     [live.tasks, appTypeId, dateFilter],
   );
-  const tasks = useMemo(() => (category === ALL ? appTasks : appTasks.filter((t) => t.type === category)), [appTasks, category]);
+  const tasks = useMemo(
+    () => appTasks.filter((t) => inProgressScope(t.status) && (category === ALL || t.type === category)),
+    [appTasks, category],
+  );
   const metrics = useMemo(() => computeSprintMetrics(tasks, users, appTypes), [tasks, users, appTypes]);
-  const progress = useMemo(() => (release ? sprintProgress(tasks, release) : null), [tasks, release]);
-  const openCount = tasks.filter((t) => isOpen(t.status)).length;
+  const progress = useMemo(() => sprintProgress(tasks), [tasks]);
 
-  const exportButton = isAdmin && (
-    <Button variant="outline" onClick={() => setExportOpen(true)}>
-      <FileSpreadsheet /> Export report
-    </Button>
-  );
-  const exportDialog = isAdmin && (
-    <ExportReportDialog open={exportOpen} onOpenChange={setExportOpen} defaultAppTypeId={appTypeId === ALL ? null : appTypeId} />
-  );
+  // Admin "Export PDF": a report version of this view (same release and filters) is rendered
+  // off-screen, captured once its charts have laid out, then removed; a preview opens before saving.
+  const exportPdf = async () => {
+    if (!release) return;
+    setExporting(true);
+    try {
+      const started = Date.now();
+      while (!reportRef.current && Date.now() - started < 5000) await new Promise((r) => requestAnimationFrame(r));
+      if (!reportRef.current) throw new Error("The report didn't render");
+      await new Promise((r) => setTimeout(r, 600)); // charts measure their container first
+      const pdf = await elementToPdf(reportRef.current);
+      setPreview({ pdf, fileName: `${sanitizeFileName(`Dashboard ${release.name}`)}_${format(new Date(), "yyyy-MM-dd")}.pdf` });
+    } catch (err) {
+      notifyError(err, "Couldn't create the PDF");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (loading) return <Skeleton className="h-96" />;
   if (!release)
     return (
       <>
-        <PageHeader title="Dashboard" actions={exportButton} />
+        <PageHeader title="Dashboard" />
         <EmptyState
           icon={LayoutDashboard}
           title="No releases yet"
@@ -75,11 +93,16 @@ export default function DashboardPage() {
             </Button>
           }
         />
-        {exportDialog}
       </>
     );
 
   const fmt = (d: string) => format(parseISO(d), "MMM d");
+
+  const activeFilters = [
+    category !== ALL && `Category: ${TASK_TYPE_LABELS[category]}`,
+    appTypeId !== ALL && `App Type: ${appTypes.find((a) => a.id === appTypeId)?.name ?? "Unknown"}`,
+    dateFilter && `Date: ${describeDateFilter(dateFilter)}`,
+  ].filter((f): f is string => Boolean(f));
 
   return (
     <>
@@ -144,34 +167,43 @@ export default function DashboardPage() {
                 ))}
               </SelectContent>
             </Select>
-            {exportButton}
+            {isAdmin && (
+              <Button variant="outline" onClick={exportPdf} disabled={exporting || live.loading}>
+                <FileDown /> {exporting ? "Preparing PDF…" : "Export PDF"}
+              </Button>
+            )}
           </>
         }
       />
 
-      {live.loading || !progress ? (
+      {live.loading ? (
         <div className="grid gap-4">
           <Skeleton className="h-48" />
           <Skeleton className="h-72" />
         </div>
       ) : (
         <div className="grid gap-4">
-          <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
-            <ProgressCard progress={progress} sprint={release} />
-            <div className="grid grid-cols-2 gap-4 xl:grid-cols-1">
-              <StatTile label="Remaining tasks" value={openCount} sub={`of ${metrics.total} in this release (not yet Ready to Release, Released, Cancelled or Duplicate)`} />
-              <StatTile
-                label="Hours (estimated / actual)"
-                value={`${metrics.estimatedHours} / ${metrics.actualHours}`}
-                sub="Sum across tasks"
-              />
-            </div>
-          </div>
+          {/* the release as a whole, then per category down to the individual items */}
+          <ReleaseOverview metrics={metrics} progress={progress} />
           <CategoryBreakdownCard tasks={appTasks} sprint={release} only={category === ALL ? null : category} />
-          <MetricsView metrics={metrics} />
         </div>
       )}
-      {exportDialog}
+
+      {exporting && (
+        <div aria-hidden className="pointer-events-none fixed top-0 -left-[20000px]">
+          <DashboardReport
+            ref={reportRef}
+            release={release}
+            totalTasks={live.tasks.length}
+            filters={activeFilters}
+            metrics={metrics}
+            progress={progress}
+            breakdownTasks={appTasks}
+            only={category === ALL ? null : category}
+          />
+        </div>
+      )}
+      <PdfPreviewDialog pdf={preview?.pdf ?? null} fileName={preview?.fileName ?? ""} onClose={() => setPreview(null)} />
     </>
   );
 }

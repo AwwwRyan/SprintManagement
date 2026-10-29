@@ -5,8 +5,9 @@
  * Team decisions (DECISIONS.md "Workflow statuses"):
  * - Done = testing passed but not yet live; it still carries into the next release.
  * - Released / Closed / Duplicate are finished: never carried forward.
- * - Completion % = (Released + Closed + Duplicate) ÷ all (owner, 2026-10-28): only finished work
- *   counts as done; Ready to Release (tested, not live yet) does not. One total everywhere.
+ * - Release progress (owner, 2026-10-29) counts only the work in flight: In Progress, Fixed,
+ *   Testing and Ready to Release. Completion % = Ready to Release ÷ those four. Backlog,
+ *   Released, Cancelled and Duplicate are left out. One rule everywhere.
  */
 import type { TaskStatus, TaskType } from "@/types";
 
@@ -22,13 +23,20 @@ export const isFinished = (s: TaskStatus) => s === "released" || isExcluded(s);
 /** Still being worked on (pending, in progress, on hold, dev done, testing). */
 export const isOpen = (s: TaskStatus) => !isComplete(s) && !isExcluded(s);
 
-/** Counts as done for release progress: Released, or closed out (Cancelled, Duplicate). Same as finished. */
-export const countsAsDone = (s: TaskStatus) => isFinished(s);
+/** The statuses release progress counts, in workflow order. */
+export const PROGRESS_STATUSES = ["in_progress", "dev_done", "testing", "done"] as const satisfies readonly TaskStatus[];
 
-/** Completion % for a set of statuses (0 for none): share of tasks that count as done. */
+/** Counted in release progress (In Progress, Fixed, Testing, Ready to Release). */
+export const inProgressScope = (s: TaskStatus) => (PROGRESS_STATUSES as readonly TaskStatus[]).includes(s);
+
+/** Counts as done for release progress: Ready to Release. */
+export const countsAsDone = (s: TaskStatus) => s === "done";
+
+/** Completion % (0 for none): Ready to Release ÷ the tasks in progress scope; other statuses are ignored. */
 export function completionPct(statuses: TaskStatus[]): number {
-  if (statuses.length === 0) return 0;
-  return Math.round((statuses.filter(countsAsDone).length / statuses.length) * 100);
+  const scoped = statuses.filter(inProgressScope);
+  if (scoped.length === 0) return 0;
+  return Math.round((scoped.filter(countsAsDone).length / scoped.length) * 100);
 }
 
 /* ------------------------------------------------------------------ legacy values */

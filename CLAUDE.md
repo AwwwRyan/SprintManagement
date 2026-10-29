@@ -32,8 +32,8 @@ Next.js 15.5 App Router · React 19 · TS strict (no `any`) · Tailwind v4 · sh
 - Types: `types/index.ts`. Firestore converters and typed refs: `lib/firebase/refs.ts`.
 - Admin-only server operations: `app/api/admin/users/**` with `requireAdmin()` (`lib/server/require-admin.ts`), which verifies the ID token **and** the Firestore doc role/active. Admin SDK init: `lib/firebase/admin-core.ts` (also used by scripts), `lib/firebase/admin.ts` (`server-only`).
 - Environment: required for new bugs (form + rules), Production → Critical by default (`normalizePatch`), Environment filter everywhere (server-side on All Tasks).
-- Status labels: pending = **"Backlog"** (2026-10-29: Open + On Hold merged; `on_hold` is legacy, read as pending; a task with this status lives in the Backlog and setting it moves the task there), dev_done = "Fixed", done = "Ready to Release", closed = "Cancelled". Dashboard shows Fixed and Testing separately; the not-finished total is "Remaining".
-- Workflow model (`lib/task-model.ts`): Done ("Ready to Release") = tested, still carries forward; Released/Closed/Duplicate are finished; **completion % = finished ÷ all tasks** (2026-10-28). `assigneeIds: string[]` (no `assigneeId`, no `severity`). See DECISIONS.md "Workflow statuses".
+- Status labels: pending = **"Backlog"** (2026-10-29: Open + On Hold merged; `on_hold` is legacy, read as pending; a task with this status lives in the Backlog and setting it moves the task there), dev_done = "Fixed", done = "Ready to Release", closed = "Cancelled". Dashboard shows Fixed and Testing separately.
+- Workflow model (`lib/task-model.ts`): Done ("Ready to Release") = tested, still carries forward; Released/Closed/Duplicate are finished. **Release progress counts only In Progress, Fixed, Testing, Ready to Release (`PROGRESS_STATUSES`); completion % = Ready to Release ÷ those** (2026-10-29), everywhere. The dashboard shows only those four statuses. `assigneeIds: string[]` (no `assigneeId`, no `severity`). See DECISIONS.md "Workflow statuses".
 - Suggestion box: `suggestions/{id}` (+ `images/{id}/chunks/{i}` like attachments), `lib/suggestions.ts` (pure), `lib/services/suggestions.ts`, `/suggestions`. QA/Admin "Add to a release" creates a task with `suggestionId` and copies the pictures; "Done" = linked task Released (not stored).
 - Backlog = special doc `sprints/backlog` (`BACKLOG_ID`, status "backlog"); `useData().sprints` excludes it, `backlog` holds it, `sprintById` includes it. Pages `/backlog`, `/all-tasks` (100 per page from Firestore: `useTaskPage` + `useTaskCount`; Release/Status/Category filters server-side, task-number search anywhere; needs the composite indexes in `firestore.indexes.json`). QA/Admin "Move to…" (`moveTasks`, `lib/move-plan.ts`); Ready to Release/Released never go to the Backlog (UI + rules). Closing a release requires a destination for every unfinished task (`planCarryForward(tasks, releaseIds, backlogIds, …)`).
 - Manual order: drag the Sr No grip or Alt+↑/↓ → `setTaskOrders` (order only, **no activity entry**), midpoint math in `lib/reorder.ts`.
@@ -64,7 +64,7 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15), Backlog (3 tasks). TSK-1…6 live in closed Release 13. The next key after seeding is TSK-35.
 
 ## Testing status (last full run: 2026-10-29)
-- Unit: 129 tests in 15 files, all passing.
+- Unit: 116 tests in 14 files, all passing.
 - Rules: 83 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
 - E2E: 34 Playwright flows, all passing (see the README for the list).
@@ -93,13 +93,13 @@ All 12 build phases from the spec are implemented and verified locally against t
 - [x] Owner's Admin account created (Aryan).
 - [x] Smoke test on the real project passed (`npm run test:smoke`, 4/4), with cleanup verified: only the owner's admin remains, and the counter is reset (2026-10-12).
 - [x] Real project data: App Types DOCTOR, USER, SERVICE-PROVIDER, SUPER-ADMIN, QR-PORTAL (codes renamed 2026-10-12; badges are solid). Modules added: DOCTOR Profile/Appointment/Availability/Center/Assistant · USER Profile/Appointment/Pharmacy/Lab/Wellness/Center · SERVICE-PROVIDER Center/Carespot/Lab/Pharmacy/Profile · SUPER-ADMIN Center/Carespot/User/Doctor/Partner · QR-PORTAL Profile/Lab/Pharmacy. Imported tasks have no module yet.
-- [x] Dashboard: detailed progress card + Admin "Export report" (date range → .xlsx). Collection-group index `activity(field, createdAt)` deployed and READY (2026-10-12).
+- [x] Dashboard: detailed progress card. Admin **"Export PDF"** (2026-10-29) saves a report version of the dashboard (`components/dashboard/dashboard-report.tsx`, rendered off-screen while exporting; `lib/export-pdf.ts`: html-to-image + jsPDF, one tall page, loaded on demand); it replaced the Excel date-range export. The collection-group index `activity(field, createdAt)` was only for that export and can be removed with `firebase deploy --only firestore:indexes --force`.
 - [x] Sprints → Releases rename (UI + routes, with redirects), Release date column, Environment dropdown (Staging/Production); live data normalized (2026-10-22).
 - [x] Remarks column (`tasks.remarks`), editable by everyone; 97 Excel remarks backfilled from the import comments (2026-10-13).
 - [x] Excel bug list imported: 256 tasks TSK-1…256 in the active sprint "Release 1 (imported from Excel)" (renamed from "Sprint 1 …") (see DECISIONS.md "Excel import"). Source file in git-ignored `import/`. Don't re-run the import.
 - [x] Extra accounts (no invites): Mishal (developer), Nikita (QA, QA Engineer), Ashis (developer, no designation).
 - [x] Bala (md@) and Badri (badriparam@) added as **admins**, no designation, no invites (2026-10-26); also in `team.json`.
-- [ ] **Backlog status migration** (code ready 2026-10-29): `npx tsx scripts/migrate-backlog-status.ts --apply` after deploying rules (12 On Hold → Backlog, 10 Open tasks moved from Oct_release_m4 to the Backlog; previewed).
+- [x] **Backlog status migration** applied 2026-10-29 after the rules deploy: 12 On Hold → Backlog, 10 Open tasks moved from Oct_release_m4 to the Backlog (22 tasks; re-running previews 0).
 - [ ] **Product Owner title for Sreevani** (code ready 2026-10-29, not yet assigned): after deploying, Admin → Users → Sreevani → Edit → Role: Product Owner. Display only; she stays an admin.
 - [x] Nikita, Bala and Badri set to **not be assigned tasks** (`users.assignable = false`, 2026-10-28); Nikita still on TSK-99 and TSK-104.
 - [x] Team accounts created WITHOUT emails (2026-10-12): Sudharsan (CTO) and Sreevani (Senior QA) are **admins** with Aryan; Prithika and Hariharan are QA; Sameeh and Nagma are developers (emails in git-ignored `team.json`). Nobody but Aryan can sign in yet.

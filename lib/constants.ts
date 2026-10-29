@@ -87,12 +87,12 @@ export const TYPE_CHART_COLORS: Record<"light" | "dark", Record<TaskType, string
   light: { task: "#2a78d6", bug: "#eb6834", improvement: "#1baf7a" },
   dark: { task: "#3987e5", bug: "#d95926", improvement: "#199e70" },
 };
-/** Weekly trend: reported (orange slot) vs fixed (green slot) from the same validated palette. */
-export const TREND_CHART_COLORS: Record<"light" | "dark", { reported: string; fixed: string }> = {
-  light: { reported: TYPE_CHART_COLORS.light.bug, fixed: TYPE_CHART_COLORS.light.improvement },
-  dark: { reported: TYPE_CHART_COLORS.dark.bug, fixed: TYPE_CHART_COLORS.dark.improvement },
-};
 export const BAR_CHART_COLOR: Record<"light" | "dark", string> = { light: "#2a78d6", dark: "#3987e5" };
+/** Release-progress stages, in bar order (Ready → Testing → Fixed → In Progress): aqua, violet, yellow, blue. */
+export const STAGE_CHART_COLORS: Record<"light" | "dark", Record<"done" | "testing" | "fixed" | "inProgress", string>> = {
+  light: { done: "#1baf7a", testing: "#6250d6", fixed: "#eda100", inProgress: "#2a78d6" },
+  dark: { done: "#199e70", testing: "#9085e9", fixed: "#c98500", inProgress: "#3987e5" },
+};
 
 /** Avatar colour choices (text colour is picked automatically for contrast). */
 export const AVATAR_COLORS = [

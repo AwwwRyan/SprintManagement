@@ -281,6 +281,10 @@ export interface AppTypeBreakdown {
   total: number;
   done: number;
   completionPct: number;
+  /** In Progress / Fixed / Testing counts (reports saved before 2026-10-29 don't have them) */
+  inProgress?: number;
+  fixed?: number;
+  testing?: number;
 }
 
 export interface SprintMetrics {

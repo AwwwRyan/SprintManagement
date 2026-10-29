@@ -633,70 +633,85 @@ test("date filter: pick which date and a range, in the grid (kept in the URL) an
 test("dashboard renders live metrics", async ({ page }) => {
   await login(page, "dev2@example.com");
   await page.goto("/dashboard");
-  await expect(page.getByText("Completion", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("By App Type", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Completion", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Workload by person")).toBeVisible();
   await expect(page.getByText("Tasks by status")).toBeVisible();
 });
 
-test("dashboard: bugs / improvements / tasks breakdown, weekly trend and category filter", async ({ page }) => {
+test("dashboard: release on top, then bugs / improvements / tasks cards down to the items; category filter", async ({ page }) => {
   test.setTimeout(120_000);
   await login(page, "qa1@example.com");
   await page.goto("/dashboard");
   const card = page.getByText("Bugs, improvements and tasks in detail").locator("xpath=ancestor::*[@data-slot='card'][1]");
-  await expect(card.getByRole("tab", { name: /Bugs/ })).toHaveAttribute("aria-selected", "true");
+  const bugs = card.getByRole("button", { name: /^Bugs/ });
+  await expect(bugs).toHaveAttribute("aria-pressed", "true");
   await expect(card.getByText("By App Type")).toBeVisible();
-  await expect(card.getByText("Oldest remaining bugs")).toBeVisible();
   await expect(card.getByLabel("Bugs by stage")).toBeVisible();
+  await expect(card.getByText(/^All \d+ bugs, click one to open it$/)).toBeVisible();
+  // only work in flight: no Released / Backlog groups, no weekly trend
+  await expect(card.getByRole("region", { name: /^Released/ })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: /weekly trend/ })).toHaveCount(0);
+  // the section sits below the release-wide charts
+  const chartsY = (await page.getByText("Workload by person").boundingBox())!.y;
+  expect((await card.boundingBox())!.y).toBeGreaterThan(chartsY);
 
-  await card.getByRole("tab", { name: /Improvements/ }).click();
-  await expect(card.getByText("Oldest remaining improvements")).toBeVisible();
-  await card.getByRole("button", { name: /Show weekly trend/ }).click();
-  await expect(card.getByText(/Last 8 weeks, this release: \d+ reported, \d+ completed/)).toBeVisible({ timeout: 30_000 });
+  await card.getByRole("button", { name: /^Improvements/ }).click();
+  await expect(card.getByRole("button", { name: /^Improvements/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(card.getByLabel("Improvements by stage").or(card.getByText(/No improvements in progress/))).toBeVisible();
+  await card.getByRole("button", { name: /^Tasks/ }).click();
+  const item = card.locator("a[href*='?task=TSK-']").first();
+  await expect(item).toBeVisible();
   await card.screenshot({ path: "test-results/dashboard-breakdown.png" });
+  await item.click();
+  await expect(page).toHaveURL(/\/releases\/s14\?task=TSK-\d+/);
 
   // category filter narrows the whole dashboard to one category
+  await page.goto("/dashboard");
   await page.getByLabel("Filter dashboard by category").click();
   await page.getByRole("option", { name: "Bug", exact: true }).click();
   await expect(page.getByText("Bugs in detail")).toBeVisible();
-  await expect(page.getByRole("tab", { name: /Improvements/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Improvements/ })).toHaveCount(0);
 });
 
-test("dashboard: detailed progress card, and admin exports a date-range Excel report", async ({ page }) => {
+test("dashboard: progress card, and admin exports the dashboard as a PDF", async ({ page }) => {
   test.setTimeout(120_000);
   await login(page, "admin@example.com");
   await page.goto("/dashboard");
   await expect(page.getByText("Release progress")).toBeVisible();
-  await expect(page.getByLabel("Progress legend")).toContainText("Fixed (to test)");
-  await expect(page.getByLabel("Progress legend")).toContainText("Testing");
-  await expect(page.getByText(/Release time: day \d+ of 14/)).toBeVisible();
-  await expect(page.getByText("Critical open")).toBeVisible();
+  const legend = page.getByLabel("Progress legend");
+  for (const s of ["Ready to Release", "Testing", "Fixed (to test)", "In Progress"]) await expect(legend).toContainText(s);
+  await expect(legend).not.toContainText("Released");
+  await expect(legend).not.toContainText("Backlog");
+  await expect(page.getByText(/^\d+ of \d+ ready to release$/)).toBeVisible();
+  await expect(page.getByText(/Release time: day/)).toHaveCount(0);
+  await expect(page.getByText("Remaining tasks")).toHaveCount(0);
+  await expect(page.getByText("Hours (estimated / actual)")).toHaveCount(0);
+  // the pie chart sits to the right of Release progress
+  const progressBox = (await page.getByText("Release progress").boundingBox())!;
+  const mixBox = (await page.getByText("Work mix by type").boundingBox())!;
+  expect(mixBox.x).toBeGreaterThan(progressBox.x + 200);
+  expect(Math.abs(mixBox.y - progressBox.y)).toBeLessThan(60);
 
-  await page.getByRole("button", { name: "Export report" }).click();
-  const dialog = page.getByRole("dialog", { name: "Export report" });
-  await dialog.getByRole("radio", { name: "Custom dates" }).click();
-  const today = new Date();
-  const monthAgo = new Date(today.getTime() - 30 * 86_400_000);
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  await dialog.getByLabel("From").fill(iso(monthAgo));
-  await dialog.getByLabel("To").fill(iso(today));
-  const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download Excel" }).click()]);
-  expect(download.suggestedFilename()).toMatch(/^Release-report_\d{4}-\d{2}-\d{2}_to_\d{4}-\d{2}-\d{2}\.xlsx$/);
-
-  const ExcelJS = (await import("exceljs")).default;
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(await download.path());
-  expect(wb.worksheets.map((w) => w.name)).toEqual(["Summary", "Completed", "Created", "Open now", "By person", "By app"]);
-  const completed = wb.getWorksheet("Completed")!;
-  expect(completed.getRow(1).getCell(1).value).toBe("Task ID");
-  expect(completed.rowCount).toBeGreaterThan(1); // seed has status changes to Done in the last month
-  expect(String(completed.getRow(2).getCell(1).value)).toMatch(/^TSK-\d+$/);
+  await page.getByRole("button", { name: "Export PDF" }).click();
+  const preview = page.getByRole("dialog", { name: "PDF preview" });
+  await expect(preview.locator("iframe[title='PDF preview']")).toBeVisible({ timeout: 30_000 });
+  await expect(preview).toContainText(/Dashboard-Release-14_\d{4}-\d{2}-\d{2}\.pdf/);
+  const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download" }).click()]);
+  await expect(preview).toHaveCount(0);
+  expect(download.suggestedFilename()).toMatch(/^Dashboard-Release-14_\d{4}-\d{2}-\d{2}\.pdf$/);
+  const fs = await import("node:fs");
+  const head = fs.readFileSync(await download.path()).subarray(0, 5).toString();
+  expect(head).toBe("%PDF-");
+  await download.saveAs("test-results/dashboard.pdf");
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
 });
 
 test("developers don't get the export button", async ({ page }) => {
   await login(page, "dev2@example.com");
   await page.goto("/dashboard");
   await expect(page.getByText("Release progress")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Export report" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export PDF" })).toHaveCount(0);
 });
 
 test("admin creates a user through the Admin API", async ({ page }) => {

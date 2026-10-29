@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSprintReport, computeSprintMetrics, daysRemaining } from "@/lib/metrics";
+import { buildSprintReport, computeSprintMetrics, daysRemaining, roundedShares, sprintProgress } from "@/lib/metrics";
 import type { Task } from "@/types";
 
 type T = Pick<
@@ -52,23 +52,32 @@ describe("computeSprintMetrics", () => {
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
     expect(m.total).toBe(3);
-    expect(m.done).toBe(1); // only Released counts as done; Ready to Release doesn't
-    expect(m.completionPct).toBe(33);
+    expect(m.done).toBe(1); // Ready to Release
+    expect(m.completionPct).toBe(50); // 1 Ready of 2 in progress scope (Released is left out)
     expect(m.estimatedHours).toBe(7.5);
     expect(m.actualHours).toBe(4);
     expect(m.byStatus.find((s) => s.key === "done")?.count).toBe(1);
     expect(m.byStatus).toHaveLength(8); // On Hold was merged into Backlog
   });
 
-  it("counts Released, Cancelled and Duplicate as done; Ready to Release isn't yet", () => {
-    const tasks = [t({ status: "done" }), t({ status: "pending" }), t({ status: "closed" }), t({ status: "duplicate" }), t({ status: "released" })];
+  it("completion = Ready to Release ÷ (In Progress + Fixed + Testing + Ready); other statuses are left out", () => {
+    const tasks = [
+      t({ status: "done" }),
+      t({ status: "testing" }),
+      t({ status: "dev_done" }),
+      t({ status: "in_progress" }),
+      t({ status: "pending" }),
+      t({ status: "closed" }),
+      t({ status: "duplicate" }),
+      t({ status: "released" }),
+    ];
     const m = computeSprintMetrics(tasks, users, appTypes);
-    expect(m.done).toBe(3);
-    expect(m.completionPct).toBe(60);
+    expect(m.done).toBe(1);
+    expect(m.completionPct).toBe(25);
   });
 
   it("gives every assignee the task's full hours", () => {
-    const m = computeSprintMetrics([t({ assigneeIds: ["u1", "u2"], estimatedHours: 6, status: "released" })], users, appTypes);
+    const m = computeSprintMetrics([t({ assigneeIds: ["u1", "u2"], estimatedHours: 6, status: "done" })], users, appTypes);
     expect(m.byPerson).toHaveLength(2);
     for (const p of m.byPerson) expect(p).toMatchObject({ tasks: 1, done: 1, estimatedHours: 6 });
   });
@@ -76,7 +85,7 @@ describe("computeSprintMetrics", () => {
   it("breaks down by person, with Unassigned last", () => {
     const tasks = [
       t({ assigneeIds: [] }),
-      t({ assigneeIds: ["u2"], status: "released", estimatedHours: 1 }),
+      t({ assigneeIds: ["u2"], status: "done", estimatedHours: 1 }),
       t({ assigneeIds: ["u1"] }),
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
@@ -85,10 +94,10 @@ describe("computeSprintMetrics", () => {
   });
 
   it("breaks down by App Type with completion %", () => {
-    const tasks = [t({ appTypeId: "app1", status: "released" }), t({ appTypeId: "app1" }), t({ appTypeId: "app2" })];
+    const tasks = [t({ appTypeId: "app1", status: "done" }), t({ appTypeId: "app1", status: "testing" }), t({ appTypeId: "app2", status: "in_progress" })];
     const m = computeSprintMetrics(tasks, users, appTypes);
     const portal = m.byAppType.find((a) => a.appTypeId === "app1");
-    expect(portal).toMatchObject({ name: "Portal", total: 2, done: 1, completionPct: 50 });
+    expect(portal).toMatchObject({ name: "Portal", total: 2, done: 1, completionPct: 50, inProgress: 0, fixed: 0, testing: 1 });
     expect(m.byAppType.find((a) => a.appTypeId === "app2")?.completionPct).toBe(0);
   });
 
@@ -135,7 +144,7 @@ describe("buildSprintReport", () => {
     expect(r.carriedOver[0]).toMatchObject({ targetSprintId: "s2", targetSprintName: "Sprint 2", status: "in_progress" });
     expect(r.leftIncomplete.map((x) => x.taskId)).toEqual([left.id]);
     expect(r.total).toBe(3);
-    expect(r.done).toBe(1);
+    expect(r.done).toBe(0); // nothing Ready to Release
     expect(r.sprintName).toBe("Sprint 1");
   });
 
@@ -195,5 +204,27 @@ describe("daysRemaining", () => {
     expect(daysRemaining("2026-03-14", today)).toBe(4);
     expect(daysRemaining("2026-03-10", today)).toBe(0);
     expect(daysRemaining("2026-03-01", today)).toBe(0);
+  });
+});
+
+describe("sprintProgress", () => {
+  const t = (status: Task["status"]) => ({ status });
+
+  it("counts only In Progress, Fixed, Testing and Ready to Release; completion = Ready ÷ those", () => {
+    const p = sprintProgress([t("released"), t("done"), t("testing"), t("dev_done"), t("in_progress"), t("pending"), t("duplicate"), t("closed")]);
+    expect(p.stages.map((s) => s.key)).toEqual(["done", "testing", "fixed", "inProgress"]);
+    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 1, 1]);
+    expect(p.stages.reduce((a, s) => a + s.pct, 0)).toBe(100);
+    expect(p.total).toBe(4);
+    expect(p.completionPct).toBe(25); // 1 Ready to Release of 4
+  });
+
+  it("is 0% with nothing in flight", () => {
+    expect(sprintProgress([t("released"), t("pending")])).toMatchObject({ total: 0, completionPct: 0 });
+  });
+
+  it("roundedShares always totals 100", () => {
+    expect(roundedShares([1, 1, 1]).reduce((a, b) => a + b)).toBe(100);
+    expect(roundedShares([0, 0])).toEqual([0, 0]);
   });
 });
