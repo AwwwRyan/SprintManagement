@@ -57,7 +57,7 @@ test("login lands on the active release with its tasks", async ({ page }) => {
   await expect(page.getByRole("grid", { name: "Tasks" })).toBeVisible();
   // the header and the grid agree on the count
   await expect(page.getByText(/^25 tasks · \d+% complete$/)).toBeVisible();
-  await expect(page.getByText(/^25 tasks · Arrow keys/)).toBeVisible();
+  await expect(page.getByLabel("Task count")).toHaveText("25 tasks");
   // carried-over tasks show the badge
   await expect(page.getByTitle("Carried over 1 time").first()).toBeVisible();
 });
@@ -278,7 +278,7 @@ test("Backlog and All Tasks: QA moves tasks between a release and the Backlog; c
   test.setTimeout(240_000);
   const qa = await newSession(browser, "qa2@example.com");
   const page = qa.page;
-  const footer = page.getByText(/^\d+ (of \d+ )?tasks · Arrow keys/);
+  const footer = page.getByLabel("Task count");
   await expect(row(page, "TSK-11")).toBeVisible();
   const releaseTotal = Number((await footer.textContent())!.match(/^(\d+)/)![1]);
 
@@ -424,6 +424,37 @@ test("admins can keep a user out of the Assignees list; the Move dialog lists th
   await page.getByRole("button", { name: "Cancel" }).click();
 });
 
+test("click a title to edit it in the table; double-click opens the task with a wrapping title; count at the top", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "dev4@example.com");
+  const cell = row(page, "TSK-19").locator("td").nth(COL.task);
+  await cell.click();
+  const box = cell.getByRole("textbox", { name: "Task" });
+  await expect(box).toBeVisible();
+  const long = "A very long task title that keeps going so it has to wrap onto a second and maybe even a third line in the table and in the task window";
+  await box.fill(long);
+  await box.press("Enter");
+  await expect(cell).toContainText(long);
+
+  // double-click opens the task window; its title is a multi-line box that grows with the text
+  await cell.dblclick();
+  const panel = page.getByRole("dialog", { name: /TSK-19/ });
+  await expect(panel).toBeVisible();
+  const title = panel.getByRole("textbox", { name: "Task", exact: true });
+  await expect(title).toHaveValue(long);
+  expect(await title.evaluate((el) => el.tagName)).toBe("TEXTAREA");
+  const h = await title.evaluate((el) => el.getBoundingClientRect().height);
+  expect(h).toBeGreaterThan(40); // more than one line
+  expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true); // no sideways scrolling
+  await panel.getByRole("button", { name: "Close panel" }).click();
+
+  // filtering shows "N of M tasks" at the top
+  await page.getByRole("button", { name: /^Priority/ }).first().click();
+  await page.getByRole("menuitemcheckbox", { name: "Critical" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Task count")).toHaveText(/^\d+ of \d+ tasks$/);
+});
+
 test("Release date and Environment (Staging/Production), plus old /sprints links redirect", async ({ page }) => {
   await login(page, "dev3@example.com");
   // old bookmark-style link still opens the task
@@ -503,7 +534,7 @@ test("filters persist in the URL", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/type=bug/);
   await page.reload();
-  await expect(page.getByText(/^\d+ of \d+ tasks/)).toBeVisible(); // the total varies with earlier flows
+  await expect(page.getByLabel("Task count")).toBeVisible(); // the total varies with earlier flows
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).not.toHaveURL(/type=bug/);
 });
@@ -511,7 +542,7 @@ test("filters persist in the URL", async ({ page }) => {
 test("date filter: pick which date and a range, in the grid (kept in the URL) and on the dashboard", async ({ page }) => {
   test.setTimeout(120_000);
   await login(page, "qa2@example.com");
-  const footer = page.getByText(/^\d+ (of \d+ )?tasks · Arrow keys/);
+  const footer = page.getByLabel("Task count");
   await expect(row(page, "TSK-9")).toBeVisible(); // grid loaded (the footer says "0 tasks" while loading)
   const total = Number((await footer.textContent())!.match(/^(\d+)/)![1]);
 

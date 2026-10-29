@@ -67,6 +67,11 @@ Decided with the owner:
 - **Closing a release**: every unfinished task must get a destination, next release or Backlog (Ready to Release: release only). Nothing is left behind any more. "Send all" buttons exist for both. The report lists "Moved to the Backlog"; older reports still show "Left incomplete".
 - Suggestions can also be added to the Backlog.
 
+## Editing titles; task count at the top (2026-10-29)
+- In the grid, a **single click on a title edits it in place**, in a wrapping box that grows with the text (Enter saves, Esc cancels). A **double-click opens the task window**. Sr No / Task ID still open the window on one click, and read-only rows (closed releases) open it too.
+- In the task window the title is a **multi-line box that grows as you type** (no sideways scrolling); Enter saves. Titles stay one line of text that wraps visually, so pasted newlines become spaces.
+- The **task count** ("12 of 293 tasks", highlighted when filtered) moved from under the grid to the toolbar next to Columns. The keyboard tips stay at the bottom.
+
 ## Completion % and the Move dialog (2026-10-28)
 - **Done = Released, Cancelled or Duplicate** (owner): only finished work counts. Open, In Progress, On Hold, Fixed, Testing in Progress and Ready to Release don't. **Completion % = done ÷ all tasks**, so every screen uses one total (the release list, header and dashboard all said 313 vs 257 before). `countsAsDone` = `isFinished` in `lib/task-model.ts`. "Bugs fixed" and the weekly trend still count delivered work (Ready to Release / Released). Older release reports keep the numbers they were saved with.
 - The Move dialog lists the selected tasks (key, title, status, release when mixed) and marks the ones that stay when moving to the Backlog.
