@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AssigneeCellEditor, AssigneeStack } from "./assignee-picker";
-import { DateCellEditor, NumberCellEditor, SelectCellEditor, TextareaCellEditor, TextCellEditor } from "./cell-editors";
+import { DateCellEditor, NumberCellEditor, SelectCellEditor, TextareaCellEditor, TextCellEditor, TitleCellEditor } from "./cell-editors";
 import {
   appTypeOptions,
   moduleOptions,
@@ -51,7 +51,7 @@ import {
 
 /* ------------------------------------------------------------------ column config */
 
-type EditorKind = "text" | "textarea" | "number" | "date" | "select" | "assignees";
+type EditorKind = "text" | "title" | "textarea" | "number" | "date" | "select" | "assignees";
 
 interface ColConfig {
   id: string;
@@ -233,9 +233,9 @@ export function TaskGrid({
         width: 380,
         locked: true,
         field: "title",
-        editor: "text",
+        // single click edits in place (wrapping, grows with the text); double-click opens the task window
+        editor: "title",
         required: true,
-        opensPanel: true,
         wrap: true,
         render: (t) => <span className="block font-medium break-words whitespace-normal">{t.title}</span>,
         sortValue: (t) => t.title.toLowerCase(),
@@ -502,8 +502,8 @@ export function TaskGrid({
     const cfg = colById.get(colId);
     if (!cfg) return;
     const editable = !!cfg.editor && canEdit(task) && (cfg.applicable?.(task) ?? true);
-    // Title: click opens the panel, Enter/F2/double-click edits inline.
-    if (cfg.opensPanel && !(colId === "title" && via === "key" && editable)) {
+    // Sr No / Task ID / attachments open the panel; the title edits in place (double-click opens the panel).
+    if (cfg.opensPanel) {
       onOpenTask(task.taskKey, colId === "attachments" ? "attachments" : undefined);
       return;
     }
@@ -628,6 +628,8 @@ export function TaskGrid({
     const cancel = () => stopEditing(r, c);
     const current = task[field];
     switch (cfg.editor) {
+      case "title":
+        return <TitleCellEditor initial={String(current ?? "")} onCommit={commit} onCancel={cancel} />;
       case "text":
         return <TextCellEditor initial={String(current ?? "")} onCommit={commit} onCancel={cancel} required={cfg.required} />;
       case "assignees":
@@ -660,6 +662,17 @@ export function TaskGrid({
     <div className="flex min-h-0 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{toolbar}</div>
+        {/* count at the top, where it's seen as soon as a filter is applied */}
+        <span
+          aria-label="Task count"
+          aria-live="polite"
+          className={cn(
+            "rounded-md px-2 py-1 text-sm whitespace-nowrap tabular-nums",
+            filtered.length === tasks.length ? "text-muted-foreground" : "bg-primary/10 font-medium text-foreground",
+          )}
+        >
+          {filtered.length === tasks.length ? `${tasks.length} tasks` : `${filtered.length} of ${tasks.length} tasks`}
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -917,7 +930,11 @@ export function TaskGrid({
                           aria-readonly={!cellEditable}
                           onFocus={() => setFocus({ r, c })}
                           onClick={() => !isEditing && activate(task, cfg.id, "click")}
-                          onDoubleClick={() => cfg.id === "title" && cellEditable && setEditing({ rowId: task.id, colId: "title" })}
+                          onDoubleClick={() => {
+                            if (cfg.id !== "title") return;
+                            setEditing(null); // the first click started editing; a double-click opens the task window
+                            onOpenTask(task.taskKey);
+                          }}
                           className={cn(
                             "h-9 border-b bg-background px-2 py-1.5 align-top outline-none group-hover:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] focus:ring-2 focus:ring-ring focus:ring-inset",
                             cfg.wrap ? "whitespace-normal" : "whitespace-nowrap",
@@ -1004,8 +1021,7 @@ export function TaskGrid({
         </table>
       </div>
       <div className="text-xs text-muted-foreground">
-        {filtered.length === tasks.length ? `${tasks.length} tasks` : `${filtered.length} of ${tasks.length} tasks`}
-        {" · "}Arrow keys move, Enter edits, Esc cancels
+        Click a task title to edit it, double-click to open it · Arrow keys move, Enter edits, Esc cancels
         {reorderOn && " · Drag the grip or press Alt+↑/↓ to reorder"}
         {reorderable && !manualOrder && " · Sort by Sr No to reorder"}
       </div>

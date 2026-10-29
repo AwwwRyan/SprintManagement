@@ -28,7 +28,7 @@ import { AssigneePicker } from "./assignee-picker";
 import { CommentsSection } from "./comments-section";
 import { ActivityList } from "./activity-list";
 import { RichTextEditor } from "./rich-text-editor";
-import { PropDate, PropNumber, PropSelect, PropText, PropTextarea } from "./property-controls";
+import { PropDate, PropNumber, PropSelect, PropTextarea, PropTitle } from "./property-controls";
 import {
   appTypeOptions,
   moduleOptions,
@@ -175,13 +175,12 @@ export function TaskPanel({
               <h2 id="task-panel-title" className="sr-only">
                 {task.taskKey}: {task.title}
               </h2>
-              <PropText
+              <PropTitle
                 value={task.title}
                 onSave={field("title")}
                 disabled={!editable}
-                required
                 label="Task"
-                className="h-auto px-1 py-1 text-lg font-semibold md:text-lg"
+                className="px-1 py-1 text-lg font-semibold"
               />
               {sprint?.status === "closed" && (
                 <p className="mt-1 px-1 text-xs text-muted-foreground">

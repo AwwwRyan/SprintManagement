@@ -4,7 +4,8 @@
  * Always-visible field controls for the side panel. Text-like controls keep a local draft while
  * focused (remote changes don't overwrite what you're typing) and save on blur / Enter.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { autoGrow, singleLine } from "@/lib/auto-grow";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -99,6 +100,69 @@ export function PropText({
           setDraft(value);
           focused.current = false;
           (e.target as HTMLInputElement).blur();
+        }
+      }}
+    />
+  );
+}
+
+/** Task title in the side panel: wraps onto more lines and grows as you type. Enter saves. */
+export function PropTitle({
+  value,
+  onSave,
+  disabled,
+  label,
+  className,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  disabled?: boolean;
+  label: string;
+  className?: string;
+}) {
+  const { draft, setDraft, focused } = useDraft(value);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    autoGrow(ref.current);
+  }, [draft]);
+  // re-fit when the panel width changes (window resize)
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => autoGrow(el));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const commit = () => {
+    focused.current = false;
+    const next = draft.trim();
+    if (!next) return setDraft(value); // a task always needs a title
+    if (next !== value) onSave(next);
+  };
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      maxLength={300}
+      value={draft}
+      disabled={disabled}
+      aria-label={label}
+      className={cn(
+        "block w-full resize-none overflow-hidden rounded-lg border border-transparent bg-transparent leading-snug outline-none hover:border-input focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed",
+        className,
+      )}
+      onFocus={() => (focused.current = true)}
+      onChange={(e) => setDraft(singleLine(e.target.value))}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+        if (e.key === "Escape") {
+          setDraft(value);
+          focused.current = false;
+          e.currentTarget.blur();
         }
       }}
     />
