@@ -82,6 +82,13 @@ describe("computeSprintMetrics", () => {
     for (const p of m.byPerson) expect(p).toMatchObject({ tasks: 1, done: 1, estimatedHours: 6 });
   });
 
+  it("counts Fixed and Testing together as testing per person (workload only)", () => {
+    const tasks = [t({ assigneeIds: ["u1"], status: "dev_done" }), t({ assigneeIds: ["u1"], status: "testing" }), t({ assigneeIds: ["u1"], status: "in_progress" })];
+    const m = computeSprintMetrics(tasks, users, appTypes);
+    expect(m.byPerson[0]).toMatchObject({ inProgress: 1, testing: 2 });
+    expect(m.byAppType[0]).toMatchObject({ inProgress: 1, fixed: 1, testing: 1 }); // only the workload table merges them
+  });
+
   it("breaks down by person, with Unassigned last", () => {
     const tasks = [
       t({ assigneeIds: [] }),
@@ -90,7 +97,7 @@ describe("computeSprintMetrics", () => {
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
     expect(m.byPerson.map((p) => p.name)).toEqual(["Alice", "Bob", "Unassigned"]);
-    expect(m.byPerson[1]).toMatchObject({ tasks: 1, done: 1, estimatedHours: 1 });
+    expect(m.byPerson[1]).toMatchObject({ tasks: 1, done: 1, estimatedHours: 1, inProgress: 0, testing: 0 });
   });
 
   it("breaks down by App Type with completion %", () => {

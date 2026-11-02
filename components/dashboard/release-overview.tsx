@@ -22,7 +22,7 @@ export function ReleaseOverview({ metrics, progress, fixedColumns = false }: { m
         <StatusChart metrics={metrics} statuses={PROGRESS_STATUSES} />
         <AppTypeTable metrics={metrics} doneLabel="Ready to Release" completion={false} />
         <OpenBugs metrics={metrics} />
-        <Workload metrics={metrics} doneLabel="Ready to Release" />
+        <Workload metrics={metrics} doneLabel="Ready to Release" stages />
       </div>
     </>
   );

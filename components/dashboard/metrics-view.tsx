@@ -217,7 +217,18 @@ export function OpenBugs({ metrics }: { metrics: SprintMetrics }) {
   );
 }
 
-export function Workload({ metrics, doneLabel = "Completed", className }: { metrics: SprintMetrics; doneLabel?: string; className?: string }) {
+/** Tasks per person; the dashboard shows In Progress / Testing, the closed-release report shows hours. */
+export function Workload({
+  metrics,
+  doneLabel = "Completed",
+  className,
+  stages = false,
+}: {
+  metrics: SprintMetrics;
+  doneLabel?: string;
+  className?: string;
+  stages?: boolean;
+}) {
   const exportMode = useExportMode();
   return (
     <Section title="Workload by person" className={className}>
@@ -230,9 +241,21 @@ export function Workload({ metrics, doneLabel = "Completed", className }: { metr
               <tr>
                 <th className="pb-2 text-left font-medium">Assignee</th>
                 <th className="pb-2 text-right font-medium">Assigned</th>
-                <th className="pb-2 text-right font-medium">{doneLabel}</th>
-                <th className="pb-2 text-right font-medium">Estimated (h)</th>
-                <th className="pb-2 text-right font-medium">Actual (h)</th>
+                {stages ? (
+                  <>
+                    <th className="pb-2 text-right font-medium">In Progress</th>
+                    <th className="pb-2 text-right font-medium" title="Fixed (waiting for QA) and Testing in Progress">
+                      Testing
+                    </th>
+                    <th className="pb-2 text-right font-medium">{doneLabel}</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="pb-2 text-right font-medium">{doneLabel}</th>
+                    <th className="pb-2 text-right font-medium">Estimated (h)</th>
+                    <th className="pb-2 text-right font-medium">Actual (h)</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -240,9 +263,19 @@ export function Workload({ metrics, doneLabel = "Completed", className }: { metr
                 <tr key={p.userId ?? "none"} className="border-t">
                   <td className={`py-2 ${p.userId ? "" : "text-muted-foreground"}`}>{p.name}</td>
                   <td className="py-2 text-right tabular-nums">{p.tasks}</td>
-                  <td className="py-2 text-right tabular-nums">{p.done}</td>
-                  <td className="py-2 text-right tabular-nums">{p.estimatedHours}</td>
-                  <td className="py-2 text-right tabular-nums">{p.actualHours}</td>
+                  {stages ? (
+                    <>
+                      <td className="py-2 text-right tabular-nums">{p.inProgress ?? "–"}</td>
+                      <td className="py-2 text-right tabular-nums">{p.testing ?? "–"}</td>
+                      <td className="py-2 text-right font-medium tabular-nums">{p.done}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="py-2 text-right tabular-nums">{p.done}</td>
+                      <td className="py-2 text-right tabular-nums">{p.estimatedHours}</td>
+                      <td className="py-2 text-right tabular-nums">{p.actualHours}</td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

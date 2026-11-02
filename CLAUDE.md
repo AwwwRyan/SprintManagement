@@ -64,7 +64,7 @@ Env: `.env.local` (git-ignored) now points at the **real project**. `.env.emulat
 Users: admin@, qa1@, qa2@, dev1@ … dev4@example.com (pw `password123`). App Types WEB / MOB / ADM. Release 13 (closed, report, ids s13), Release 14 (active, s14, 25 tasks incl. 2 carried TSK-7/8), Release 15 (planned, s15), Backlog (3 tasks). TSK-1…6 live in closed Release 13. The next key after seeding is TSK-35.
 
 ## Testing status (last full run: 2026-10-29)
-- Unit: 116 tests in 14 files, all passing.
+- Unit: 117 tests in 14 files, all passing.
 - Rules: 83 Firestore rules tests (every role, incl. Firestore-stored attachments), all passing.
 - Smoke (real project): 4 flows via `npm run test:smoke`, passing.
 - E2E: 34 Playwright flows, all passing (see the README for the list).

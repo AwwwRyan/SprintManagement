@@ -79,6 +79,9 @@ export function computeSprintMetrics(
         done: subset.filter((t) => countsAsDone(t.status)).length,
         estimatedHours: sum(subset.map((t) => t.estimatedHours)),
         actualHours: sum(subset.map((t) => t.actualHours)),
+        inProgress: subset.filter((t) => t.status === "in_progress").length,
+        // Fixed is waiting for QA, so the workload table counts it as testing
+        testing: subset.filter((t) => t.status === "testing" || t.status === "dev_done").length,
       };
     })
     .sort((a, b) => {

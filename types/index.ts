@@ -272,6 +272,9 @@ export interface PersonBreakdown {
   done: number;
   estimatedHours: number;
   actualHours: number;
+  /** In Progress count, and Testing = Fixed + Testing in Progress (reports saved before 2026-11-02 don't have them) */
+  inProgress?: number;
+  testing?: number;
 }
 
 export interface AppTypeBreakdown {
