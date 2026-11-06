@@ -101,6 +101,7 @@ test("inline edit syncs to another user's tab in real time", async ({ browser })
 });
 
 test("anyone can edit Remarks inline, and others see it live", async ({ browser }) => {
+  test.setTimeout(120_000); // two sessions
   const dev = await newSession(browser, "dev2@example.com"); // TSK-9 is assigned to dev1, not dev2
   const qa = await newSession(browser, "qa2@example.com");
   const cell = (page: Page) => row(page, "TSK-9").locator("td").nth(COL.remarks);
