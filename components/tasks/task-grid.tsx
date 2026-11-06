@@ -23,6 +23,7 @@ import { planMove } from "@/lib/reorder";
 import { requiresEnvironment } from "@/lib/task-model";
 import { moveColumn, normalizeOrder, shiftColumn } from "@/lib/column-order";
 import { rangeBetween, sameCellValue, valueToPaste, type CellClip, type PasteKind } from "@/lib/cell-clipboard";
+import { changeFor, planUndo, pushStep, type UndoChange, type UndoStep } from "@/lib/undo-stack";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { BACKLOG_ID, PRIORITIES, TASK_STATUSES, TASK_TYPES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
@@ -520,15 +521,31 @@ export function TaskGrid({
     [actor, sprint, sprintOf],
   );
 
+  /** Writes a patch; Firestore applies it to the local cache immediately (optimistic) and reverts it if rejected. */
+  const write = useCallback(
+    (task: Task, patch: TaskPatch) => {
+      updateTask(task, patch, actor.uid, { releaseName: sprintById.get(task.sprintId)?.name }).catch((err) => notifyError(err, "Couldn't save"));
+    },
+    [actor.uid, sprintById],
+  );
+
+  /* Undo / redo (Ctrl+Z, Ctrl+Y) of this person's edits in this table: one step per edit or paste. */
+  const undoRef = useRef<UndoStep[]>([]);
+  const redoRef = useRef<UndoStep[]>([]);
+  const record = useCallback((step: UndoStep) => {
+    undoRef.current = pushStep(undoRef.current, step);
+    redoRef.current = [];
+  }, []);
+
   const save = useCallback(
     (task: Task, field: EditableTaskField, value: unknown) => {
       if (field === "appTypeId" && typeof value === "string") writeStorage(LAST_APP_TYPE_KEY, value);
-      // Firestore applies this to the local cache immediately (optimistic) and reverts it if rejected.
-      updateTask(task, { [field]: value } as TaskPatch, actor.uid, { releaseName: sprintById.get(task.sprintId)?.name }).catch((err) =>
-        notifyError(err, "Couldn't save"),
-      );
+      const patch = { [field]: value } as TaskPatch;
+      const change = changeFor(task, patch);
+      if (change) record({ label: `${cols.find((col) => col.field === field)?.label ?? field} of ${task.taskKey}`, changes: [change] });
+      write(task, patch);
     },
-    [actor.uid, sprintById],
+    [cols, record, write],
   );
 
   /** Click / Enter on a cell. */
@@ -618,6 +635,7 @@ export function TaskGrid({
 
     let changed = 0;
     let same = 0;
+    const pasted: UndoChange[] = [];
     // why tasks were skipped → which tasks, so each reason is shown once
     const skipped = new Map<string, string[]>();
     const skip = (reason: string, task: Task) => skipped.set(reason, [...(skipped.get(reason) ?? []), task.taskKey]);
@@ -647,9 +665,13 @@ export function TaskGrid({
         same += 1;
         continue;
       }
-      save(task, field, res.value);
+      const patch = { [field]: res.value } as TaskPatch;
+      const change = changeFor(task, patch);
+      if (change) pasted.push(change);
+      write(task, patch);
       changed += 1;
     }
+    if (pasted.length) record({ label: `Paste into ${cfg.label} (${pasted.length} task${pasted.length === 1 ? "" : "s"})`, changes: pasted });
 
     const shown = text.trim() || "an empty cell";
     const quoted = text.trim() ? `“${shown}”` : shown;
@@ -695,9 +717,53 @@ export function TaskGrid({
     else toast.warning(`Pasted ${quoted} into ${changed} of ${plural(targets.length)}`, { description: reasons });
   };
 
+  const undoRedo = (direction: "undo" | "redo") => {
+    const from = direction === "undo" ? undoRef : redoRef;
+    const step = from.current.at(-1);
+    if (!step) {
+      toast(direction === "undo" ? "Nothing to undo" : "Nothing to redo", { description: "Only your edits in this table, since the page opened." });
+      return;
+    }
+    from.current = from.current.slice(0, -1);
+    const plan = planUndo(step, new Map(tasks.map((t) => [t.id, t])), direction);
+    for (const { task, patch } of plan.apply) write(task, patch);
+    if (plan.apply.length) {
+      const to = direction === "undo" ? redoRef : undoRef;
+      to.current = pushStep(to.current, step);
+    }
+    const verb = direction === "undo" ? "Undone" : "Redone";
+    const again = direction === "undo" ? { label: "Redo", onClick: () => undoRedo("redo") } : { label: "Undo", onClick: () => undoRedo("undo") };
+    if (plan.skipped.length === 0) {
+      toast(`${verb}: ${step.label}`, { action: again });
+      return;
+    }
+    const byReason = new Map<string, string[]>();
+    for (const sk of plan.skipped) byReason.set(sk.reason, [...(byReason.get(sk.reason) ?? []), sk.taskKey]);
+    const reasons = (
+      <ul className="mt-1 grid gap-1">
+        {Array.from(byReason, ([reason, keys]) => (
+          <li key={reason}>
+            <span className="font-medium">{reason}:</span> {keys.slice(0, 6).join(", ")}
+            {keys.length > 6 && ` and ${keys.length - 6} more`}
+          </li>
+        ))}
+      </ul>
+    );
+    const what = direction === "undo" ? "undo" : "redo";
+    if (plan.apply.length === 0) toast.error(`Couldn't ${what}: ${step.label}`, { description: reasons });
+    else toast.warning(`${verb} for ${plan.apply.length} of ${step.changes.length} tasks: ${step.label}`, { description: reasons, action: again });
+  };
+
   const onGridKeyDown = (e: React.KeyboardEvent) => {
-    if (editing) return;
+    if (editing) return; // inside an editor, Ctrl+Z is the text box's own undo
     const { r, c } = focus;
+    const key = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === "z" || key === "y")) {
+      if ((e.target as HTMLElement).closest("input, textarea, [contenteditable='true']")) return;
+      e.preventDefault();
+      undoRedo(key === "y" || e.shiftKey ? "redo" : "undo");
+      return;
+    }
     if (e.key === "Escape" && (cellSel || copiedCell)) {
       setCellSel(null);
       setCopiedCell(null);
@@ -1292,7 +1358,7 @@ export function TaskGrid({
       </div>
       <div className="text-xs text-muted-foreground">
         Click a task title to edit it, double-click to open it · Arrow keys move, Enter edits, Esc cancels · Ctrl+C copies a
-        cell; Shift/Ctrl+click picks cells in the same column, Ctrl+V pastes into them
+        cell; Shift/Ctrl+click picks cells in the same column, Ctrl+V pastes into them · Ctrl+Z undoes, Ctrl+Y redoes
         {reorderOn && " · Drag the grip or press Alt+↑/↓ to reorder"}
         {reorderable && !manualOrder && " · Sort by Sr No to reorder"}
       </div>

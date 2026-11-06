@@ -793,6 +793,17 @@ test("copy a status with Ctrl+C and paste it into several picked cells with Ctrl
   await expect(page.getByText(/Pasted “In Progress” into|Nothing to change/)).toBeVisible();
   await expect(statusCell(a)).toContainText(copied);
   await expect(statusCell(b)).toContainText(copied);
+
+  // Ctrl+Z undoes the whole paste, Ctrl+Y redoes it
+  const before = Object.fromEntries(rows);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(page.getByText("Undone: Paste into Status (2 tasks)")).toBeVisible();
+  await expect(statusCell(a)).toContainText(before[a]);
+  await expect(statusCell(b)).toContainText(before[b]);
+  await page.keyboard.press("ControlOrMeta+y");
+  await expect(page.getByText("Redone: Paste into Status (2 tasks)")).toBeVisible();
+  await expect(statusCell(a)).toContainText(copied);
+  await expect(statusCell(b)).toContainText(copied);
   // Esc clears the picked cells
   await page.keyboard.press("Escape");
   await expect(statusCell(a)).not.toHaveAttribute("aria-selected", "true");
