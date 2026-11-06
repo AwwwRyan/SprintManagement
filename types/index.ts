@@ -275,6 +275,9 @@ export interface PersonBreakdown {
   /** In Progress count, and Testing = Fixed + Testing in Progress (reports saved before 2026-11-02 don't have them) */
   inProgress?: number;
   testing?: number;
+  /** Ready to Release / Released counts (from 2026-11-06) */
+  ready?: number;
+  released?: number;
 }
 
 export interface AppTypeBreakdown {
@@ -288,6 +291,9 @@ export interface AppTypeBreakdown {
   inProgress?: number;
   fixed?: number;
   testing?: number;
+  /** Ready to Release / Released counts (from 2026-11-06) */
+  ready?: number;
+  released?: number;
 }
 
 export interface SprintMetrics {

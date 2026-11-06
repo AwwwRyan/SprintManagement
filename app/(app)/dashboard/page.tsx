@@ -24,7 +24,7 @@ import { describeDateFilter, matchesDate, type DateFilter } from "@/lib/date-fil
 import { SPRINT_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
 import { sortSprints } from "@/lib/sprint-utils";
 import { sanitizeFileName } from "@/lib/utils";
-import { inProgressScope } from "@/lib/task-model";
+import { countedTasks, inProgressScope } from "@/lib/task-model";
 import { TASK_TYPES, type TaskType } from "@/types";
 
 const ALL = "__all__";
@@ -44,7 +44,7 @@ export default function DashboardPage() {
   const isAdmin = canManageUsers(actor);
 
   // App Type and date filters apply everywhere; the category filter also narrows the top cards.
-  // Everything counts only the work in flight: In Progress, Fixed, Testing, Ready to Release.
+  // Everything counts In Progress, Fixed, Testing, Ready to Release and Released (not Backlog / Cancelled / Duplicate).
   const appTasks = useMemo(
     () => live.tasks.filter((t) => (appTypeId === ALL || t.appTypeId === appTypeId) && matchesDate(t, dateFilter)),
     [live.tasks, appTypeId, dateFilter],
@@ -97,7 +97,7 @@ export default function DashboardPage() {
             <Link href={`/releases/${release.id}`} className="font-medium text-foreground hover:underline">
               {release.name}
             </Link>{" "}
-            · {fmt(release.startDate)} to {fmt(release.endDate)} · {live.tasks.length} tasks in this release
+            · {fmt(release.startDate)} to {fmt(release.endDate)} · {countedTasks(live.tasks.map((t) => t.status))} tasks in this release
             {release.status === "closed" && (
               <>
                 {" "}
@@ -178,7 +178,7 @@ export default function DashboardPage() {
           <DashboardReport
             ref={pdfExport.ref}
             release={release}
-            totalTasks={live.tasks.length}
+            totalTasks={countedTasks(live.tasks.map((t) => t.status))}
             filters={activeFilters}
             metrics={metrics}
             progress={progress}

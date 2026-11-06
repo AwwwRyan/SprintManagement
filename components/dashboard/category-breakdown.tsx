@@ -3,7 +3,7 @@
 /**
  * Dashboard, bottom section: Bugs / Improvements / Tasks. Tap a category card to see its
  * stages, breakdowns (App Type, priority, person) and the individual items. Only the work in
- * flight counts: In Progress, Fixed, Testing and Ready to Release.
+ * In Progress, Fixed, Testing, Ready to Release and Released count (Backlog / Cancelled / Duplicate don't).
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -45,9 +45,9 @@ function CategoryCard({ type, b, selected, onSelect }: { type: TaskType; b: Stag
         {selected && <span className="ml-auto text-[11px] font-normal text-muted-foreground">Showing</span>}
       </span>
       <span className="text-3xl font-semibold tabular-nums">{b.total}</span>
-      <Progress value={b.readyPct} className="h-1.5" aria-label={`${PLURAL[type]}: ${b.readyPct}% ready to release`} />
+      <Progress value={b.readyPct} className="h-1.5" aria-label={`${PLURAL[type]}: ${b.readyPct}% ready to release or released`} />
       <span className="text-xs text-muted-foreground tabular-nums">
-        {b.ready} ready to release · {b.readyPct}%
+        {b.released} released · {b.ready} ready · {b.readyPct}%
       </span>
     </button>
   );
@@ -70,6 +70,7 @@ function StageTable({ title, first, rows }: { title: string; first: string; rows
               <th className={th}>Fixed</th>
               <th className={th}>Testing</th>
               <th className={th}>Ready</th>
+              <th className={th}>Released</th>
             </tr>
           </thead>
           <tbody>
@@ -79,7 +80,8 @@ function StageTable({ title, first, rows }: { title: string; first: string; rows
                 <td className={td}>{r.c.inProgress}</td>
                 <td className={td}>{r.c.fixed}</td>
                 <td className={td}>{r.c.testing}</td>
-                <td className={`${td} font-medium`}>{r.c.ready}</td>
+                <td className={td}>{r.c.ready}</td>
+                <td className={`${td} font-medium`}>{r.c.released}</td>
               </tr>
             ))}
           </tbody>

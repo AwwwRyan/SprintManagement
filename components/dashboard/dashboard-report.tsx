@@ -30,7 +30,7 @@ export function DashboardReport({
 }: {
   ref: React.Ref<HTMLDivElement>;
   release: Sprint;
-  /** every task in the release, whatever its status */
+  /** tasks in the release, not counting Cancelled / Duplicate */
   totalTasks: number;
   /** active dashboard filters, in words (empty = none) */
   filters: string[];
@@ -70,7 +70,7 @@ export function DashboardReport({
                 <span className="text-xl font-semibold">{PLURAL[b.type]}</span>
                 <span className="text-xl font-semibold tabular-nums">{b.total}</span>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {b.ready} ready to release · {b.readyPct}%
+                  {b.released} released · {b.ready} ready · {b.readyPct}%
                 </span>
               </h2>
               <CategoryDetail b={b} sprint={release} />

@@ -6,6 +6,7 @@ import { STAGE_CHART_COLORS } from "@/lib/constants";
 import type { ProgressStage, SprintProgress } from "@/lib/metrics";
 
 const STAGE_LABEL: Record<ProgressStage, string> = {
+  released: "Released",
   done: "Ready to Release",
   testing: "Testing",
   fixed: "Fixed (to test)",
@@ -48,9 +49,11 @@ export function StageBar({ stages, total, legendLabel = "Progress legend" }: { s
   );
 }
 
-/** Release progress: how much of the work in flight is Ready to Release, by stage. */
+/** Release progress: how much of the work is Ready to Release or Released, by stage. */
 export function ProgressCard({ progress: p }: { progress: SprintProgress }) {
-  const ready = p.stages.find((s) => s.key === "done")?.count ?? 0;
+  const count = (k: ProgressStage) => p.stages.find((s) => s.key === k)?.count ?? 0;
+  const released = count("released");
+  const ready = count("done");
   return (
     <Card className="print-break-avoid gap-4 py-4">
       <CardContent className="grid gap-4 px-4">
@@ -59,10 +62,10 @@ export function ProgressCard({ progress: p }: { progress: SprintProgress }) {
           <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
             <span className="text-3xl font-semibold tabular-nums">{p.completionPct}%</span>
             <span className="text-sm text-muted-foreground">
-              {ready} of {p.total} ready to release
+              {released + ready} of {p.total} done ({released} released, {ready} ready to release)
             </span>
           </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">Counts In Progress, Fixed, Testing and Ready to Release tasks.</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">Counts In Progress, Fixed, Testing, Ready to Release and Released tasks.</div>
         </div>
         <StageBar stages={p.stages} total={p.total} />
       </CardContent>

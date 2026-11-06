@@ -135,7 +135,18 @@ export function WorkMix({ metrics, className }: { metrics: SprintMetrics; classN
 }
 
 /** Tasks per App Type and stage. `doneLabel` names the "done" column; the report also shows completion. */
-export function AppTypeTable({ metrics, doneLabel = "Completed", completion = true }: { metrics: SprintMetrics; doneLabel?: string; completion?: boolean }) {
+export function AppTypeTable({
+  metrics,
+  doneLabel = "Completed",
+  completion = true,
+  split = false,
+}: {
+  metrics: SprintMetrics;
+  doneLabel?: string;
+  completion?: boolean;
+  /** Ready to Release and Released as two columns instead of one "done" column (dashboard) */
+  split?: boolean;
+}) {
   const exportMode = useExportMode();
   const num = "py-2 pl-3 text-right tabular-nums";
   const head = "pb-2 pl-3 text-right font-medium";
@@ -153,7 +164,14 @@ export function AppTypeTable({ metrics, doneLabel = "Completed", completion = tr
                 <th className={head}>In Progress</th>
                 <th className={head}>Fixed</th>
                 <th className={head}>Testing</th>
-                <th className={head}>{doneLabel}</th>
+                {split ? (
+                  <>
+                    <th className={head}>Ready to Release</th>
+                    <th className={head}>Released</th>
+                  </>
+                ) : (
+                  <th className={head}>{doneLabel}</th>
+                )}
                 {completion && <th className="w-32 pb-2 pl-4 text-left font-medium">Completion</th>}
               </tr>
             </thead>
@@ -170,7 +188,14 @@ export function AppTypeTable({ metrics, doneLabel = "Completed", completion = tr
                   <td className={num}>{a.inProgress ?? "–"}</td>
                   <td className={num}>{a.fixed ?? "–"}</td>
                   <td className={num}>{a.testing ?? "–"}</td>
-                  <td className={`${num} font-medium`}>{a.done}</td>
+                  {split ? (
+                    <>
+                      <td className={num}>{a.ready ?? "–"}</td>
+                      <td className={`${num} font-medium`}>{a.released ?? "–"}</td>
+                    </>
+                  ) : (
+                    <td className={`${num} font-medium`}>{a.done}</td>
+                  )}
                   {completion && (
                     <td className="py-2 pl-4">
                       <div className="flex items-center gap-2">
@@ -247,7 +272,8 @@ export function Workload({
                     <th className="pb-2 text-right font-medium" title="Fixed (waiting for QA) and Testing in Progress">
                       Testing
                     </th>
-                    <th className="pb-2 text-right font-medium">{doneLabel}</th>
+                    <th className="pb-2 text-right font-medium">Ready to Release</th>
+                    <th className="pb-2 text-right font-medium">Released</th>
                   </>
                 ) : (
                   <>
@@ -267,7 +293,8 @@ export function Workload({
                     <>
                       <td className="py-2 text-right tabular-nums">{p.inProgress ?? "–"}</td>
                       <td className="py-2 text-right tabular-nums">{p.testing ?? "–"}</td>
-                      <td className="py-2 text-right font-medium tabular-nums">{p.done}</td>
+                      <td className="py-2 text-right tabular-nums">{p.ready ?? "–"}</td>
+                      <td className="py-2 text-right font-medium tabular-nums">{p.released ?? "–"}</td>
                     </>
                   ) : (
                     <>

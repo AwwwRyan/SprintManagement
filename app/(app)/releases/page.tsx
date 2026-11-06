@@ -17,7 +17,7 @@ import { SprintStatusBadge } from "@/components/common/badges";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { SprintFormDialog } from "@/components/sprints/sprint-form-dialog";
-import { completionPct } from "@/lib/task-model";
+import { completionPct, countedTasks } from "@/lib/task-model";
 import type { TaskStatus } from "@/types";
 
 export default function SprintsPage() {
@@ -39,7 +39,7 @@ export default function SprintsPage() {
     const statuses = new Map<string, TaskStatus[]>();
     for (const t of liveTasks.data) statuses.set(t.sprintId, [...(statuses.get(t.sprintId) ?? []), t.status]);
     const m = new Map<string, { total: number; pct: number }>();
-    for (const [id, list] of statuses) m.set(id, { total: list.length, pct: completionPct(list) });
+    for (const [id, list] of statuses) m.set(id, { total: countedTasks(list), pct: completionPct(list) });
     for (const r of reports.data) m.set(r.sprintId, { total: r.total, pct: r.completionPct });
     return m;
   }, [liveTasks.data, reports.data]);

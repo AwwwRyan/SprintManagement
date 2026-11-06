@@ -35,6 +35,11 @@ const appTypes = [
   { id: "app2", name: "Mobile", color: "#222222" },
 ];
 
+it("a release's task count leaves out Cancelled and Duplicate", async () => {
+  const { countedTasks } = await import("@/lib/task-model");
+  expect(countedTasks(["in_progress", "released", "closed", "duplicate", "done"])).toBe(3);
+});
+
 describe("computeSprintMetrics", () => {
   it("handles an empty sprint", () => {
     const m = computeSprintMetrics([], users, appTypes);
@@ -52,15 +57,15 @@ describe("computeSprintMetrics", () => {
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
     expect(m.total).toBe(3);
-    expect(m.done).toBe(1); // Ready to Release
-    expect(m.completionPct).toBe(50); // 1 Ready of 2 in progress scope (Released is left out)
+    expect(m.done).toBe(2); // Ready to Release + Released
+    expect(m.completionPct).toBe(67); // 2 done of 3
     expect(m.estimatedHours).toBe(7.5);
     expect(m.actualHours).toBe(4);
     expect(m.byStatus.find((s) => s.key === "done")?.count).toBe(1);
     expect(m.byStatus).toHaveLength(8); // On Hold was merged into Backlog
   });
 
-  it("completion = Ready to Release ÷ (In Progress + Fixed + Testing + Ready); other statuses are left out", () => {
+  it("completion = (Ready + Released) ÷ (In Progress + Fixed + Testing + Ready + Released); Backlog / Cancelled / Duplicate are left out", () => {
     const tasks = [
       t({ status: "done" }),
       t({ status: "testing" }),
@@ -72,8 +77,8 @@ describe("computeSprintMetrics", () => {
       t({ status: "released" }),
     ];
     const m = computeSprintMetrics(tasks, users, appTypes);
-    expect(m.done).toBe(1);
-    expect(m.completionPct).toBe(25);
+    expect(m.done).toBe(2);
+    expect(m.completionPct).toBe(40);
   });
 
   it("gives every assignee the task's full hours", () => {
@@ -151,7 +156,7 @@ describe("buildSprintReport", () => {
     expect(r.carriedOver[0]).toMatchObject({ targetSprintId: "s2", targetSprintName: "Sprint 2", status: "in_progress" });
     expect(r.leftIncomplete.map((x) => x.taskId)).toEqual([left.id]);
     expect(r.total).toBe(3);
-    expect(r.done).toBe(0); // nothing Ready to Release
+    expect(r.done).toBe(1); // the Released task
     expect(r.sprintName).toBe("Sprint 1");
   });
 
@@ -217,17 +222,17 @@ describe("daysRemaining", () => {
 describe("sprintProgress", () => {
   const t = (status: Task["status"]) => ({ status });
 
-  it("counts only In Progress, Fixed, Testing and Ready to Release; completion = Ready ÷ those", () => {
+  it("counts In Progress, Fixed, Testing, Ready and Released; completion = (Ready + Released) ÷ those", () => {
     const p = sprintProgress([t("released"), t("done"), t("testing"), t("dev_done"), t("in_progress"), t("pending"), t("duplicate"), t("closed")]);
-    expect(p.stages.map((s) => s.key)).toEqual(["done", "testing", "fixed", "inProgress"]);
-    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 1, 1]);
+    expect(p.stages.map((s) => s.key)).toEqual(["released", "done", "testing", "fixed", "inProgress"]);
+    expect(p.stages.map((s) => s.count)).toEqual([1, 1, 1, 1, 1]);
     expect(p.stages.reduce((a, s) => a + s.pct, 0)).toBe(100);
-    expect(p.total).toBe(4);
-    expect(p.completionPct).toBe(25); // 1 Ready to Release of 4
+    expect(p.total).toBe(5);
+    expect(p.completionPct).toBe(40); // Ready + Released = 2 of 5
   });
 
-  it("is 0% with nothing in flight", () => {
-    expect(sprintProgress([t("released"), t("pending")])).toMatchObject({ total: 0, completionPct: 0 });
+  it("is 0% with nothing in progress scope", () => {
+    expect(sprintProgress([t("pending"), t("closed")])).toMatchObject({ total: 0, completionPct: 0 });
   });
 
   it("roundedShares always totals 100", () => {

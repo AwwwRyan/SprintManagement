@@ -62,6 +62,8 @@ export function computeSprintMetrics(
         inProgress: subset.filter((t) => t.status === "in_progress").length,
         fixed: subset.filter((t) => t.status === "dev_done").length,
         testing: subset.filter((t) => t.status === "testing").length,
+        ready: subset.filter((t) => t.status === "done").length,
+        released: subset.filter((t) => t.status === "released").length,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -82,6 +84,8 @@ export function computeSprintMetrics(
         inProgress: subset.filter((t) => t.status === "in_progress").length,
         // Fixed is waiting for QA, so the workload table counts it as testing
         testing: subset.filter((t) => t.status === "testing" || t.status === "dev_done").length,
+        ready: subset.filter((t) => t.status === "done").length,
+        released: subset.filter((t) => t.status === "released").length,
       };
     })
     .sort((a, b) => {
@@ -112,25 +116,26 @@ export function computeSprintMetrics(
 
 /* ------------------------------------------------------------------ sprint progress */
 
-export type ProgressStage = "done" | "testing" | "fixed" | "inProgress";
+export type ProgressStage = "released" | "done" | "testing" | "fixed" | "inProgress";
 
-/** Release progress: only the work in flight (In Progress, Fixed, Testing, Ready to Release). */
+/** Release progress: In Progress, Fixed, Testing, Ready to Release and Released. */
 export interface SprintProgress {
   /** tasks in those four statuses */
   total: number;
   /** Tasks per stage, in display order. `pct` values add up to 100 (largest-remainder rounding). */
   stages: { key: ProgressStage; count: number; pct: number }[];
-  /** Ready to Release ÷ total */
+  /** (Ready to Release + Released) ÷ total */
   completionPct: number;
 }
 
 const STAGE_OF: Partial<Record<TaskStatus, ProgressStage>> = {
+  released: "released",
   done: "done",
   testing: "testing",
   dev_done: "fixed",
   in_progress: "inProgress",
 };
-const STAGES: ProgressStage[] = ["done", "testing", "fixed", "inProgress"];
+const STAGES: ProgressStage[] = ["released", "done", "testing", "fixed", "inProgress"];
 
 /** Percentages that always sum to exactly 100 (or 0 for an empty sprint). */
 export function roundedShares(counts: number[]): number[] {
@@ -148,7 +153,7 @@ export function roundedShares(counts: number[]): number[] {
   return floors;
 }
 
-/** Stage counts for release progress; Backlog, Released, Cancelled and Duplicate tasks are ignored. */
+/** Stage counts for release progress; Backlog, Cancelled and Duplicate tasks are ignored. */
 export function sprintProgress(tasks: Pick<Task, "status">[]): SprintProgress {
   const counts = STAGES.map((k) => tasks.filter((t) => STAGE_OF[t.status] === k).length);
   const shares = roundedShares(counts);

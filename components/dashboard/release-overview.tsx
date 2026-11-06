@@ -20,9 +20,9 @@ export function ReleaseOverview({ metrics, progress, fixedColumns = false }: { m
       </div>
       <div className={cn("grid gap-4", fixedColumns ? "grid-cols-2" : "lg:grid-cols-2")}>
         <StatusChart metrics={metrics} statuses={PROGRESS_STATUSES} />
-        <AppTypeTable metrics={metrics} doneLabel="Ready to Release" completion={false} />
+        <AppTypeTable metrics={metrics} completion={false} split />
         <OpenBugs metrics={metrics} />
-        <Workload metrics={metrics} doneLabel="Ready to Release" stages />
+        <Workload metrics={metrics} stages />
       </div>
     </>
   );

@@ -63,7 +63,7 @@ test("login lands on the active release with its tasks", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Release 14" })).toBeVisible();
   await expect(page.getByRole("grid", { name: "Tasks" })).toBeVisible();
   // the header and the grid agree on the count
-  await expect(page.getByText(/^25 tasks · \d+% complete$/)).toBeVisible();
+  await expect(page.getByText(/^24 tasks · \d+% complete$/)).toBeVisible(); // 25 rows, 1 Duplicate not counted
   await expect(page.getByLabel("Task count")).toHaveText("25 tasks");
   // carried-over tasks show the badge
   await expect(page.getByTitle("Carried over 1 time").first()).toBeVisible();
@@ -649,8 +649,9 @@ test("dashboard: release on top, then bugs / improvements / tasks cards down to 
   await expect(card.getByText("By App Type")).toBeVisible();
   await expect(card.getByLabel("Bugs by stage")).toBeVisible();
   await expect(card.getByText(/^All \d+ bugs, click one to open it$/)).toBeVisible();
-  // only work in flight: no Released / Backlog groups, no weekly trend
-  await expect(card.getByRole("region", { name: /^Released/ })).toHaveCount(0);
+  // a Released group (Released is back, 2026-11-06); no Backlog group, no weekly trend
+  await expect(card.getByRole("region", { name: /^Released \(\d+\)$/ })).toBeVisible();
+  await expect(card.getByRole("region", { name: /^Backlog/ })).toHaveCount(0);
   await expect(card.getByRole("button", { name: /weekly trend/ })).toHaveCount(0);
   // the section sits below the release-wide charts
   const chartsY = (await page.getByText("Workload by person").boundingBox())!.y;
@@ -680,10 +681,15 @@ test("dashboard: progress card, and admin exports the dashboard as a PDF", async
   await page.goto("/dashboard");
   await expect(page.getByText("Release progress")).toBeVisible();
   const legend = page.getByLabel("Progress legend");
-  for (const s of ["Ready to Release", "Testing", "Fixed (to test)", "In Progress"]) await expect(legend).toContainText(s);
-  await expect(legend).not.toContainText("Released");
+  for (const s of ["Released", "Ready to Release", "Testing", "Fixed (to test)", "In Progress"]) await expect(legend).toContainText(s);
   await expect(legend).not.toContainText("Backlog");
-  await expect(page.getByText(/^\d+ of \d+ ready to release$/)).toBeVisible();
+  await expect(page.getByText(/^\d+ of \d+ done \(\d+ released, \d+ ready to release\)$/)).toBeVisible();
+  // Released bar in Tasks by status, Released columns in the tables
+  await expect(page.getByLabel("Bar chart of task count by status")).toBeVisible();
+  for (const table of ["By App Type", "Workload by person"]) {
+    const card = page.getByText(table, { exact: true }).first().locator("xpath=ancestor::*[@data-slot='card'][1]");
+    await expect(card.getByRole("columnheader", { name: "Released", exact: true })).toBeVisible();
+  }
   await expect(page.getByText(/Release time: day/)).toHaveCount(0);
   await expect(page.getByText("Remaining tasks")).toHaveCount(0);
   await expect(page.getByText("Hours (estimated / actual)")).toHaveCount(0);

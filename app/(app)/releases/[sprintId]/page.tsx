@@ -22,7 +22,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { SprintFormDialog } from "@/components/sprints/sprint-form-dialog";
 import { CloseSprintDialog } from "@/components/sprints/close-sprint-dialog";
 import { TaskWorkspace } from "@/components/sprints/task-workspace";
-import { completionPct } from "@/lib/task-model";
+import { completionPct, countedTasks } from "@/lib/task-model";
 
 function SprintView() {
   const { sprintId } = useParams<{ sprintId: string }>();
@@ -79,7 +79,7 @@ function SprintView() {
                 {sprint.status === "active" && <span>{daysRemaining(sprint.endDate)} days left</span>}
                 {!live.loading && (
                   <span title="Done = Released, Cancelled or Duplicate">
-                    {live.tasks.length} tasks · {pct}% complete
+                    {countedTasks(live.tasks.map((t) => t.status))} tasks · {pct}% complete
                   </span>
                 )}
               </div>

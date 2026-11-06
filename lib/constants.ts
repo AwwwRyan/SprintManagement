@@ -88,10 +88,10 @@ export const TYPE_CHART_COLORS: Record<"light" | "dark", Record<TaskType, string
   dark: { task: "#3987e5", bug: "#d95926", improvement: "#199e70" },
 };
 export const BAR_CHART_COLOR: Record<"light" | "dark", string> = { light: "#2a78d6", dark: "#3987e5" };
-/** Release-progress stages, in bar order (Ready → Testing → Fixed → In Progress): aqua, violet, yellow, blue. */
-export const STAGE_CHART_COLORS: Record<"light" | "dark", Record<"done" | "testing" | "fixed" | "inProgress", string>> = {
-  light: { done: "#1baf7a", testing: "#6250d6", fixed: "#eda100", inProgress: "#2a78d6" },
-  dark: { done: "#199e70", testing: "#9085e9", fixed: "#c98500", inProgress: "#3987e5" },
+/** Release-progress stages, in bar order (Released → Ready → Testing → Fixed → In Progress): violet, aqua, yellow, magenta, blue (validated 2026-11-06). */
+export const STAGE_CHART_COLORS: Record<"light" | "dark", Record<"released" | "done" | "testing" | "fixed" | "inProgress", string>> = {
+  light: { released: "#6250d6", done: "#1baf7a", testing: "#eda100", fixed: "#e87ba4", inProgress: "#2a78d6" },
+  dark: { released: "#9085e9", done: "#199e70", testing: "#c98500", fixed: "#d55181", inProgress: "#3987e5" },
 };
 
 /** Release report, "where the planned work ended up" (bar order): aqua, blue, yellow, magenta, violet. */

@@ -18,6 +18,8 @@ export interface StageCounts {
   testing: number;
   /** Ready to Release */
   ready: number;
+  released: number;
+  /** (Ready to Release + Released) ÷ total */
   readyPct: number;
 }
 
@@ -54,6 +56,7 @@ export function stageCounts(tasks: Pick<Task, "status">[]): StageCounts {
     fixed: n("dev_done"),
     testing: n("testing"),
     ready: n("done"),
+    released: n("released"),
     readyPct: completionPct(statuses),
   };
 }
