@@ -5,9 +5,9 @@
  * URL-backed TaskFilters as before; only the search box stays above the table.
  */
 import { useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter, X } from "lucide-react";
 import { useData } from "@/components/providers/data-provider";
-import { DATE_PRESET_LABELS, DATE_PRESETS, matchingPreset, presetDates, type DateField, type DateFilter } from "@/lib/date-filter";
+import { DATE_PRESET_LABELS, DATE_PRESETS, describeDateFilter, matchingPreset, presetDates, type DateField, type DateFilter } from "@/lib/date-filter";
 import { UNASSIGNED, type TaskFilters } from "@/lib/task-filters";
 import { NO_ENVIRONMENT } from "@/lib/task-model";
 import { ENVIRONMENTS } from "@/lib/constants";
@@ -71,6 +71,88 @@ function useListOptions(key: ListKey, f: TaskFilters): Option[] {
         })),
       ];
   }
+}
+
+/* ------------------------------------------------------------------ active filter chips */
+
+const CHIP_KEYS: ListKey[] = ["sprintId", "appTypeId", "type", "moduleId", "assigneeId", "status", "priority", "environment"];
+const CHIP_LABEL: Record<ListKey, string> = {
+  sprintId: "Release",
+  appTypeId: "App Type",
+  type: "Category",
+  moduleId: "Module",
+  assigneeId: "Assignees",
+  status: "Status",
+  priority: "Priority",
+  environment: "Environment",
+};
+
+/** A filter in use: tap it to change it right there (same list as the column header), or remove it. */
+function Chip({ label, title, heading, editor, onRemove }: { label: string; title?: string; heading: string; editor: React.ReactNode; onRemove: () => void }) {
+  return (
+    <span className="inline-flex max-w-80 items-center rounded-full border bg-muted/60 text-xs">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            title={title ?? label}
+            aria-label={`Edit filter ${label}`}
+            className="min-w-0 truncate rounded-l-full py-0.5 pr-1 pl-2.5 hover:bg-background"
+          >
+            {label}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-64 p-2">
+          <div className="mb-1.5 px-1 text-xs font-medium text-muted-foreground">{heading}</div>
+          {editor}
+        </PopoverContent>
+      </Popover>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove filter ${label}`}
+        className="mr-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+      >
+        <X className="size-3" />
+      </button>
+    </span>
+  );
+}
+
+function ListChip({ k, filters, onChange }: { k: ListKey; filters: TaskFilters; onChange: (f: TaskFilters) => void }) {
+  const options = useListOptions(k, filters);
+  const values = filters[k] as string[];
+  if (values.length === 0) return null;
+  const names = values.map((v) => options.find((o) => o.value === v)?.label ?? "Unknown");
+  const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
+  return (
+    <Chip
+      label={`${CHIP_LABEL[k]}: ${shown}`}
+      title={`${CHIP_LABEL[k]}: ${names.join(", ")} (tap to change)`}
+      heading={`Filter by ${CHIP_LABEL[k]}`}
+      editor={<ListFilter filterKey={k} filters={filters} onChange={onChange} />}
+      onRemove={() => onChange({ ...filters, [k]: [] })}
+    />
+  );
+}
+
+/** One chip per filter in use: tap to change it, cross to remove just that filter. */
+export function ActiveFilterChips({ filters, onChange }: { filters: TaskFilters; onChange: (f: TaskFilters) => void }) {
+  return (
+    <>
+      {CHIP_KEYS.map((k) => (
+        <ListChip key={k} k={k} filters={filters} onChange={onChange} />
+      ))}
+      {filters.date && (filters.date.from || filters.date.to) && (
+        <Chip
+          label={describeDateFilter(filters.date)}
+          heading="Filter by date"
+          editor={<DateRangeFilter field={filters.date.field} filters={filters} onChange={onChange} />}
+          onRemove={() => onChange({ ...filters, date: null })}
+        />
+      )}
+    </>
+  );
 }
 
 function ListFilter({ filterKey, filters, onChange }: { filterKey: ListKey; filters: TaskFilters; onChange: (f: TaskFilters) => void }) {

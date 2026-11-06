@@ -805,6 +805,32 @@ test("copy a status with Ctrl+C and paste it into several picked cells with Ctrl
   await expect(page.getByText(/Category takes Bug, Improvement, Task\. To paste it, pick cells in the Status column\./)).toBeVisible();
 });
 
+test("filters in use show as chips above the table: tap one to change it, its cross removes just that filter", async ({ page }) => {
+  await login(page, "qa1@example.com");
+  await columnFilter(page, "Category", "Bug");
+  await columnFilter(page, "Priority", "High");
+  const chips = page.getByRole("group", { name: "Active filters" });
+  await expect(chips).toContainText("Category: Bug");
+  await expect(chips).toContainText("Priority: High");
+
+  // tap a chip to change that filter right there: add Critical, then untick High
+  await chips.getByRole("button", { name: "Edit filter Priority: High" }).click();
+  await page.getByRole("checkbox", { name: "Critical", exact: true }).click();
+  await expect(chips).toContainText("Priority: High, Critical");
+  await page.getByRole("checkbox", { name: "High", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(chips).toContainText("Priority: Critical");
+  await expect(page).toHaveURL(/priority=critical/);
+  await expect(page).not.toHaveURL(/priority=[^&]*high/);
+
+  await chips.getByRole("button", { name: "Remove filter Category: Bug" }).click();
+  await expect(page).not.toHaveURL(/type=bug/);
+  await expect(page).toHaveURL(/priority=critical/);
+  await expect(chips).not.toContainText("Category: Bug");
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page).not.toHaveURL(/priority=/);
+});
+
 test("close release: every unfinished task goes to the next release or the Backlog; report", async ({ page }) => {
   test.setTimeout(180_000); // closes a release, then first visits of the report and Backlog pages compile in dev
   await login(page, "qa1@example.com");

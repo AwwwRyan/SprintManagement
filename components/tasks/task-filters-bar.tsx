@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { EMPTY_FILTERS, hasActiveFilters, parseFilters, writeFilters, type TaskFilters } from "@/lib/task-filters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ActiveFilterChips } from "./column-filters";
 
 /** URL query string <-> filter state. Other params (e.g. ?task=) are preserved. */
 export function useTaskFilters(): [TaskFilters, (next: TaskFilters) => void] {
@@ -71,8 +72,8 @@ export function useRememberedFilters(uid: string, view: string, filters: TaskFil
 }
 
 /**
- * Above the table: search and "Clear filters" only. Every other filter is in its column header
- * (click a column name).
+ * Above the table: search, the filters in use (one removable chip each) and "Clear filters".
+ * Filters are set in the column headers (click a column name).
  */
 export function TaskFiltersBar({ filters, onChange }: { filters: TaskFilters; onChange: (f: TaskFilters) => void }) {
   // Search is debounced into the URL.
@@ -97,9 +98,12 @@ export function TaskFiltersBar({ filters, onChange }: { filters: TaskFilters; on
         />
       </div>
       {hasActiveFilters(filters) ? (
-        <Button variant="ghost" size="sm" onClick={() => onChange(EMPTY_FILTERS)}>
-          <X /> Clear filters
-        </Button>
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Active filters">
+          <ActiveFilterChips filters={filters} onChange={onChange} />
+          <Button variant="ghost" size="sm" className="h-7" onClick={() => onChange(EMPTY_FILTERS)}>
+            <X /> Clear filters
+          </Button>
+        </div>
       ) : (
         <span className="hidden text-xs text-muted-foreground md:inline">Click a column name to sort or filter</span>
       )}
