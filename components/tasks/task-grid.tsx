@@ -22,6 +22,7 @@ import { createTask, setTaskOrders, updateTask, type NewTaskInput } from "@/lib/
 import { planMove } from "@/lib/reorder";
 import { requiresEnvironment } from "@/lib/task-model";
 import { moveColumn, normalizeOrder, shiftColumn } from "@/lib/column-order";
+import { rangeBetween, sameCellValue, valueToPaste, type CellClip, type PasteKind } from "@/lib/cell-clipboard";
 import { notifyError } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { BACKLOG_ID, PRIORITIES, TASK_STATUSES, TASK_TYPES, type EditableTaskField, type Sprint, type Task, type TaskPatch } from "@/types";
@@ -48,6 +49,7 @@ import {
   statusOptions,
   typeOptions,
   environmentOptions,
+  userOptions,
   type Option,
 } from "./options";
 
@@ -77,6 +79,16 @@ interface ColConfig {
 }
 
 const LAST_APP_TYPE_KEY = "stm.lastAppTypeId";
+
+/** Columns that take Ctrl+V, by editor (the title is copied but never pasted over). */
+const PASTE_KIND: Partial<Record<EditorKind, PasteKind>> = {
+  select: "select",
+  assignees: "assignees",
+  number: "number",
+  date: "date",
+  text: "text",
+  textarea: "text",
+};
 
 /** Columns hidden until the user turns them on (Columns menu). Saved choices override this. */
 const DEFAULT_HIDDEN: VisibilityState = { taskKey: false, createdAt: false };
@@ -153,7 +165,7 @@ export function TaskGrid({
   noFilterFor = [],
 }: TaskGridProps) {
   const { actor } = useCurrentUser();
-  const { appTypes, modules, userById, appTypeById, moduleById, sprintById } = useData();
+  const { appTypes, modules, users, userById, appTypeById, moduleById, sprintById } = useData();
   const selectable = !!onMoveTasks;
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -538,9 +550,170 @@ export function TaskGrid({
     focusCell(r, c);
   };
 
+  /* ---------------------------------------------------------------- copy & paste */
+
+  // Cells picked in one column (Shift+click / Ctrl+click / Shift+arrows); Ctrl+V pastes into all of them.
+  const [cellSel, setCellSel] = useState<{ colId: string; ids: string[] } | null>(null);
+  const anchorRef = useRef<string | null>(null);
+  // the cell that had focus before this click (clicking focuses the clicked cell before onClick runs)
+  const focusBeforeClick = useRef<{ r: number; c: number }>({ r: 0, c: 0 });
+  const [clip, setClip] = useState<CellClip | null>(null);
+  const [copiedCell, setCopiedCell] = useState<{ rowId: string; colId: string } | null>(null);
+  const selIds = useMemo(() => new Set(cellSel?.ids ?? []), [cellSel]);
+  const assigneeChoices = useMemo(() => userOptions(users).map((o) => ({ id: o.value, name: o.label })), [users]);
+
+  const cellText = (task: Task, cfg: ColConfig): string => {
+    const v = cfg.field ? task[cfg.field] : null;
+    if (cfg.editor === "select") return cfg.options?.(task).options.find((o) => o.value === v)?.label ?? "";
+    if (cfg.editor === "assignees") return (v as string[]).map((id) => userById.get(id)?.name ?? "").filter(Boolean).join(", ");
+    return v === null || v === undefined ? "" : String(v);
+  };
+
+  /** Shift+click / Ctrl+click on a cell: pick cells in that column instead of editing. */
+  const pickCell = (e: React.MouseEvent, task: Task, cfg: ColConfig) => {
+    const ordered = rows.map((row) => row.id);
+    if (e.shiftKey) {
+      setCellSel({ colId: cfg.id, ids: rangeBetween(ordered, anchorRef.current ?? task.id, task.id) });
+      return;
+    }
+    // Ctrl/Cmd+click toggles the cell; the focused cell in the same column counts as already picked
+    const before = focusBeforeClick.current;
+    const focusedRow = rows[before.r]?.id;
+    const base = cellSel?.colId === cfg.id ? cellSel.ids : visibleCols[before.c]?.id === cfg.id && focusedRow ? [focusedRow] : [];
+    const ids = base.includes(task.id) ? base.filter((id) => id !== task.id) : [...base, task.id];
+    setCellSel(ids.length ? { colId: cfg.id, ids } : null);
+    anchorRef.current = task.id;
+  };
+
+  const onGridCopy = (e: React.ClipboardEvent) => {
+    // inside a text box: normal text copy
+    if ((e.target as HTMLElement).closest("input, textarea, [contenteditable='true']")) return;
+    const row = editing ? rows.find((x) => x.id === editing.rowId) : rows[focus.r];
+    const cfg = colById.get(editing ? editing.colId : (visibleCols[focus.c]?.id ?? ""));
+    if (!row || !cfg?.field) return;
+    const text = cellText(row.original, cfg);
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", text);
+    setClip({ field: cfg.field, column: cfg.label, value: row.original[cfg.field], text });
+    setCopiedCell({ rowId: row.id, colId: cfg.id });
+    if (editing) stopEditing(rows.indexOf(row), visibleCols.findIndex((col) => col.id === cfg.id));
+    toast(`Copied “${text || "empty"}”`, { description: "Pick cells in the same column (Shift/Ctrl+click) and press Ctrl+V." });
+  };
+
+  const onGridPaste = (e: React.ClipboardEvent) => {
+    if ((e.target as HTMLElement).closest("input, textarea, [contenteditable='true']")) return;
+    const cfg = colById.get(cellSel?.colId ?? visibleCols[focus.c]?.id ?? "");
+    if (!cfg) return;
+    e.preventDefault();
+    const kind = cfg.editor ? PASTE_KIND[cfg.editor] : undefined;
+    if (!cfg.field || !kind) {
+      toast.error(`You can't paste into ${cfg.label}`);
+      return;
+    }
+    const field = cfg.field;
+    const text = e.clipboardData.getData("text/plain");
+    const byId = new Map(rows.map((row) => [row.id, row.original]));
+    const targets = (cellSel?.ids ?? [rows[focus.r]?.id]).map((id) => (id ? byId.get(id) : undefined)).filter((t): t is Task => !!t);
+    if (editing) setEditing(null);
+
+    let changed = 0;
+    let same = 0;
+    // why tasks were skipped → which tasks, so each reason is shown once
+    const skipped = new Map<string, string[]>();
+    const skip = (reason: string, task: Task) => skipped.set(reason, [...(skipped.get(reason) ?? []), task.taskKey]);
+    for (const task of targets) {
+      if (!canEdit(task)) {
+        // everyone may edit every task (team decision); the only block is a closed (read-only) release
+        const home = sprintOf ? sprintOf(task) : (sprint ?? undefined);
+        skip(home ? `In ${home.name}, which is closed (closed releases are read-only)` : "Its release couldn't be found", task);
+        continue;
+      }
+      if (!(cfg.applicable?.(task) ?? true)) {
+        skip(`${cfg.label} doesn't apply to this task`, task);
+        continue;
+      }
+      const opts = cfg.options?.(task);
+      const res = valueToPaste(clip, field, kind, text, { options: opts?.options, allowNone: opts?.allowNone, users: assigneeChoices });
+      if (!res.ok) {
+        skip(res.reason, task);
+        continue;
+      }
+      // a copied choice must exist for this task too (e.g. a module of another App Type)
+      if (kind === "select" && (res.value === null ? !opts?.allowNone : !opts?.options.some((o) => o.value === res.value))) {
+        skip(field === "moduleId" ? "That module belongs to another App Type" : "Not available for this task", task);
+        continue;
+      }
+      if (sameCellValue(task[field], res.value)) {
+        same += 1;
+        continue;
+      }
+      save(task, field, res.value);
+      changed += 1;
+    }
+
+    const shown = text.trim() || "an empty cell";
+    const quoted = text.trim() ? `“${shown}”` : shown;
+    const plural = (n: number) => `${n} task${n === 1 ? "" : "s"}`;
+    // what this column accepts, for the hint
+    const firstOpts = targets[0] ? cfg.options?.(targets[0]).options.map((o) => o.label) : undefined;
+    const accepts =
+      kind === "select" && firstOpts?.length
+        ? `${cfg.label} takes ${firstOpts.length > 6 ? `${firstOpts.slice(0, 6).join(", ")}, …` : firstOpts.join(", ")}.`
+        : kind === "number"
+          ? `${cfg.label} takes a number of hours.`
+          : kind === "date"
+            ? `${cfg.label} takes a date like 2026-11-05.`
+            : kind === "assignees"
+              ? `${cfg.label} takes people's names, separated by commas.`
+              : "";
+
+    if (skipped.size === 0) {
+      if (changed === 0) toast(`Nothing to change: ${same === 1 ? "the task already has" : `all ${plural(same)} already have`} ${quoted}`);
+      else toast.success(`Pasted ${quoted} into ${plural(changed)}`, { description: same ? `${plural(same)} already had it.` : undefined });
+      return;
+    }
+    // copied from a different column (e.g. an Environment value into Category)
+    const fromOtherColumn = clip && clip.text === text && clip.field !== field ? clip.column : null;
+    if (changed === 0 && fromOtherColumn) {
+      toast.error(`${quoted} is a ${fromOtherColumn} value, so it can't go in ${cfg.label}`, {
+        description: `${accepts} To paste it, pick cells in the ${fromOtherColumn} column.`.trim(),
+      });
+      return;
+    }
+    const reasons = (
+      <ul className="mt-1 grid gap-1">
+        {Array.from(skipped, ([reason, keys]) => (
+          <li key={reason}>
+            <span className="font-medium">{reason}:</span> {keys.slice(0, 6).join(", ")}
+            {keys.length > 6 && ` and ${keys.length - 6} more`}
+          </li>
+        ))}
+        {changed === 0 && accepts && <li className="text-muted-foreground">{accepts}</li>}
+      </ul>
+    );
+    if (changed === 0) toast.error(`Couldn't paste ${quoted} into ${cfg.label}`, { description: reasons });
+    else toast.warning(`Pasted ${quoted} into ${changed} of ${plural(targets.length)}`, { description: reasons });
+  };
+
   const onGridKeyDown = (e: React.KeyboardEvent) => {
     if (editing) return;
     const { r, c } = focus;
+    if (e.key === "Escape" && (cellSel || copiedCell)) {
+      setCellSel(null);
+      setCopiedCell(null);
+      return;
+    }
+    // Shift+Up/Down picks the cells above/below in this column (for Ctrl+V)
+    if (e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const next = e.key === "ArrowUp" ? Math.max(0, r - 1) : Math.min(rows.length - 1, r + 1);
+      const col = visibleCols[c];
+      const anchor = anchorRef.current ?? rows[r]?.id ?? null;
+      if (col && rows[next]) setCellSel({ colId: col.id, ids: rangeBetween(rows.map((x) => x.id), anchor, rows[next].id) });
+      anchorRef.current = anchor;
+      focusCell(next, c);
+      return;
+    }
     // Alt+↑/↓ moves the focused row (keyboard alternative to dragging).
     if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
       const up = e.key === "ArrowUp";
@@ -565,6 +738,9 @@ export function TaskGrid({
     };
     if (moves[e.key]) {
       e.preventDefault();
+      const [nr] = moves[e.key];
+      setCellSel(null);
+      anchorRef.current = rows[nr]?.id ?? null;
       focusCell(...moves[e.key]);
     } else if (e.key === "Enter" || e.key === "F2") {
       e.preventDefault();
@@ -861,6 +1037,8 @@ export function TaskGrid({
           className="w-full border-separate border-spacing-0 text-sm"
           style={{ minWidth: totalWidth }}
           onKeyDown={onGridKeyDown}
+          onCopy={onGridCopy}
+          onPaste={onGridPaste}
         >
           <thead>
             {table.getHeaderGroups().map((hg) => (
@@ -1004,8 +1182,22 @@ export function TaskGrid({
                           role="gridcell"
                           tabIndex={focus.r === r && focus.c === c ? 0 : -1}
                           aria-readonly={!cellEditable}
+                          aria-selected={cellSel?.colId === cfg.id && selIds.has(task.id) ? true : undefined}
                           onFocus={() => setFocus({ r, c })}
-                          onClick={() => !isEditing && activate(task, cfg.id, "click")}
+                          onMouseDown={(e) => {
+                            focusBeforeClick.current = focus;
+                            if (e.shiftKey) e.preventDefault(); // no text selection on Shift+click
+                          }}
+                          onClick={(e) => {
+                            if (isEditing) return;
+                            if ((e.shiftKey || e.ctrlKey || e.metaKey) && cfg.field) {
+                              pickCell(e, task, cfg);
+                              return;
+                            }
+                            setCellSel(null);
+                            anchorRef.current = task.id;
+                            activate(task, cfg.id, "click");
+                          }}
                           onDoubleClick={() => {
                             if (cfg.id !== "title") return;
                             setEditing(null); // the first click started editing; a double-click opens the task window
@@ -1018,6 +1210,8 @@ export function TaskGrid({
                             cfg.id === lastStickyId && "border-r",
                             cellEditable || cfg.opensPanel ? "cursor-pointer" : "cursor-default",
                             isEditing && "p-0.5",
+                            cellSel?.colId === cfg.id && selIds.has(task.id) && "!bg-[color-mix(in_oklch,var(--primary)_16%,var(--background))]",
+                            copiedCell?.rowId === task.id && copiedCell.colId === cfg.id && "outline-2 -outline-offset-2 outline-primary outline-dashed",
                             dragId === task.id && "opacity-50",
                             // drop indicator: an inset line, so nothing moves or changes position
                             dropHint?.id === task.id &&
@@ -1097,7 +1291,8 @@ export function TaskGrid({
         </table>
       </div>
       <div className="text-xs text-muted-foreground">
-        Click a task title to edit it, double-click to open it · Arrow keys move, Enter edits, Esc cancels
+        Click a task title to edit it, double-click to open it · Arrow keys move, Enter edits, Esc cancels · Ctrl+C copies a
+        cell; Shift/Ctrl+click picks cells in the same column, Ctrl+V pastes into them
         {reorderOn && " · Drag the grip or press Alt+↑/↓ to reorder"}
         {reorderable && !manualOrder && " · Sort by Sr No to reorder"}
       </div>

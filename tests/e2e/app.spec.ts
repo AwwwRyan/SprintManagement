@@ -765,6 +765,46 @@ test("starting a second release while one is active is blocked", async ({ page }
   await expect(page.getByText(/already active/)).toBeVisible();
 });
 
+test("copy a status with Ctrl+C and paste it into several picked cells with Ctrl+V", async ({ page }) => {
+  test.setTimeout(120_000);
+  await login(page, "qa2@example.com");
+  await expect(page.locator("tbody tr[data-task-key]").nth(5)).toBeVisible();
+  // copy an In Progress cell onto two cells with other statuses (pasting Backlog would move the tasks away)
+  const rows = await page
+    .locator("tbody tr[data-task-key]")
+    .evaluateAll((rs) => rs.map((r) => [r.getAttribute("data-task-key")!, (r.querySelectorAll("td")[9] as HTMLElement).innerText.trim()]));
+  const source = rows.find(([, st]) => st === "In Progress")![0];
+  const [a, b] = rows.filter(([, st]) => !["In Progress", "Backlog"].includes(st)).map(([k]) => k);
+  const statusCell = (key: string) => row(page, key).locator("td").nth(COL.status);
+  const copied = "In Progress";
+
+  // focus the source cell (click opens its dropdown, Esc closes it and keeps the focus), then copy
+  await statusCell(source).click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ControlOrMeta+c");
+  await expect(page.getByText(`Copied “${copied}”`)).toBeVisible();
+
+  // Ctrl+click two cells in the same column, then paste
+  await statusCell(a).click({ modifiers: ["ControlOrMeta"] });
+  await statusCell(b).click({ modifiers: ["ControlOrMeta"] });
+  await expect(statusCell(a)).toHaveAttribute("aria-selected", "true");
+  await expect(statusCell(b)).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.getByText(/Pasted “In Progress” into|Nothing to change/)).toBeVisible();
+  await expect(statusCell(a)).toContainText(copied);
+  await expect(statusCell(b)).toContainText(copied);
+  // Esc clears the picked cells
+  await page.keyboard.press("Escape");
+  await expect(statusCell(a)).not.toHaveAttribute("aria-selected", "true");
+
+  // a Status value pasted into Category explains itself instead of failing per task
+  const categoryCell = row(page, a).locator("td").nth(COL.category);
+  await categoryCell.click({ modifiers: ["ControlOrMeta"] });
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.getByText("“In Progress” is a Status value, so it can't go in Category")).toBeVisible();
+  await expect(page.getByText(/Category takes Bug, Improvement, Task\. To paste it, pick cells in the Status column\./)).toBeVisible();
+});
+
 test("close release: every unfinished task goes to the next release or the Backlog; report", async ({ page }) => {
   test.setTimeout(180_000); // closes a release, then first visits of the report and Backlog pages compile in dev
   await login(page, "qa1@example.com");
