@@ -842,6 +842,26 @@ test("filters in use show as chips above the table: tap one to change it, its cr
   await expect(page).not.toHaveURL(/priority=/);
 });
 
+test("closed release report: released work by category, App Type and person, planned vs delivered, every released task, PDF", async ({ page }) => {
+  test.setTimeout(150_000);
+  await login(page, "qa1@example.com");
+  await page.goto("/releases/s13/report");
+  await expect(page.getByRole("heading", { name: "Release 13: Release report" })).toBeVisible({ timeout: 60_000 });
+  for (const title of ["Planned vs delivered", "Released by category", "Released by App Type", "Released by person", "Production bugs fixed"]) {
+    await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+  }
+  await expect(page.getByLabel("Planned vs delivered legend")).toContainText("Released");
+  // TSK-1…6 were released in Release 13
+  for (const key of ["TSK-1", "TSK-6"]) await expect(page.getByRole("link", { name: key, exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Export PDF" }).click();
+  const preview = page.getByRole("dialog", { name: "PDF preview" });
+  await expect(preview.locator("iframe[title='PDF preview']")).toBeVisible({ timeout: 30_000 });
+  const [download] = await Promise.all([page.waitForEvent("download"), preview.getByRole("button", { name: "Download" }).click()]);
+  expect(download.suggestedFilename()).toBe("Release-report-Release-13.pdf");
+  await download.saveAs("test-results/release-report.pdf");
+});
+
 test("close release: every unfinished task goes to the next release or the Backlog; report", async ({ page }) => {
   test.setTimeout(180_000); // closes a release, then first visits of the report and Backlog pages compile in dev
   await login(page, "qa1@example.com");

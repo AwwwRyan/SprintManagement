@@ -3,61 +3,46 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, FileBarChart, Printer } from "lucide-react";
+import { ArrowLeft, FileBarChart, FileDown } from "lucide-react";
+import { useCurrentUser } from "@/components/providers/auth-provider";
 import { useData } from "@/components/providers/data-provider";
-import { useReport } from "@/lib/hooks/use-tasks";
+import { useReport, useSprintTasks } from "@/lib/hooks/use-tasks";
+import { sanitizeFileName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AppTypeBadge, StatusBadge } from "@/components/common/badges";
 import { EmptyState } from "@/components/common/empty-state";
-import { MetricsView, StatTile } from "@/components/dashboard/metrics-view";
-import type { ReportTaskRef } from "@/types";
+import { ExportModeContext } from "@/components/dashboard/export-mode";
+import { REPORT_WIDTH } from "@/components/dashboard/dashboard-report";
+import { PdfPreviewDialog } from "@/components/dashboard/pdf-preview-dialog";
+import { usePdfExport } from "@/components/dashboard/use-pdf-export";
+import { ReleaseReportView } from "@/components/reports/release-report-view";
+import type { Sprint, SprintReport } from "@/types";
 
-function TaskRefTable({ rows, showTarget }: { rows: ReportTaskRef[]; showTarget?: boolean }) {
-  const { appTypeById, userById } = useData();
-  if (rows.length === 0) return <p className="text-sm text-muted-foreground">None.</p>;
+function ReportHeader({ report, sprint }: { report: SprintReport; sprint: Sprint | undefined }) {
+  const fmt = (d: string) => format(parseISO(d), "MMM d, yyyy");
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[36rem] text-sm">
-        <thead className="text-xs text-muted-foreground">
-          <tr>
-            <th className="pb-2 text-left font-medium">Task ID</th>
-            <th className="pb-2 text-left font-medium">Title</th>
-            <th className="pb-2 text-left font-medium">App</th>
-            <th className="pb-2 text-left font-medium">Assignee</th>
-            <th className="pb-2 text-left font-medium">Status at close</th>
-            {showTarget && <th className="pb-2 text-left font-medium">Moved to</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.taskId} className="border-t">
-              <td className="py-1.5 font-mono text-xs">{r.taskKey}</td>
-              <td className="max-w-80 truncate py-1.5">{r.title}</td>
-              <td className="py-1.5">
-                <AppTypeBadge appType={appTypeById.get(r.appTypeId)} />
-              </td>
-              <td className="py-1.5">{r.assigneeIds.length ? r.assigneeIds.map((id) => userById.get(id)?.name ?? "Unknown").join(", ") : "Unassigned"}</td>
-              <td className="py-1.5">
-                <StatusBadge status={r.status} />
-              </td>
-              {showTarget && <td className="py-1.5">{r.targetSprintName}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">{report.sprintName}: Release report</h1>
+      <p className="text-sm text-muted-foreground">
+        {fmt(report.startDate)} to {fmt(report.endDate)}
+        {sprint?.closedAt && ` · closed ${format(sprint.closedAt.toDate(), "MMM d, yyyy")}`}
+      </p>
+      {report.goal && <p className="mt-1 text-sm">Goal: {report.goal}</p>}
     </div>
   );
 }
 
 export default function SprintReportPage() {
   const { sprintId } = useParams<{ sprintId: string }>();
+  const { actor } = useCurrentUser();
   const { sprintById } = useData();
   const { data: report, loading } = useReport(sprintId);
+  // released / cancelled tasks stay in the closed release, so they're read live
+  const live = useSprintTasks(sprintId, actor.uid);
   const sprint = sprintById.get(sprintId);
+  const pdfExport = usePdfExport();
 
-  if (loading) return <Skeleton className="h-96" />;
+  if (loading || live.loading) return <Skeleton className="h-96" />;
   if (!report)
     return (
       <EmptyState
@@ -72,76 +57,43 @@ export default function SprintReportPage() {
       />
     );
 
-  const fmt = (d: string) => format(parseISO(d), "MMM d, yyyy");
+  const exportPdf = () => void pdfExport.start(`${sanitizeFileName(`Release report ${report.sprintName}`)}.pdf`);
 
   return (
-    <div className="print-full mx-auto grid max-w-6xl gap-4">
+    <div className="mx-auto grid max-w-6xl gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Button asChild variant="ghost" size="sm" className="no-print -ml-2 mb-1">
+          <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
             <Link href={`/releases/${sprintId}`}>
               <ArrowLeft /> Back to release
             </Link>
           </Button>
-          <h1 className="text-xl font-semibold tracking-tight">{report.sprintName}: Release report</h1>
-          <p className="text-sm text-muted-foreground">
-            {fmt(report.startDate)} to {fmt(report.endDate)}
-            {sprint?.closedAt && ` · closed ${format(sprint.closedAt.toDate(), "MMM d, yyyy")}`}
-          </p>
-          {report.goal && <p className="mt-1 text-sm">Goal: {report.goal}</p>}
+          <ReportHeader report={report} sprint={sprint} />
         </div>
-        <Button variant="outline" size="sm" className="no-print" onClick={() => window.print()}>
-          <Printer /> Print
+        <Button variant="outline" size="sm" onClick={exportPdf} disabled={pdfExport.exporting}>
+          <FileDown /> {pdfExport.exporting ? "Preparing PDF…" : "Export PDF"}
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile label="Planned vs completed" value={`${report.done} / ${report.total}`} sub={`${report.completionPct}% completed`} />
-        <StatTile
-          label="Carried over"
-          value={report.carriedOver.length}
-          sub={
-            report.movedToBacklog
-              ? `${report.movedToBacklog.length} moved to the Backlog`
-              : `${report.leftIncomplete.length} left incomplete`
-          }
-        />
-        <StatTile label="Hours (estimated / actual)" value={`${report.estimatedHours} / ${report.actualHours}`} />
-        <StatTile label="Bugs opened / fixed" value={`${report.bugsOpened} / ${report.bugsFixed}`} sub="Opened during the release · fixed by close" />
-      </div>
+      <ReleaseReportView report={report} sprint={sprint} tasks={live.tasks} />
+      <p className="text-xs text-muted-foreground">
+        Carried-over and Backlog lists are a snapshot taken when the release closed. Released tasks are read from the release itself.
+      </p>
 
-      <MetricsView metrics={report} />
-
-      <Card className="print-break-avoid gap-3 py-4">
-        <CardHeader className="px-4">
-          <CardTitle className="text-sm font-medium">Carried over ({report.carriedOver.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4">
-          <TaskRefTable rows={report.carriedOver} showTarget />
-        </CardContent>
-      </Card>
-      {report.movedToBacklog && (
-        <Card className="print-break-avoid gap-3 py-4">
-          <CardHeader className="px-4">
-            <CardTitle className="text-sm font-medium">Moved to the Backlog ({report.movedToBacklog.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4">
-            <TaskRefTable rows={report.movedToBacklog} />
-          </CardContent>
-        </Card>
+      {pdfExport.exporting && (
+        <div aria-hidden className="pointer-events-none fixed top-0 -left-[20000px]">
+          <ExportModeContext.Provider value={true}>
+            <div ref={pdfExport.ref} className="grid gap-4 bg-background p-6 text-foreground" style={{ width: REPORT_WIDTH }}>
+              <div className="border-b pb-4">
+                <ReportHeader report={report} sprint={sprint} />
+                <p className="mt-1 text-xs text-muted-foreground">Exported {format(new Date(), "MMM d, yyyy, h:mm a")}</p>
+              </div>
+              <ReleaseReportView report={report} sprint={sprint} tasks={live.tasks} fixedColumns />
+            </div>
+          </ExportModeContext.Provider>
+        </div>
       )}
-      {/* older reports (before every unfinished task had to get a destination) */}
-      {report.leftIncomplete.length > 0 && (
-        <Card className="print-break-avoid gap-3 py-4">
-          <CardHeader className="px-4">
-            <CardTitle className="text-sm font-medium">Left incomplete ({report.leftIncomplete.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4">
-            <TaskRefTable rows={report.leftIncomplete} />
-          </CardContent>
-        </Card>
-      )}
-      <p className="text-xs text-muted-foreground">This report is a snapshot taken when the release closed and never changes.</p>
+      <PdfPreviewDialog pdf={pdfExport.preview?.pdf ?? null} fileName={pdfExport.preview?.fileName ?? ""} onClose={pdfExport.closePreview} />
     </div>
   );
 }

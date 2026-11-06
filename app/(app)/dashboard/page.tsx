@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { FileDown, LayoutDashboard } from "lucide-react";
@@ -17,13 +17,12 @@ import { PageHeader } from "@/components/common/page-header";
 import { ReleaseOverview } from "@/components/dashboard/release-overview";
 import { DashboardReport } from "@/components/dashboard/dashboard-report";
 import { PdfPreviewDialog } from "@/components/dashboard/pdf-preview-dialog";
+import { usePdfExport } from "@/components/dashboard/use-pdf-export";
 import { CategoryBreakdownCard } from "@/components/dashboard/category-breakdown";
 import { DateFilterControl } from "@/components/tasks/date-filter-control";
 import { describeDateFilter, matchesDate, type DateFilter } from "@/lib/date-filter";
 import { SPRINT_STATUS_LABELS, TASK_TYPE_LABELS } from "@/lib/constants";
 import { sortSprints } from "@/lib/sprint-utils";
-import { elementToPdf } from "@/lib/export-pdf";
-import { notifyError } from "@/lib/notify";
 import { sanitizeFileName } from "@/lib/utils";
 import { inProgressScope } from "@/lib/task-model";
 import { TASK_TYPES, type TaskType } from "@/types";
@@ -41,9 +40,7 @@ export default function DashboardPage() {
   const [appTypeId, setAppTypeId] = useState(ALL);
   const [category, setCategory] = useState<TaskType | typeof ALL>(ALL);
   const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const reportRef = useRef<HTMLDivElement>(null);
-  const [preview, setPreview] = useState<{ pdf: Blob; fileName: string } | null>(null);
+  const pdfExport = usePdfExport();
   const isAdmin = canManageUsers(actor);
 
   // App Type and date filters apply everywhere; the category filter also narrows the top cards.
@@ -61,21 +58,8 @@ export default function DashboardPage() {
 
   // Admin "Export PDF": a report version of this view (same release and filters) is rendered
   // off-screen, captured once its charts have laid out, then removed; a preview opens before saving.
-  const exportPdf = async () => {
-    if (!release) return;
-    setExporting(true);
-    try {
-      const started = Date.now();
-      while (!reportRef.current && Date.now() - started < 5000) await new Promise((r) => requestAnimationFrame(r));
-      if (!reportRef.current) throw new Error("The report didn't render");
-      await new Promise((r) => setTimeout(r, 600)); // charts measure their container first
-      const pdf = await elementToPdf(reportRef.current);
-      setPreview({ pdf, fileName: `${sanitizeFileName(`Dashboard ${release.name}`)}_${format(new Date(), "yyyy-MM-dd")}.pdf` });
-    } catch (err) {
-      notifyError(err, "Couldn't create the PDF");
-    } finally {
-      setExporting(false);
-    }
+  const exportPdf = () => {
+    if (release) void pdfExport.start(`${sanitizeFileName(`Dashboard ${release.name}`)}_${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
 
   if (loading) return <Skeleton className="h-96" />;
@@ -168,8 +152,8 @@ export default function DashboardPage() {
               </SelectContent>
             </Select>
             {isAdmin && (
-              <Button variant="outline" onClick={exportPdf} disabled={exporting || live.loading}>
-                <FileDown /> {exporting ? "Preparing PDF…" : "Export PDF"}
+              <Button variant="outline" onClick={exportPdf} disabled={pdfExport.exporting || live.loading}>
+                <FileDown /> {pdfExport.exporting ? "Preparing PDF…" : "Export PDF"}
               </Button>
             )}
           </>
@@ -189,10 +173,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {exporting && (
+      {pdfExport.exporting && (
         <div aria-hidden className="pointer-events-none fixed top-0 -left-[20000px]">
           <DashboardReport
-            ref={reportRef}
+            ref={pdfExport.ref}
             release={release}
             totalTasks={live.tasks.length}
             filters={activeFilters}
@@ -203,7 +187,7 @@ export default function DashboardPage() {
           />
         </div>
       )}
-      <PdfPreviewDialog pdf={preview?.pdf ?? null} fileName={preview?.fileName ?? ""} onClose={() => setPreview(null)} />
+      <PdfPreviewDialog pdf={pdfExport.preview?.pdf ?? null} fileName={pdfExport.preview?.fileName ?? ""} onClose={pdfExport.closePreview} />
     </>
   );
 }

@@ -94,6 +94,12 @@ export const STAGE_CHART_COLORS: Record<"light" | "dark", Record<"done" | "testi
   dark: { done: "#199e70", testing: "#9085e9", fixed: "#c98500", inProgress: "#3987e5" },
 };
 
+/** Release report, "where the planned work ended up" (bar order): aqua, blue, yellow, magenta, violet. */
+export const PLANNED_CHART_COLORS: Record<"light" | "dark", Record<"released" | "carried" | "backlog" | "left" | "dropped", string>> = {
+  light: { released: "#1baf7a", carried: "#2a78d6", backlog: "#eda100", left: "#e87ba4", dropped: "#6250d6" },
+  dark: { released: "#199e70", carried: "#3987e5", backlog: "#c98500", left: "#d55181", dropped: "#9085e9" },
+};
+
 /** Avatar colour choices (text colour is picked automatically for contrast). */
 export const AVATAR_COLORS = [
   "#e11d48", "#db2777", "#c026d3", "#9333ea", "#7c3aed", "#4f46e5", "#2563eb", "#0284c7",
